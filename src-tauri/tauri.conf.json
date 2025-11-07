@@ -1,0 +1,46 @@
+{
+	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+	"productName": "Snow Shot",
+	"mainBinaryName": "snowshot",
+	"version": "0.7.9-beta",
+	"identifier": "com.chao.snowshot",
+	"build": {
+		"removeUnusedCommands": true,
+		"frontendDist": "../dist",
+		"devUrl": "http://localhost:8083",
+		"beforeDevCommand": "pnpm dev",
+		"beforeBuildCommand": "pnpm build"
+	},
+	"app": {
+		"withGlobalTauri": true,
+		"windows": [
+			{
+				"label": "main",
+				"fullscreen": false,
+				"height": 632,
+				"maximizable": false,
+				"title": "Snow Shot",
+				"width": 1024,
+				"center": true,
+				"decorations": true,
+				"titleBarStyle": "Overlay",
+				"hiddenTitle": true,
+				"trafficLightPosition": {
+					"x": 16,
+					"y": 16
+				},
+				"visible": false,
+				"backgroundThrottling": "disabled",
+				"url": "/"
+			}
+		],
+		"macOSPrivateApi": true,
+		"security": {
+			"csp": null,
+			"assetProtocol": {
+				"enable": true,
+				"scope": ["*", "**"]
+			}
+		}
+	}
+}

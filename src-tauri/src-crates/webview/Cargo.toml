@@ -1,0 +1,16 @@
+[package]
+name = "snow-shot-webview"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tauri = { workspace = true }
+
+[target.'cfg(any(target_os = "windows"))'.dependencies]
+log = { workspace = true }
+windows = { workspace = true }
+tokio = { workspace = true }
+dashmap = { workspace = true }
+
+webview2-com = "0.38.0"
+windows-core = { version = "0.61" }

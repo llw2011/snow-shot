@@ -1,0 +1,17 @@
+[package]
+name = "snow-shot-plugin-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+serde = { workspace = true }
+tokio = { workspace = true }
+futures-lite = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
+dashmap = { workspace = true }
+tauri = { workspace = true }
+
+async_zip = { version = "0.0.18", features = ["tokio", "xz"] }

@@ -1,0 +1,11 @@
+[package]
+name = "snow-shot-app-shared"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+enigo = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+uiautomation = { workspace = true }

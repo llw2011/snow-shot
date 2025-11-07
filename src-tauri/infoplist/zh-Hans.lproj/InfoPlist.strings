@@ -1,0 +1,3 @@
+NSMicrophoneUsageDescription = "请求麦克风权限用于屏幕录制";
+NSMicrophoneUsageDescription = "请求录制权限用于屏幕录制"
+NSScreenCaptureUsageDescription = "请求屏幕捕获权限用于截图"

@@ -1,0 +1,37 @@
+{
+	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+	"identifier": "com.chao.snowshot",
+	"plugins": {
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFBNzgzMTAxRkZBN0Y3OEIKUldTTDk2Zi9BVEY0R2pseml5R0RmbkNuQ1ZBc1ZqdGZjMVh0bEl5YmtWdjBjRUYzK1ZDenR3YkoK",
+			"endpoints": [
+				"https://github.com/llw2011/snow-shot/releases/latest/download/latest.json"
+			],
+			"windows": {
+				"installMode": "passive"
+			}
+		}
+	},
+	"bundle": {
+		"createUpdaterArtifacts": false,
+		"active": true,
+		"category": "Utility",
+		"shortDescription": "Snow Shot",
+		"longDescription": "Simple and elegant screenshot tool",
+		"macOS": {
+			"minimumSystemVersion": "12.3.0"
+		},
+		"licenseFile": "../LICENSE-Commercial",
+		"targets": ["dmg", "app"],
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"resources": {
+			"app-icons/": "app-icons/"
+		}
+	}
+}

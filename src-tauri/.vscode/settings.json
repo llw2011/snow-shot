@@ -1,0 +1,6 @@
+{
+	"rust-analyzer.cargo.targetDir": true,
+	"rust-analyzer.cargo.extraEnv": {
+		"MACOSX_DEPLOYMENT_TARGET": "10.13"
+	}
+}

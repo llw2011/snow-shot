@@ -1,0 +1,19 @@
+[package]
+name = "snow-shot-tauri-commands-ocr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tauri = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+image = { workspace = true }
+log = { workspace = true }
+rayon = { workspace = true }
+
+snow-shot-app-services = { workspace = true }
+
+paddle-ocr-rs = "0.6.0"
+
+[target.'cfg(any(target_os = "windows"))'.dependencies]
+snow-shot-webview = { workspace = true }

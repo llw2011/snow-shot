@@ -1,0 +1,25 @@
+[package]
+name = "snow-shot-app-services"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+tauri = { workspace = true }
+device_query = { workspace = true }
+regex = { workspace = true }
+log = { workspace = true }
+dashmap = { workspace = true }
+tokio = { workspace = true }
+
+snow-shot-app-utils = { workspace = true }
+snow-shot-app-shared = { workspace = true }
+
+paddle-ocr-rs = "0.6.0"
+num_cpus = "1.17.0"
+ffmpeg-sidecar = "2.2.0"
+ort = { version = "2.0.0-rc.10", default-features = false }
+
+[target.'cfg(any(target_os = "macos"))'.dependencies]
+xcap = { workspace = true }
+macos-accessibility-client = { workspace = true }

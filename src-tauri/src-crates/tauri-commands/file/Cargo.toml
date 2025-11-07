@@ -1,0 +1,13 @@
+[package]
+name = "snow-shot-tauri-commands-file"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+image = { workspace = true }
+zune-core = { workspace = true }
+zune-jpegxl = { workspace = true }
+tauri = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+base64 = { workspace = true }

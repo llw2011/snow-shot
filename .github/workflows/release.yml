@@ -1,0 +1,377 @@
+# Snow Shot 项目 Release 自动构建工作流
+# 将显示在 GitHub 存储库的"操作"选项卡中的工作流名称
+name: Release CI
+
+# 指定此工作流的触发器
+on:
+    push:
+        # 匹配特定标签 (refs/tags)
+        tags:
+            - "v*" # 推送事件匹配 v*, 例如 v1.0，v20.15.10 等来触发工作流
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Version (e.g. v1.0.0)"
+                required: true
+                type: string
+
+jobs:
+    create-release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Set version
+              id: vars
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
+                  else
+                    echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+                  fi
+              shell: bash
+
+            # 手动触发时创建 tag
+            - name: Create tag (if manual trigger)
+              if: github.event_name == 'workflow_dispatch'
+              run: |
+                  git config user.name github-actions
+                  git config user.email github-actions@github.com
+                  git tag -a ${{ steps.vars.outputs.tag }} -m "Release ${{ steps.vars.outputs.tag }}"
+                  git push origin ${{ steps.vars.outputs.tag }}
+            # 安装 Node.js
+            - name: Setup node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            # 发布 Release，使用自定义名称
+            - name: Generate changelog
+              id: create_release
+              run: npx changelogithub --draft --name ${{ steps.vars.outputs.tag }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Set app version output
+              id: app_version
+              run: echo "version=${{ steps.vars.outputs.tag }}" >> $GITHUB_OUTPUT
+
+        outputs:
+            app_version: ${{ steps.app_version.outputs.version }}
+
+    # 编译 Tauri 应用
+    build-app:
+        needs: create-release
+        permissions:
+            contents: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # macOS Apple Silicon (M1/M2/M3)
+                    - platform: "macos-latest"
+                      target: "aarch64-apple-darwin"
+
+                    # macOS Intel x64
+                    - platform: "macos-15-intel"
+                      target: "x86_64-apple-darwin"
+
+                    # Windows standard
+                    - platform: "windows-latest"
+                      target: "x86_64-pc-windows-msvc"
+
+                    # Windows with fixed runtime
+                    - platform: "windows-latest"
+                      target: "x86_64-pc-windows-msvc"
+                      fixedRuntime: true
+
+                    # Windows offline version
+                    - platform: "windows-latest"
+                      target: "x86_64-pc-windows-msvc"
+                      offline: true
+
+        runs-on: ${{ matrix.platform }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            # 安装 Node.js 和 pnpm
+            - name: Setup node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v3
+              with:
+                  version: latest
+
+            # 安装 Rust
+            - name: Install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Install rust target
+              run: rustup target add ${{ matrix.target }}
+
+            # 使用 Rust 缓存，加快安装速度
+            - name: Rust cache
+              uses: swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+
+            # 配置 pnpm 缓存
+            - name: Setup pnpm cache
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            # 安装 yarn
+            - name: Install yarn
+              run: npm install -g yarn
+
+            # 准备 Excalidraw 依赖
+            - name: Clone Excalidraw
+              run: |
+                  cd ..
+                  git clone https://github.com/mg-chao/excalidraw.git
+                  cd excalidraw
+                  git checkout custom/master
+              shell: bash
+
+            # 配置 yarn 缓存
+            - name: Cache yarn dependencies
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.yarn/cache
+                      ~/.cache/yarn
+                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-yarn-
+
+            # 安装 Excalidraw 依赖
+            - name: Install Excalidraw dependencies
+              run: |
+                  cd ../excalidraw
+                  yarn install --frozen-lockfile
+                  cd ../snow-shot
+              shell: bash
+
+            # 创建 .env 文件以支持联网功能
+            - name: Create .env file
+              run: |
+                  if [ "${{ matrix.offline }}" = "true" ]; then
+                    echo "PUBLIC_ONLINE_STATUS=false" > .env
+                  else
+                    echo "PUBLIC_ONLINE_STATUS=true" > .env
+                  fi
+              shell: bash
+
+            # 安装前端依赖并打包
+            - name: Install app dependencies and build web
+              run: pnpm install --frozen-lockfile
+
+            # 安装 offline 版本额外依赖
+            - name: Install offline version dependencies
+              if: matrix.offline == true
+              run: pnpm install qr-scanner-wechat@0.1.3
+
+            # 构建 Excalidraw
+            - name: Build Excalidraw
+              run: pnpm update:excalidraw
+
+            # 下载 offline 资源 (Windows offline only)
+            - name: Download and setup offline resources
+              if: matrix.platform == 'windows-latest' && matrix.offline == true
+              run: |
+                  # 下载 npm.zip
+                  Write-Host "Downloading npm.zip..."
+                  Invoke-WebRequest -Uri "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/Resources_20251107/npm.zip" -OutFile "npm.zip"
+
+                  # 解压 npm.zip 到 public 目录
+                  Write-Host "Extracting npm.zip to public directory..."
+                  Expand-Archive -Path "npm.zip" -DestinationPath "public" -Force
+
+                  # 删除不需要的 npm/qr-scanner-wechat 文件夹
+                  Write-Host "Removing npm/qr-scanner-wechat folder..."
+                  Remove-Item -Path "public\npm\qr-scanner-wechat" -Recurse -Force -ErrorAction SilentlyContinue
+
+                  # 清理临时文件
+                  Remove-Item -Path "npm.zip" -Force
+
+                  Write-Host "Offline resources setup completed successfully"
+              shell: pwsh
+
+            # 下载并配置 onnxruntime (Windows only)
+            - name: Download and setup onnxruntime (Windows)
+              if: matrix.platform == 'windows-latest'
+              run: |
+                  # 下载 onnxruntime
+                  Invoke-WebRequest -Uri "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-win-x64-static_lib-1.22.2.zip" -OutFile "onnxruntime.zip"
+
+                  # 解压文件
+                  Expand-Archive -Path "onnxruntime.zip" -DestinationPath "onnxruntime-temp" -Force
+
+                  # 查找并移动 lib 文件夹到 src-tauri
+                  $libPath = Get-ChildItem -Path "onnxruntime-temp" -Recurse -Directory -Filter "lib" | Select-Object -First 1
+                  if ($libPath) {
+                    Copy-Item -Path $libPath.FullName -Destination "src-tauri\lib" -Recurse -Force
+                    Write-Host "Successfully copied lib folder to src-tauri"
+                  } else {
+                    Write-Error "lib folder not found in extracted files"
+                    exit 1
+                  }
+
+                  # 清理临时文件
+                  Remove-Item -Path "onnxruntime.zip" -Force
+                  Remove-Item -Path "onnxruntime-temp" -Recurse -Force
+              shell: pwsh
+
+            # 下载并配置 WebView2 Fixed Runtime (Windows fixedRuntime only)
+            - name: Download and setup WebView2 Fixed Runtime
+              if: matrix.platform == 'windows-latest' && matrix.fixedRuntime == true
+              run: |
+                  # 下载 WebView2 Fixed Runtime v141.0.3537.99
+                  $runtimeVersion = "141.0.3537.99"
+                  $cabUrl = "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/v141.0.3537.99/Microsoft.WebView2.FixedVersionRuntime.141.0.3537.99.x64.cab"
+                  $cabFile = "Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64.cab"
+
+                  Write-Host "Downloading WebView2 Fixed Runtime $runtimeVersion..."
+                  Invoke-WebRequest -Uri $cabUrl -OutFile $cabFile
+
+                  # 解压 cab 文件到 src-tauri 目录
+                  Write-Host "Extracting WebView2 Fixed Runtime..."
+                  $targetDir = ".\src-tauri\Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64"
+
+                  # 创建目标目录
+                  New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+
+                  # 使用 expand 命令解压
+                  Expand -F:* $cabFile $targetDir
+
+                  Write-Host "Successfully extracted WebView2 Fixed Runtime to $targetDir"
+
+                  # 清理临时文件
+                  Remove-Item -Path $cabFile -Force
+
+                  # 移除原有的 tauri.windows.conf.json 并使用 webview2.x64.json
+                  Write-Host "Replacing tauri.windows.conf.json with webview2.x64.json..."
+                  Remove-Item -Path ".\src-tauri\tauri.windows.conf.json" -Force -ErrorAction SilentlyContinue
+                  Move-Item -Path ".\src-tauri\webview2.x64.json" -Destination ".\src-tauri\tauri.windows.conf.json" -Force
+                  Write-Host "Configuration files updated successfully"
+              shell: pwsh
+
+            # 下载并配置 onnxruntime (macOS only)
+            - name: Download and setup onnxruntime (macOS)
+              if: runner.os == 'macOS'
+              run: |
+                  # 下载 onnxruntime
+                  curl -L -o onnxruntime.tgz "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-osx-universal2-static_lib-1.22.2.tgz"
+
+                  # 解压文件
+                  mkdir -p onnxruntime-temp
+                  tar -xzf onnxruntime.tgz -C onnxruntime-temp
+
+                  # 查找并移动 lib 文件夹到 src-tauri
+                  libPath=$(find onnxruntime-temp -type d -name "lib" | head -n 1)
+                  if [ -n "$libPath" ]; then
+                    cp -r "$libPath" src-tauri/lib
+                    echo "Successfully copied lib folder to src-tauri"
+                  else
+                    echo "Error: lib folder not found in extracted files"
+                    exit 1
+                  fi
+
+                  # 清理临时文件
+                  rm -f onnxruntime.tgz
+                  rm -rf onnxruntime-temp
+              shell: bash
+
+            # macOS 专用：配置构建环境
+            - name: Configure build environment (macOS)
+              if: runner.os == 'macOS'
+              run: |
+                  # 设置环境变量强制静态链接
+                  echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
+                  echo "MACOSX_DEPLOYMENT_TARGET=12.3" >> $GITHUB_ENV
+
+                  # 安装必要的库
+                  brew install xz
+
+                  # 设置 pkg-config 路径，确保能找到静态库
+                  echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig" >> $GITHUB_ENV
+              shell: bash
+
+            # 设置文件名模式
+            - name: Set asset name pattern
+              id: asset_pattern
+              run: |
+                  if [ "${{ matrix.fixedRuntime }}" = "true" ]; then
+                    echo "pattern=Snow Shot_[version]_[platform]-[arch]_webview[_setup][ext]" >> $GITHUB_OUTPUT
+                  elif [ "${{ matrix.offline }}" = "true" ]; then
+                    echo "pattern=Snow Shot_[version]_[platform]-[arch]_offline[_setup][ext]" >> $GITHUB_OUTPUT
+                  else
+                    echo "pattern=Snow Shot_[version]_[platform]-[arch][_setup][ext]" >> $GITHUB_OUTPUT
+                  fi
+              shell: bash
+
+            # 执行构建，以及推送 github release
+            - name: Build the app
+              uses: tauri-apps/tauri-action@v0
+              env:
+                  CI: false
+                  PLATFORM: ${{ matrix.platform }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              with:
+                  tagName: ${{ needs.create-release.outputs.app_version }}
+                  releaseName: Snow Shot ${{ needs.create-release.outputs.app_version }}
+                  assetNamePattern: ${{ steps.asset_pattern.outputs.pattern }}
+                  releaseBody: ""
+                  releaseDraft: true
+                  prerelease: false
+                  args: --target ${{ matrix.target }}
+
+    # 更新 Release 下载引导
+    update-release-notes:
+        name: Update Release Notes with Download Guide
+        runs-on: ubuntu-latest
+        needs: [build-app]
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Set Environment Variables
+              run: |
+                  TAG_REF="${GITHUB_REF##*/}"
+                  echo "TAG_NAME=$TAG_REF" >> $GITHUB_ENV
+              shell: bash
+
+            - name: Generate Release Notes
+              run: |
+                  cat > release_notes.md << EOF
+                  ## ⚠️ Windows 用户注意
+
+                  由于 Windows 系统更新导致应用渲染性能下降，建议暂时使用 **WebView2 内置版**以获得更好的使用体验。
+
+                  EOF
+
+            - name: Update Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ env.TAG_NAME }}
+                  name: "Snow Shot ${{ env.TAG_NAME }}"
+                  body_path: release_notes.md
+                  draft: false
+                  prerelease: false
+                  token: ${{ secrets.GITHUB_TOKEN }}

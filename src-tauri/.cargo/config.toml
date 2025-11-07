@@ -1,0 +1,10 @@
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = ["-Ctarget-feature=+crt-static"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-Ctarget-feature=+crt-static"]
+
+[env]
+ORT_LIB_LOCATION = "./lib"
+PKG_CONFIG_ALL_STATIC = "1"

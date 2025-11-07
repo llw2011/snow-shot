@@ -1,0 +1,33 @@
+[package]
+name = "snow-shot-tauri-commands-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+snow-shot-app-shared = { workspace = true }
+snow-shot-app-utils = { workspace = true }
+snow-shot-app-os = { workspace = true }
+snow-shot-app-services = { workspace = true }
+
+enigo = { workspace = true }
+serde = { workspace = true }
+tauri = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+xcap = { workspace = true }
+rayon = { workspace = true }
+
+get-selected-text = "^0.1"
+
+[target.'cfg(any(target_os = "macos"))'.dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }
+
+[target.'cfg(any(target_os = "windows"))'.dependencies]
+windows = { workspace = true, features = [
+    "Win32_UI",
+] }
+snow-shot-webview = { workspace = true }
+tauri-plugin-clipboard-manager = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "snow-shot-app-scroll-screenshot-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+image = { workspace = true }
+imageproc = { workspace = true }
+rayon = { workspace = true }
+
+snow-shot-app-utils = { workspace = true }
+snow-shot-app-shared = { workspace = true }
+
+fast_image_resize = { version = "^5.2", features = ["rayon"] }
+hora = { version = "^0.1.1" }

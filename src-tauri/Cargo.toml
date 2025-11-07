@@ -1,0 +1,188 @@
+[workspace]
+members = [
+    "src-crates/app-shared",
+    "src-crates/app-utils",
+    "src-crates/app-services",
+    "src-crates/app-scroll-screenshot-service",
+    "src-crates/app-os",
+    "src-crates/global_state",
+    "src-crates/tauri-commands/core",
+    "src-crates/tauri-commands/file",
+    "src-crates/tauri-commands/ocr",
+    "src-crates/tauri-commands/screenshot",
+    "src-crates/tauri-commands/scroll-screenshot",
+    "src-crates/webview",
+]
+
+[package]
+name = "snow-shot"
+version = "0.7.10-beta"
+description = "Simple and elegant screenshot tool"
+authors = ["mg-chao"]
+repository = "https://github.com/llw2011/snow-shot"
+edition = "2024"
+rust-version = "1.90"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "snow_shot_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "^2", features = [] }
+
+[workspace.dependencies]
+serde = { version = "^1.0", features = ["derive"] }
+serde_json = "^1.0"
+xcap = { git = "https://github.com/mg-chao/xcap", branch = "custom/master" }
+device_query = { git = "https://github.com/mg-chao/device_query", branch = "custom/master" }
+log = "^0.4"
+image = { version = "^0.25", features = ["png", "webp"] }
+imageproc = "^0.25"
+enigo = "0.6.1"
+tokio = { version = "1.47.1", features = ["default", "macros", "time"] }
+tauri = { version = "^2.8" }
+futures = "^0.3"
+rayon = "^1.10"
+regex = "^1.11"
+zune-jpegxl = "^0.4"
+zune-core = "0.4"
+scap = { git = "https://github.com/mg-chao/scap", branch = "20250712_custom" }
+objc2 = "0.6.1"
+objc2-app-kit = { version = "0.3.1" }
+objc2-foundation = { version = "0.3.1" }
+uiautomation = "0.24.0"
+macos-accessibility-client = "0.0.1"
+dashmap = "6.1.0"
+reqwest = "0.12"
+futures-lite = "2.6.1"
+tokio-util = "0.7.16"
+futures-util = "0.3"
+windows = "0.61"
+base64 = "^0.22"
+tauri-plugin-clipboard-manager = "^2"
+clipboard-win = "5.4.1"
+
+# 项目内依赖
+snow-shot-app-services = { path = "src-crates/app-services" }
+snow-shot-app-os = { path = "src-crates/app-os" }
+snow-shot-app-utils = { path = "src-crates/app-utils" }
+snow-shot-app-shared = { path = "src-crates/app-shared" }
+snow-shot-app-scroll-screenshot-service = { path = "src-crates/app-scroll-screenshot-service" }
+snow-shot-tauri-commands-core = { path = "src-crates/tauri-commands/core" }
+snow-shot-tauri-commands-file = { path = "src-crates/tauri-commands/file" }
+snow-shot-tauri-commands-ocr = { path = "src-crates/tauri-commands/ocr" }
+snow-shot-tauri-commands-screenshot = { path = "src-crates/tauri-commands/screenshot" }
+snow-shot-tauri-commands-scroll-screenshot = { path = "src-crates/tauri-commands/scroll-screenshot" }
+snow-shot-plugin-service = { path = "src-crates/plugin-service" }
+snow-shot-webview = { path = "src-crates/webview" }
+snow-shot-global-state = { path = "src-crates/global_state" }
+
+
+[dependencies]
+snow-shot-app-shared = { workspace = true }
+snow-shot-app-services = { workspace = true }
+snow-shot-app-os = { workspace = true }
+snow-shot-app-scroll-screenshot-service = { workspace = true }
+snow-shot-tauri-commands-core = { workspace = true }
+snow-shot-tauri-commands-file = { workspace = true }
+snow-shot-tauri-commands-ocr = { workspace = true }
+snow-shot-tauri-commands-screenshot = { workspace = true }
+snow-shot-tauri-commands-scroll-screenshot = { workspace = true }
+snow-shot-plugin-service = { workspace = true }
+snow-shot-app-utils = { workspace = true }
+snow-shot-webview = { workspace = true }
+snow-shot-global-state = { workspace = true }
+
+# workspace 依赖
+tokio = { workspace = true }
+log = { workspace = true }
+
+# tauri 相关
+tauri = { workspace = true, features = [
+    "protocol-asset",
+    "macos-private-api",
+    "tray-icon",
+    "image-ico",
+    "image-png",
+] }
+tauri-plugin-log = "^2"
+tauri-plugin-fs = "^2"
+tauri-plugin-dialog = "^2"
+tauri-plugin-http = "^2"
+tauri-plugin-store = "^2"
+tauri-plugin-clipboard-manager = { workspace = true }
+tauri-plugin-opener = "^2"
+tauri-plugin-clipboard = "^2"
+tauri-plugin-process = "^2"
+tauri-plugin-notification = "^2"
+tauri-plugin-os = "^2"
+tauri-plugin-macos-permissions = "2.3.0"
+
+
+# 其他依赖
+base64 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "^2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tray-icon = { version = "0.21.2", default-features = false }
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+# dhat = "0.3.3"
+
+[profile.dev]
+incremental = true
+opt-level = 0
+debug = true
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+[profile.dev.package.snow-shot-app-services]
+[profile.dev.package.snow-shot-app-os]
+[profile.dev.package.snow-shot-app-utils]
+[profile.dev.package.snow-shot-app-shared]
+[profile.dev.package.snow-shot-app-scroll-screenshot-service]
+[profile.dev.package.snow-shot-global-state]
+[profile.dev.package.snow-shot-tauri-commands-core]
+[profile.dev.package.snow-shot-tauri-commands-file]
+[profile.dev.package.snow-shot-tauri-commands-ocr]
+[profile.dev.package.snow-shot-tauri-commands-screenshot]
+[profile.dev.package.snow-shot-tauri-commands-scroll-screenshot]
+[profile.dev.package.snow-shot-webview]
+opt-level = 2
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+panic = "abort"
+incremental = false
+codegen-units = 1
+strip = true
+
+# [profile.release]
+# debug = 1
+
+[features]
+dhat-heap = []   # if you are doing heap profiling
+dhat-ad-hoc = [] # if you are doing ad hoc profiling

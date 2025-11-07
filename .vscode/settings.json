@@ -1,0 +1,63 @@
+{
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"i18n-ally.localesPaths": [
+		"src/messages",
+		"excalidraw/packages/excalidraw/locales"
+	],
+	// 禁用 ESLint
+	"eslint.enable": false,
+	"rust-analyzer.files.exclude": ["./"],
+
+	// 禁用 Prettier
+	"prettier.enable": false,
+
+	// 启用 Biome
+	"biome.enabled": true,
+
+	// 启用保存时格式化
+	"editor.formatOnSave": true,
+
+	// 启用保存时代码操作（如整理 imports）
+	"editor.codeActionsOnSave": {
+		"source.fixAll.biome": "explicit"
+	},
+
+	// 设置 Biome 为默认格式化器
+	"editor.defaultFormatter": "biomejs.biome",
+
+	// 为各种文件类型指定 Biome 作为格式化器
+	"[javascript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[javascriptreact]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[jsonc]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+
+	// 行尾符配置 - 统一使用 LF
+	"files.eol": "\n",
+
+	"files.readonlyInclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"files.watcherExclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"search.exclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"[github-actions-workflow]": {
+		"editor.defaultFormatter": "redhat.vscode-yaml"
+	}
+}

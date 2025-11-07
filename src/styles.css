@@ -1,0 +1,153 @@
+:root {
+    --background: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #000000;
+    }
+}
+
+html,
+body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#root {
+    height: 100vh;
+}
+
+body {
+    background: transparent;
+    box-sizing: border-box;
+    margin: 0 !important;
+    position: relative;
+    bottom: 0;
+    right: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        color-scheme: dark;
+    }
+}
+
+.ant-app {
+    height: 100%;
+    width: 100%;
+}
+
+.ant-modal-title div {
+    display: inline !important;
+}
+
+
+.popover-toolbar .ant-btn .ant-btn-icon {
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.draw-core-layer .excalidraw .Island.App-toolbar {
+    opacity: 0;
+    display: none !important;
+}
+
+.draw-core-layer .excalidraw .selected-shape-actions fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.excalidraw .App-menu_top .App-menu_top__left .dropdown-menu-button,
+.excalidraw .App-menu_top .shapes-section,
+.excalidraw .App-menu_top .layer-ui__wrapper__top-right {
+    opacity: 0 !important;
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.draw-core-layer footer,
+.excalidraw .HintViewer,
+.excalidraw .HelpDialog__island--editor,
+.excalidraw .Stack .mobile-misc-tools-container,
+.excalidraw .App-bottom-bar .App-toolbar .App-toolbar-content,
+.excalidraw .App-menu_bottom {
+    opacity: 0 !important;
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.excalidraw .Island.App-menu__left .FontPicker__container>div:nth-child(2),
+.excalidraw .Island.App-menu__left .FontPicker__container>div:nth-child(3) {
+    display: none !important;
+}
+
+.app-tauri-drag-region {
+    cursor: grab;
+}
+
+.app-tauri-drag-region:active {
+    cursor: grabbing;
+}
+
+.ScrollbarsCustom .ScrollbarsCustom-Track {
+    --scrollbar-width: 3px;
+    --scrollbar-width-hover: 12px;
+    --border-radius: 1px;
+
+    background-color: unset !important;
+    width: var(--scrollbar-width-hover) !important;
+    border-radius: 1px !important;
+    height: 100% !important;
+    top: 0px !important;
+    transition: all 0.2s ease-in-out;
+    transform-origin: right;
+}
+
+.ScrollbarsCustom .ScrollbarsCustom-Track::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--scrollbar-width);
+    height: 100%;
+    transition: width 0.2s ease-in-out, border-radius 0.2s ease-in-out;
+    pointer-events: none;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius);
+}
+
+.ScrollbarsCustom .ScrollbarsCustom-Thumb {
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    width: var(--scrollbar-width) !important;
+    right: 0 !important;
+    position: absolute;
+    transition: width 0.2s ease-in-out, border-radius 0.2s ease-in-out;
+    border-radius: var(--border-radius) !important;
+}
+
+.ScrollbarsCustom .ScrollbarsCustom-Track:hover,
+.ScrollbarsCustom .ScrollbarsCustom-Track:active {
+    --scrollbar-width: var(--scrollbar-width-hover);
+    --border-radius: 8px;
+}
+
+.app-dark .ScrollbarsCustom .ScrollbarsCustom-Thumb {
+    background-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.app-dark .ScrollbarsCustom .ScrollbarsCustom-Track::before {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* GitHub Markdown CSS 样式优化 */
+.markdown-body {
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: 100%;
+    padding: 0;
+}

@@ -1,0 +1,9 @@
+{
+	"recommendations": ["biomejs.biome"],
+	"unwantedRecommendations": [
+		"rust-lang.rust-analyzer",
+		"rust-lang.rust",
+		"esbenp.prettier-vscode",
+		"dbaeumer.vscode-eslint"
+	]
+}

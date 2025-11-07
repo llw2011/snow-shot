@@ -1,0 +1,22 @@
+[package]
+name = "snow-shot-tauri-commands-scroll-screenshot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+image = { workspace = true }
+serde = { workspace = true }
+tauri = { workspace = true }
+tokio = { workspace = true }
+xcap = { workspace = true }
+
+snow-shot-app-utils = { workspace = true }
+snow-shot-app-scroll-screenshot-service = { workspace = true }
+snow-shot-app-shared = { workspace = true }
+snow-shot-global-state = { workspace = true }
+
+[target.'cfg(any(target_os = "macos"))'.dependencies]
+scap = { workspace = true }
+
+[target.'cfg(any(target_os = "windows"))'.dependencies]
+snow-shot-webview = { workspace = true }

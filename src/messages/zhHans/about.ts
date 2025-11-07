@@ -1,0 +1,15 @@
+export const about = {
+	"about.title": "Snow Shot",
+	"about.subtitle": "简单优雅的工具软件 ❄️",
+	"about.version": "版本",
+	"about.author": "原作者：mg-chao",
+	"about.license.title": "📄 开源协议",
+	"about.license.description": "本项目采用双重许可模式：",
+	"about.license.nonCommercial": "非商用场景：",
+	"about.license.nonCommercialType": "适用于 Apache v2.0 许可",
+	"about.license.commercial": "商用场景：",
+	"about.license.commercialType": "适用于 GPL v3 许可",
+	"about.feedback.title": "问题反馈",
+	"about.feedback.github": "GitHub Issues",
+	"about.newVersion": "新版本",
+};

@@ -1,0 +1,1 @@
+"undefined"!=typeof window&&void 0===window.isSpace&&(window.isSpace=function($){return 32===$||9===$||10===$||11===$||12===$||13===$});
