@@ -1,4 +1,4 @@
-﻿import { Alert, Button, List, Typography, theme } from "antd";
+﻿import { Alert, Button, List, theme } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import {
@@ -10,8 +10,8 @@ import {
 	requestScreenRecordingPermission,
 } from "tauri-plugin-macos-permissions-api";
 import useInterval from "use-interval";
+import { GroupTitle } from "@/components/groupTitle";
 import { ResetIcon } from "@/components/icons";
-import { SettingsSection } from "@/components/settingsSection";
 import { useStateRef } from "@/hooks/useStateRef";
 
 const PermissionListItem: React.FC<{
@@ -30,24 +30,26 @@ const PermissionListItem: React.FC<{
 	return (
 		<List.Item
 			actions={[
-				permissionState ? (
-					<Typography.Text key="authorized" type="success">
+				<Button
+					key="recordScreen"
+					variant="link"
+					color={permissionState ? "green" : "primary"}
+					onClick={() => {
+						if (permissionState) {
+							return;
+						}
+
+						requestPermission().then(() => {
+							reloadPermissionsState();
+						});
+					}}
+				>
+					{permissionState ? (
 						<FormattedMessage id="settings.systemSettings.macosPermissionsSettings.authorized" />
-					</Typography.Text>
-				) : (
-					<Button
-						key="requestPermission"
-						variant="link"
-						color="primary"
-						onClick={() => {
-							requestPermission().then(() => {
-								reloadPermissionsState();
-							});
-						}}
-					>
+					) : (
 						<FormattedMessage id="settings.systemSettings.macosPermissionsSettings.request" />
-					</Button>
-				),
+					)}
+				</Button>,
 			]}
 		>
 			<List.Item.Meta title={permissionName} description={permissionTip} />
@@ -118,26 +120,27 @@ export const MacOSPermissionsSettings: React.FC = () => {
 	);
 
 	return (
-		<SettingsSection
-			sectionId="macosPermissionsSettings"
-			title={
-				<FormattedMessage id="settings.systemSettings.macosPermissionsSettings" />
-			}
-			extra={
-				<Button
-					loading={realodButtonLoading}
-					type="text"
-					onClick={async () => {
-						setRealodButtonLoading(true);
-						await reloadPermissionsState();
+		<>
+			<GroupTitle
+				id="macosPermissionsSettings"
+				extra={
+					<Button
+						loading={realodButtonLoading}
+						type="text"
+						onClick={async () => {
+							setRealodButtonLoading(true);
+							await reloadPermissionsState();
 
-						setRealodButtonLoading(false);
-					}}
-				>
-					<ResetIcon />
-				</Button>
-			}
-		>
+							setRealodButtonLoading(false);
+						}}
+					>
+						<ResetIcon />
+					</Button>
+				}
+			>
+				<FormattedMessage id="settings.systemSettings.macosPermissionsSettings" />
+			</GroupTitle>
+
 			<Alert
 				message={
 					<FormattedMessage
@@ -203,6 +206,6 @@ export const MacOSPermissionsSettings: React.FC = () => {
 					reloadPermissionsState={reloadPermissionsState}
 				/>
 			</List>
-		</SettingsSection>
+		</>
 	);
 };

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { NonDeletedExcalidrawElement } from "@mg-chao/excalidraw/element/types";
 import {
@@ -28,7 +28,6 @@ import { listenKeyStart, listenKeyStop } from "@/commands/listenKey";
 import { captureAllMonitors, switchAlwaysOnTop } from "@/commands/screenshot";
 import {
 	scrollScreenshotClear,
-	scrollScreenshotGetImageData,
 	scrollScreenshotGetSize,
 	scrollScreenshotSaveToClipboard,
 	scrollScreenshotSaveToFile,
@@ -103,7 +102,6 @@ import {
 	fixedToScreen,
 	getCanvas,
 	handleOcrDetect,
-	saveCanvasToCloud,
 	saveToFile,
 } from "./actions";
 import {
@@ -929,53 +927,6 @@ const DrawPageCore: React.FC<{
 		],
 	);
 
-	const onSaveToCloud = useCallback(async () => {
-		if (!getAppSettings()[AppSettingsGroup.FunctionScreenshot].saveToCloud) {
-			return;
-		}
-
-		if (
-			!selectLayerActionRef.current ||
-			!imageLayerActionRef.current ||
-			!drawLayerActionRef.current
-		) {
-			return;
-		}
-
-		let imageData: ArrayBuffer | HTMLCanvasElement | undefined;
-		if (getDrawState() === DrawState.ScrollScreenshot) {
-			imageData = await scrollScreenshotGetImageData(true);
-		} else {
-			imageData = await getCanvas(
-				selectLayerActionRef.current.getSelectRectParams(),
-				imageLayerActionRef.current,
-				drawLayerActionRef.current,
-			);
-		}
-
-		if (!imageData) {
-			return;
-		}
-
-		const hideLoading = message.loading(
-			<FormattedMessage id="draw.saveToCloud.loading" />,
-		);
-
-		try {
-			const result = await saveCanvasToCloud(imageData, getAppSettings());
-			if (typeof result === "object" && "error" in result) {
-				message.error(<FormattedMessage id="draw.saveToCloud.error" />);
-			} else {
-				writeTextToClipboard(result);
-				finishCapture();
-			}
-		} catch (error) {
-			appError("[DrawPageCore] S3 upload error", error);
-		}
-
-		hideLoading();
-	}, [finishCapture, getAppSettings, message, getDrawState]);
-
 	const onFixed = useCallback(async () => {
 		if (getDrawState() === DrawState.ScrollScreenshot) {
 			const scrollScreenshotSize = await scrollScreenshotGetSize();
@@ -1587,7 +1538,6 @@ const DrawPageCore: React.FC<{
 						actionRef={drawToolbarActionRef}
 						onCancel={finishCapture}
 						onSave={onSave}
-						onSaveToCloud={onSaveToCloud}
 						onFixed={onFixed}
 						onCopyToClipboard={onCopyToClipboard}
 						onOcrDetect={onOcrDetect}

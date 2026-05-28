@@ -2,7 +2,6 @@ pub mod core;
 pub mod file;
 pub mod global_state;
 pub mod hot_load_page;
-pub mod http_services;
 pub mod listen_key;
 pub mod ocr;
 pub mod plugin;
@@ -324,7 +323,6 @@ pub fn run() {
             webview::create_webview_shared_buffer_channel,
             #[cfg(target_os = "windows")]
             core::write_image_pixels_to_clipboard_with_shared_buffer,
-            http_services::upload_to_s3,
             hot_load_page::hot_load_page_init,
             hot_load_page::hot_load_page_add_page,
             global_state::set_capture_state,

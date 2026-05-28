@@ -5,8 +5,7 @@ import {
 	AppSettingsGroup,
 	AppSettingsLanguage,
 	AppSettingsTheme,
-	CloudSaveUrlFormat,
-	CloudSaveUrlType,
+	AppThemePreset,
 	ColorPickerShowMode,
 	DoubleClickAction,
 	ExtraToolList,
@@ -16,29 +15,59 @@ import {
 	KeyDisplayDirection,
 	OcrDetectAfterAction,
 	OcrModel,
+	TranslationApiType,
 	TrayIconClickAction,
 	TrayIconDefaultIcon,
 	VideoMaxSize,
 } from "@/types/appSettings";
 import { DrawState } from "@/types/draw";
-import {
-	TranslationDomain,
-	TranslationType,
-} from "@/types/servies/translation";
+import { TranslationDomain } from "@/types/servies/translation";
 import { ImageFormat } from "@/types/utils/file";
 import { getPlatformValue } from "@/utils/platform";
 import { defaultAppFunctionConfigs } from "./appFunction";
+import {
+	BUILD_DEFAULT_CHAT_API_CONFIG,
+	BUILD_DEFAULT_OCR_API_CONFIG,
+	BUILD_DEFAULT_TRANSLATION_API_CONFIG,
+	CUSTOM_MODEL_PREFIX,
+} from "./buildFlavor";
 import { defaultCommonKeyEventSettings } from "./commonKeyEvent";
 import { FOCUS_WINDOW_APP_NAME_ENV_VARIABLE } from "./components/chat";
 import { defaultTranslationPrompt } from "./components/translation";
 import { defaultDrawToolbarKeyEventSettings } from "./drawToolbarKeyEvent";
 
+const buildDefaultChatApiConfigList = BUILD_DEFAULT_CHAT_API_CONFIG
+	? [BUILD_DEFAULT_CHAT_API_CONFIG]
+	: [];
+const buildDefaultTranslationApiConfigList =
+	BUILD_DEFAULT_TRANSLATION_API_CONFIG
+		? [BUILD_DEFAULT_TRANSLATION_API_CONFIG]
+		: [];
+const buildDefaultChatModel = BUILD_DEFAULT_CHAT_API_CONFIG
+	? `${CUSTOM_MODEL_PREFIX}${BUILD_DEFAULT_CHAT_API_CONFIG.api_model}`
+	: "";
+const buildDefaultTranslationType = BUILD_DEFAULT_TRANSLATION_API_CONFIG
+	? BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_type ===
+		TranslationApiType.OpenAiCompatible
+		? `${CUSTOM_MODEL_PREFIX}${BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_model}`
+		: BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_type
+	: "";
+const buildDefaultOcrApiConfig = BUILD_DEFAULT_OCR_API_CONFIG ?? {
+	api_uri: "",
+	api_key: "",
+	api_model: "",
+	model_name: "",
+	support_thinking: false,
+	support_vision: true,
+};
+
 export const defaultAppSettingsData: AppSettingsData = {
 	[AppSettingsGroup.Common]: {
-		theme: AppSettingsTheme.System,
-		mainColor: "#1677FF",
-		borderRadius: 6,
-		enableCompactLayout: false,
+		theme: AppSettingsTheme.Dark,
+		themePreset: AppThemePreset.Obsidian,
+		mainColor: "#FFFFFF",
+		borderRadius: 8,
+		enableCompactLayout: true,
 		language: AppSettingsLanguage.ZHHans,
 		browserLanguage: "",
 	},
@@ -86,7 +115,7 @@ export const defaultAppSettingsData: AppSettingsData = {
 	},
 	[AppSettingsGroup.Cache]: {
 		menuCollapsed: false,
-		chatModel: "qwen-flash",
+		chatModel: buildDefaultChatModel,
 		chatModelEnableThinking: false,
 		colorPickerColorFormatIndex: 0,
 		prevImageFormat: ImageFormat.PNG,
@@ -120,7 +149,7 @@ export const defaultAppSettingsData: AppSettingsData = {
 	},
 	[AppSettingsGroup.SystemCommon]: {
 		autoStart: true,
-		autoCheckVersion: true,
+		autoCheckVersion: false,
 		runLog: false,
 	},
 	[AppSettingsGroup.SystemChat]: {
@@ -134,26 +163,34 @@ export const defaultAppSettingsData: AppSettingsData = {
 	[AppSettingsGroup.FunctionChat]: {
 		autoCreateNewSession: true,
 		autoCreateNewSessionOnCloseWindow: true,
-		chatApiConfigList: [],
+		chatApiConfigList: buildDefaultChatApiConfigList,
 	},
 	[AppSettingsGroup.FunctionTranslation]: {
 		optimizeAiTranslationLayout: true,
+		translationMaxTokens: 4096,
+		translationTemperature: 0.2,
+		translationTopP: 0.9,
+		translationTimeoutMs: 60000,
 		translationSystemPrompt: defaultTranslationPrompt,
-		translationApiConfigList: [],
+		translationApiConfigList: buildDefaultTranslationApiConfigList,
+		defaultTranslationApiConfigInitialized: true,
 		sourceLanguage: "auto",
 		targetLanguage: "zh-CHS",
 		translationDomain: TranslationDomain.General,
-		translationType: TranslationType.Youdao,
+		translationType: buildDefaultTranslationType,
 	},
 	[AppSettingsGroup.FunctionTranslationCache]: {
 		cacheSourceLanguage: "auto",
 		cacheTargetLanguage: "zh-CHS",
 		cacheTranslationDomain: TranslationDomain.General,
-		cacheTranslationType: TranslationType.Youdao,
+		cacheTranslationType: buildDefaultTranslationType,
 	},
 	[AppSettingsGroup.FunctionOcr]: {
-		htmlVisionModel: "",
-		ocrModel: OcrModel.RapidOcrV4,
+		glmOcrApiConfig: buildDefaultOcrApiConfig,
+		htmlVisionModel: BUILD_DEFAULT_OCR_API_CONFIG?.model_name ?? "",
+		ocrModel: BUILD_DEFAULT_OCR_API_CONFIG
+			? OcrModel.GlmOcr
+			: OcrModel.RapidOcrV4,
 		htmlVisionModelSystemPrompt: `You are a professional image-to-HTML conversion engine. Your sole objective is to accurately convert images into clean, semantic HTML code.
 
 ## Conversion Rules (must follow)
@@ -237,19 +274,6 @@ Priority order (highest to lowest):
 		focusedWindowCopyToClipboard: true,
 		fullScreenCopyToClipboard: true,
 		fastSave: false,
-		/** 保存到云端 */
-		saveToCloud: false,
-		/** 云端保存协议 */
-		cloudSaveUrlType: CloudSaveUrlType.S3,
-		cloudSaveUrlFormat: CloudSaveUrlFormat.Origin,
-		cloudProxyUrl: "",
-		s3AccessKeyId: "",
-		s3SecretAccessKey: "",
-		s3Region: "",
-		s3Endpoint: "",
-		s3BucketName: "",
-		s3PathPrefix: "",
-		s3ForcePathStyle: false,
 		saveFileDirectory: "",
 		saveFileFormat: ImageFormat.PNG,
 		ocrAfterAction: OcrDetectAfterAction.None,
@@ -267,7 +291,7 @@ Priority order (highest to lowest):
 	[AppSettingsGroup.FunctionFixedContent]: {
 		zoomWithMouse: true,
 		autoResizeWindow: true,
-		autoOcr: true,
+		autoOcr: false,
 		autoCopyToClipboard: false,
 		initialPosition: AppSettingsFixedContentInitialPosition.MousePosition,
 	},
@@ -278,7 +302,6 @@ Priority order (highest to lowest):
 		focusedWindowFileNameFormat: `${FOCUS_WINDOW_APP_NAME_ENV_VARIABLE}/SnowShot_{{YYYY-MM-DD_HH-mm-ss}}`,
 		fullScreenFileNameFormat: `SnowShot_{{YYYY-MM-DD_HH-mm-ss}}`,
 		videoRecordFileNameFormat: `SnowShot_Video_{{YYYY-MM-DD_HH-mm-ss}}`,
-		uploadToCloudSaveUrlFormat: `SnowShot_{{YYYY-MM-DD_HH-mm-ss}}`,
 	},
 	[AppSettingsGroup.FunctionFullScreenDraw]: {
 		defaultTool: DrawState.Select,
@@ -325,7 +348,7 @@ Priority order (highest to lowest):
 	},
 	[AppSettingsGroup.SystemCore]: {
 		/// 热加载页面数量
-		hotLoadPageCount: 2,
+		hotLoadPageCount: 0,
 	},
 	[AppSettingsGroup.FunctionGlobalShortcut]: {
 		disableOnFocusedFullScreenWindow: false,

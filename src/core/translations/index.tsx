@@ -13,13 +13,8 @@ import {
 } from "@/pages/settings/functionSettings/extra";
 import { CUSTOM_MODEL_PREFIX } from "@/pages/tools/chat/page";
 import { getTranslationPrompt } from "@/pages/tools/translation/extra";
-import { appFetch, getUrl, type ServiceResponse } from "@/services/tools";
-import { type ChatModel, getChatModelsWithCache } from "@/services/tools/chat";
-import {
-	getTranslationTypesWithCache,
-	translate,
-	translateTextDeepL,
-} from "@/services/tools/translation";
+import { appFetch } from "@/services/tools";
+import { translateTextDeepL } from "@/services/tools/translation";
 import {
 	type AppSettingsData,
 	AppSettingsGroup,
@@ -29,7 +24,6 @@ import {
 } from "@/types/appSettings";
 import {
 	type DeepLTranslateResult,
-	type TranslateData,
 	TranslationDomain,
 	TranslationType,
 	type TranslationTypeOption,
@@ -85,14 +79,6 @@ export const useTranslationRequest = (options?: {
 	const [translationApiConfigList, setTranslationApiConfigList] = useState<
 		TranslationApiConfig[] | undefined
 	>(undefined);
-	// Snow Shot 自带的
-	const [
-		officialTranslationTypes,
-		setOfficialTranslationTypes,
-		officialTranslationTypesRef,
-	] = useStateRef<TranslationTypeOption[] | undefined>(undefined);
-	const [officialChatModels, setOfficialChatModels, officialChatModelsRef] =
-		useStateRef<ChatModel[] | undefined>(undefined);
 	const [chatConfig, setChatConfig] =
 		useState<AppSettingsData[AppSettingsGroup.SystemChat]>();
 	const [translationConfig, setTranslationConfig] =
@@ -160,28 +146,8 @@ export const useTranslationRequest = (options?: {
 		Promise<[undefined, undefined]> | undefined
 	>(undefined);
 	const reloadOnlineConfigs = useCallback(async () => {
-		if (officialTranslationTypesRef.current && officialChatModelsRef.current) {
-			return;
-		}
-
-		const promise = Promise.all([
-			getTranslationTypesWithCache().then((res) => {
-				setOfficialTranslationTypes(res ?? []);
-				return undefined;
-			}),
-			getChatModelsWithCache().then((res) => {
-				setOfficialChatModels(res ?? []);
-				return undefined;
-			}),
-		]);
-		reloadOnlineConfigsPromiseRef.current = promise;
-		await promise;
-	}, [
-		setOfficialChatModels,
-		setOfficialTranslationTypes,
-		officialChatModelsRef,
-		officialTranslationTypesRef,
-	]);
+		// Cloud backend disabled — no online configs to load
+	}, []);
 
 	useEffect(() => {
 		if (options?.lazyLoad) {
@@ -235,38 +201,12 @@ export const useTranslationRequest = (options?: {
 					isOfficial: false,
 				};
 			}) ?? []),
-			...(officialTranslationTypes ?? []).map(
-				(item): TranslationServiceConfig => {
-					return {
-						type: item.type,
-						name: item.name,
-						isOfficial: true,
-					};
-				},
-			),
-			...(officialChatModels ?? []).map((item): TranslationServiceConfig => {
-				return {
-					type: item.model,
-					name: item.name,
-					apiConfig: {
-						api_uri: getUrl("api/v1/"),
-						api_key: "",
-						api_model: item.model,
-						model_name: item.name,
-						support_thinking: false,
-						support_vision: false,
-					},
-					isOfficial: true,
-				};
-			}),
 		]);
 		setSupportedTranslationTypesLoading(false);
 	}, [
 		chatApiConfigList,
 		setSupportedTranslationTypes,
 		translationApiConfigList,
-		officialChatModels,
-		officialTranslationTypes,
 		getTranslationApiConfigTypeName,
 	]);
 
@@ -467,37 +407,8 @@ export const useTranslationRequest = (options?: {
 				}
 			}
 
-			setStartTranslateLoading(true);
-			let translateResult:
-				| ServiceResponse<TranslateData | undefined>
-				| undefined;
-			try {
-				translateResult = await translate({
-					content: sourceContent,
-					from: sourceLanguage,
-					to: targetLanguage,
-					domain: translationDomain,
-					type: translationType as TranslationType, // 如果没找到自定义模型，则报错
-				});
-			} catch (error) {
-				appError("[requestTranslate] error", error);
-				message.error("-1: Unknown error");
-			}
-
-			setStartTranslateLoading(false);
-
-			if (
-				!translateResult ||
-				!translateResult.success() ||
-				!translateResult.data?.results.length
-			) {
-				return;
-			}
-
-			options?.onComplete?.(translateResult.data?.results, requestId);
-			setTranslatedContent(
-				translateResult.data?.results.map((item) => item.content).join("\n") ??
-					"",
+			message.error(
+				intl.formatMessage({ id: "tools.translation.noAvailableService" }),
 			);
 		},
 		[
@@ -508,8 +419,8 @@ export const useTranslationRequest = (options?: {
 			targetLanguageRef,
 			translationDomainRef,
 			translationTypeRef,
-			setTranslatedContent,
 			reloadOnlineConfigs,
+			intl,
 		],
 	);
 

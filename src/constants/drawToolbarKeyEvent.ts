@@ -81,10 +81,6 @@ export const defaultDrawToolbarKeyEventSettings: Record<
 		hotKey: getPlatformValue("Ctrl+T", "Meta+T"),
 		unique: true,
 	},
-	[DrawToolbarKeyEventKey.SaveToCloudTool]: {
-		hotKey: getPlatformValue("Ctrl+Shift+C", "Meta+Shift+C"),
-		unique: true,
-	},
 	[DrawToolbarKeyEventKey.ScrollScreenshotTool]: {
 		hotKey: "L",
 		unique: true,

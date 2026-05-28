@@ -31,8 +31,7 @@ import {
 	ElementDraggingPublisher,
 } from "@/pages/draw/extra";
 import { CUSTOM_MODEL_PREFIX, MarkdownContent } from "@/pages/tools/chat/page";
-import { appFetch, getUrl } from "@/services/tools";
-import { getChatModelsWithCache } from "@/services/tools/chat";
+import { appFetch } from "@/services/tools";
 import { AppSettingsGroup, type ChatApiConfig } from "@/types/appSettings";
 import type { OcrDetectResult } from "@/types/commands/ocr";
 import type { ElementRect } from "@/types/commands/screenshot";
@@ -112,7 +111,6 @@ export type VisionModel = {
 export const useVisionModelList = () => {
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 
-	const customVisionModelListRef = useRef<VisionModel[]>(undefined);
 	const getVisionModelList = useCallback(async () => {
 		const settings = getAppSettings();
 		const visionModelList = settings[
@@ -129,26 +127,7 @@ export const useVisionModelList = () => {
 				};
 			});
 
-		if (!customVisionModelListRef.current) {
-			const res = await getChatModelsWithCache();
-			customVisionModelListRef.current = (res ?? [])
-				.filter((item) => item.support_vision)
-				.map((item) => {
-					return {
-						config: {
-							api_uri: getUrl("api/v1/"),
-							api_key: "",
-							api_model: item.model,
-							model_name: item.name,
-							support_thinking: item.thinking,
-							support_vision: item.support_vision,
-						},
-						isOfficial: true,
-					};
-				});
-		}
-
-		return [...visionModelList, ...customVisionModelListRef.current];
+		return visionModelList;
 	}, [getAppSettings]);
 
 	return useMemo(() => {

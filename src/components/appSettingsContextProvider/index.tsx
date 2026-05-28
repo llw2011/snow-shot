@@ -41,8 +41,6 @@ import {
 	AppSettingsGroup,
 	AppSettingsLanguage,
 	AppSettingsTheme,
-	type CloudSaveUrlFormat,
-	CloudSaveUrlType,
 	type DoubleClickAction,
 	ExtraToolList,
 	type HdrColorAlgorithm,
@@ -919,16 +917,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.shortcutCanleTip
 							: (prevSettings?.shortcutCanleTip ??
 								defaultAppSettingsData[group].shortcutCanleTip),
-					cloudSaveUrlFormat:
-						typeof newSettings?.cloudSaveUrlFormat === "string"
-							? (newSettings.cloudSaveUrlFormat as CloudSaveUrlFormat)
-							: (prevSettings?.cloudSaveUrlFormat ??
-								defaultAppSettingsData[group].cloudSaveUrlFormat),
-					cloudProxyUrl:
-						typeof newSettings?.cloudProxyUrl === "string"
-							? newSettings.cloudProxyUrl
-							: (prevSettings?.cloudProxyUrl ??
-								defaultAppSettingsData[group].cloudProxyUrl),
 					autoSaveOnCopy:
 						typeof newSettings?.autoSaveOnCopy === "boolean"
 							? newSettings.autoSaveOnCopy
@@ -947,48 +935,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.copyImageFileToClipboard
 							: (prevSettings?.copyImageFileToClipboard ??
 								defaultAppSettingsData[group].copyImageFileToClipboard),
-					saveToCloud:
-						typeof newSettings?.saveToCloud === "boolean"
-							? newSettings.saveToCloud
-							: (prevSettings?.saveToCloud ?? false),
-					cloudSaveUrlType:
-						typeof newSettings?.cloudSaveUrlType === "string"
-							? (newSettings.cloudSaveUrlType as CloudSaveUrlType)
-							: (prevSettings?.cloudSaveUrlType ?? CloudSaveUrlType.S3),
-					s3AccessKeyId:
-						typeof newSettings?.s3AccessKeyId === "string"
-							? newSettings.s3AccessKeyId
-							: (prevSettings?.s3AccessKeyId ??
-								defaultAppSettingsData[group].s3AccessKeyId),
-					s3SecretAccessKey:
-						typeof newSettings?.s3SecretAccessKey === "string"
-							? newSettings.s3SecretAccessKey
-							: (prevSettings?.s3SecretAccessKey ??
-								defaultAppSettingsData[group].s3SecretAccessKey),
-					s3Region:
-						typeof newSettings?.s3Region === "string"
-							? newSettings.s3Region
-							: (prevSettings?.s3Region ??
-								defaultAppSettingsData[group].s3Region),
-					s3Endpoint:
-						typeof newSettings?.s3Endpoint === "string"
-							? newSettings.s3Endpoint
-							: (prevSettings?.s3Endpoint ??
-								defaultAppSettingsData[group].s3Endpoint),
-					s3BucketName:
-						typeof newSettings?.s3BucketName === "string"
-							? newSettings.s3BucketName
-							: (prevSettings?.s3BucketName ??
-								defaultAppSettingsData[group].s3BucketName),
-					s3PathPrefix:
-						typeof newSettings?.s3PathPrefix === "string"
-							? newSettings.s3PathPrefix
-							: (prevSettings?.s3PathPrefix ??
-								defaultAppSettingsData[group].s3PathPrefix),
-					s3ForcePathStyle:
-						typeof newSettings?.s3ForcePathStyle === "boolean"
-							? newSettings.s3ForcePathStyle
-							: (prevSettings?.s3ForcePathStyle ?? false),
 					saveFileDirectory:
 						typeof newSettings?.saveFileDirectory === "string"
 							? newSettings.saveFileDirectory
@@ -1056,11 +1002,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.videoRecordFileNameFormat
 							: (prevSettings?.videoRecordFileNameFormat ??
 								defaultAppSettingsData[group].videoRecordFileNameFormat),
-					uploadToCloudSaveUrlFormat:
-						typeof newSettings?.uploadToCloudSaveUrlFormat === "string"
-							? newSettings.uploadToCloudSaveUrlFormat
-							: (prevSettings?.uploadToCloudSaveUrlFormat ??
-								defaultAppSettingsData[group].uploadToCloudSaveUrlFormat),
 				};
 			} else if (group === AppSettingsGroup.FunctionFullScreenDraw) {
 				newSettings = newSettings as AppSettingsData[typeof group];

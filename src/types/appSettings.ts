@@ -139,10 +139,6 @@ export enum TrayIconClickAction {
 	Screenshot = "screenshot",
 }
 
-export enum CloudSaveUrlType {
-	S3 = "s3",
-}
-
 export enum TrayIconDefaultIcon {
 	Default = "default",
 	Light = "light",
@@ -150,11 +146,6 @@ export enum TrayIconDefaultIcon {
 	SnowDefault = "snow-default",
 	SnowLight = "snow-light",
 	SnowDark = "snow-dark",
-}
-
-export enum CloudSaveUrlFormat {
-	Origin = "origin",
-	Markdown = "markdown",
 }
 
 export enum DoubleClickAction {
@@ -419,28 +410,6 @@ export type AppSettingsData = {
 		doubleClickAction: DoubleClickAction;
 		/** 复制图片文件到剪贴板 */
 		copyImageFileToClipboard: boolean;
-		/** 保存到云端 */
-		saveToCloud: boolean;
-		/** 云端链接格式 */
-		cloudSaveUrlFormat: CloudSaveUrlFormat;
-		/** 云端资源代理网址 */
-		cloudProxyUrl: string;
-		/** 云端保存协议 */
-		cloudSaveUrlType: CloudSaveUrlType;
-		/** S3 访问密钥 ID */
-		s3AccessKeyId: string;
-		/** S3 访问密钥 */
-		s3SecretAccessKey: string;
-		/** S3 区域 */
-		s3Region: string;
-		/** S3 端点 */
-		s3Endpoint: string;
-		/** S3 桶名 */
-		s3BucketName: string;
-		/** S3 路径前缀 */
-		s3PathPrefix: string;
-		/** S3 强制路径样式 */
-		s3ForcePathStyle: boolean;
 		/** 保存文件路径 */
 		saveFileDirectory: string;
 		/** 保存文件格式 */
@@ -465,8 +434,6 @@ export type AppSettingsData = {
 		fullScreenFileNameFormat: string;
 		/** 视频录制文件名格式 */
 		videoRecordFileNameFormat: string;
-		/** 上传到云端文件名格式 */
-		uploadToCloudSaveUrlFormat: string;
 	};
 	[AppSettingsGroup.FunctionFixedContent]: {
 		/** 以鼠标为中心缩放 */

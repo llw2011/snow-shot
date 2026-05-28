@@ -109,4 +109,6 @@ export const tools = {
 	"tools.captureHistory.deleteSelected.confirm": "确定要删除选中的所有记录吗？",
 	"tools.captureHistory.clearAll": "清空所有记录",
 	"tools.captureHistory.clearAll.confirm": "确定要清空所有记录吗？",
+	"tools.translation.noAvailableService":
+		"没有可用的翻译服务，请在设置中配置 AI 模型",
 };

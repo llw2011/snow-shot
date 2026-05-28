@@ -62,8 +62,6 @@ import {
 	type AppSettingsData,
 	AppSettingsFixedContentInitialPosition,
 	AppSettingsGroup,
-	CloudSaveUrlFormat,
-	CloudSaveUrlType,
 	DoubleClickAction,
 	GifFormat,
 	KeyDisplayDirection,
@@ -594,30 +592,6 @@ export const FunctionSettingsPage = () => {
 		];
 	}, [intl]);
 
-	const cloudSaveUrlTypeOptions = useMemo(() => {
-		return [
-			{
-				label: intl.formatMessage({
-					id: "settings.functionSettings.screenshotSettings.cloudSaveUrl.type.s3",
-				}),
-				value: CloudSaveUrlType.S3,
-			},
-		];
-	}, [intl]);
-
-	const cloudSaveUrlFormatOptions = useMemo(() => {
-		return [
-			{
-				label: intl.formatMessage({ id: "draw.cloudSaveUrlFormat.origin" }),
-				value: CloudSaveUrlFormat.Origin,
-			},
-			{
-				label: intl.formatMessage({ id: "draw.cloudSaveUrlFormat.markdown" }),
-				value: CloudSaveUrlFormat.Markdown,
-			},
-		];
-	}, [intl]);
-
 	const ocrModelOptions = useMemo(() => {
 		return [
 			{
@@ -934,136 +908,6 @@ export const FunctionSettingsPage = () => {
 							</ProForm.Item>
 						</Col>
 					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="saveToCloud"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.saveToCloud" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.saveToCloud.tip" />
-										}
-									/>
-								}
-								valuePropName="checked"
-							/>
-						</Col>
-					</Row>
-
-					<ProFormDependency<{ saveToCloud: boolean }> name={["saveToCloud"]}>
-						{({ saveToCloud }) => {
-							if (!saveToCloud) {
-								return null;
-							}
-
-							return (
-								<Row gutter={token.marginLG}>
-									<Col span={12}>
-										<ProFormSelect
-											name="cloudSaveUrlFormat"
-											layout="horizontal"
-											label={<FormattedMessage id="draw.cloudSaveUrlFormat" />}
-											options={cloudSaveUrlFormatOptions}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="cloudProxyUrl"
-											layout="horizontal"
-											label={
-												<IconLabel
-													label={
-														<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudProxyUrl" />
-													}
-													tooltipTitle={
-														<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudProxyUrl.tip" />
-													}
-												/>
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormSelect
-											name="cloudSaveUrlType"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.type" />
-											}
-											options={cloudSaveUrlTypeOptions}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3Endpoint"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Endpoint" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText.Password
-											name="s3AccessKeyId"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3AccessKeyId" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText.Password
-											name="s3SecretAccessKey"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3SecretAccessKey" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3Region"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Region" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3BucketName"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3BucketName" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3PathPrefix"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3PathPrefix" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormSwitch
-											name="s3ForcePathStyle"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3ForcePathStyle" />
-											}
-										/>
-									</Col>
-								</Row>
-							);
-						}}
-					</ProFormDependency>
 				</ProForm>
 			</Spin>
 
@@ -2591,38 +2435,6 @@ export const FunctionSettingsPage = () => {
 											readonly
 											label={
 												<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="uploadToCloudSaveUrlFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ uploadToCloudSaveUrlFormat: string }>
-							name={["uploadToCloudSaveUrlFormat"]}
-						>
-							{({ uploadToCloudSaveUrlFormat }) => {
-								const text = generateImageFileName(uploadToCloudSaveUrlFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormatPreview" />
 											}
 											fieldProps={{
 												value: text,

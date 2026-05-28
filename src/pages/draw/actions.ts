@@ -1,25 +1,18 @@
-import { basename } from "node:path";
-import type { ExcalidrawElement } from "@mg-chao/excalidraw/element/types";
+﻿import type { ExcalidrawElement } from "@mg-chao/excalidraw/element/types";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
-import urlJoin from "url-join";
 import { createDrawWindow, saveFile } from "@/commands";
 import {
 	writeBitmapImageToClipboard,
 	writeBitmapImageToClipboardWithSharedBuffer,
 	writeImagePixelsToClipboardWithSharedBuffer,
 } from "@/commands/core";
-import { uploadToS3 } from "@/commands/httpServices";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
 import type { ImageLayerActionType } from "@/components/imageLayer";
 import { INIT_CONTAINER_KEY } from "@/components/imageLayer/actions";
-import {
-	type AppSettingsData,
-	AppSettingsGroup,
-	CloudSaveUrlFormat,
-} from "@/types/appSettings";
+import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 import { ImageFormat, type ImagePath } from "@/types/utils/file";
 import { writeImageToClipboard } from "@/utils/clipboard";
-import { generateImageFileName, showImageDialog } from "@/utils/file";
+import { showImageDialog } from "@/utils/file";
 import { appError } from "@/utils/log";
 import { getPlatform } from "@/utils/platform";
 import { randomString } from "@/utils/random";
@@ -550,71 +543,8 @@ export const handleOcrDetect = async (
 	);
 };
 
-export const saveCanvasToCloud = async (
-	imageData: ArrayBuffer | HTMLCanvasElement,
-	appSettings: AppSettingsData,
-): Promise<
-	| string
-	| {
-			error: unknown;
-	  }
-> => {
-	let imageBuffer: ArrayBuffer | undefined;
-	if (imageData instanceof HTMLCanvasElement) {
-		imageBuffer = await new Promise<ArrayBuffer | undefined>((resolve) => {
-			imageData?.toBlob(
-				async (blob) => {
-					resolve(await blob?.arrayBuffer());
-				},
-				"image/png",
-				1,
-			);
-		});
-	} else if (imageData instanceof ArrayBuffer) {
-		imageBuffer = imageData;
-	}
-
-	if (!imageBuffer) {
-		return {
-			error: new Error("imageBuffer is undefined"),
-		};
-	}
-
-	try {
-		const fileName = `${generateImageFileName(
-			appSettings[AppSettingsGroup.FunctionOutput].uploadToCloudSaveUrlFormat,
-		)}.png`;
-		let result = await uploadToS3(
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3Endpoint,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3Region,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3AccessKeyId,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3SecretAccessKey,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3BucketName,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3PathPrefix,
-			appSettings[AppSettingsGroup.FunctionScreenshot].s3ForcePathStyle,
-			imageBuffer,
-			fileName,
-			"image/png",
-		);
-
-		const cloudProxyUrl =
-			appSettings[AppSettingsGroup.FunctionScreenshot].cloudProxyUrl;
-		if (cloudProxyUrl) {
-			const resultUrl = urlJoin(cloudProxyUrl, fileName);
-			result = resultUrl.toString();
-		}
-
-		if (
-			appSettings[AppSettingsGroup.FunctionScreenshot].cloudSaveUrlFormat ===
-			CloudSaveUrlFormat.Markdown
-		) {
-			result = `![${basename(result, ".png")}](${result})`;
-		}
-
-		return result;
-	} catch (error) {
-		return {
-			error,
-		};
-	}
-};
+export const saveCanvasToCloud = async (): Promise<{
+	error: Error;
+}> => ({
+	error: new Error("Cloud save is disabled in the hardened build"),
+});
