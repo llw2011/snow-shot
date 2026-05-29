@@ -83,7 +83,21 @@ const MenuContentCore: React.FC<{
 						<RSC
 							onScroll={(e) => {
 								if ("scrollTop" in e && typeof e.scrollTop === "number") {
-									pageNavActionRef.current?.updateActiveKey(e.scrollTop);
+									pageNavActionRef.current?.updateActiveKey(e.scrollTop, {
+										scrollHeight:
+											"scrollHeight" in e && typeof e.scrollHeight === "number"
+												? e.scrollHeight
+												: undefined,
+										contentScrollHeight:
+											"contentScrollHeight" in e &&
+											typeof e.contentScrollHeight === "number"
+												? e.contentScrollHeight
+												: undefined,
+										clientHeight:
+											"clientHeight" in e && typeof e.clientHeight === "number"
+												? e.clientHeight
+												: undefined,
+									});
 								}
 							}}
 						>

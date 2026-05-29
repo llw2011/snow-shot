@@ -19,10 +19,20 @@ import { IntlProvider } from "react-intl";
 import { createDrawWindow } from "@/commands";
 import { createDir, textFileRead, textFileWrite } from "@/commands/file";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
-import { defaultAppSettingsData } from "@/constants/appSettings";
+import {
+	defaultAppSettingsData,
+	HARDENED_CUSTOM_MODEL_PREFIX,
+	HARDENED_GLM_OCR_CHAT_API_CONFIG,
+	HARDENED_GLM_OCR_CUSTOM_MODEL,
+	HARDENED_QWEN35_CUSTOM_MODEL,
+	HARDENED_QWEN35_TRANSLATION_API_CONFIG,
+} from "@/constants/appSettings";
 import { defaultCommonKeyEventSettings } from "@/constants/commonKeyEvent";
 import { defaultDrawToolbarKeyEventSettings } from "@/constants/drawToolbarKeyEvent";
-import { PLUGIN_ID_RAPID_OCR } from "@/constants/pluginService";
+import {
+	PLUGIN_ID_GLM_OCR,
+	PLUGIN_ID_RAPID_OCR,
+} from "@/constants/pluginService";
 import { AppContext } from "@/contexts/appContext";
 import {
 	AppSettingsActionContext,
@@ -46,6 +56,8 @@ import {
 	type HdrColorAlgorithm,
 	type HistoryValidDuration,
 	OcrDetectAfterAction,
+	OcrModel,
+	TranslationApiType,
 	type TrayIconClickAction,
 	type TrayIconDefaultIcon,
 	type VideoMaxSize,
@@ -66,10 +78,149 @@ import { DrawState } from "@/types/draw";
 import { ImageFormat } from "@/types/utils/file";
 import { getConfigDirPath } from "@/utils/environment";
 import { appError, appWarn, formatErrorDetails } from "@/utils/log";
+import { canUseOcr } from "@/utils/ocr";
 
 const getFilePath = async (group: AppSettingsGroup) => {
 	const configDirPath = await getConfigDirPath();
 	return `${configDirPath}/${group}.json`;
+};
+
+const isLegacyQwenFlashModel = (model: unknown) =>
+	model === "qwen-flash" || model === "snow_shot_custom_qwen-flash";
+
+type ChatApiConfig =
+	AppSettingsData[AppSettingsGroup.FunctionChat]["chatApiConfigList"][number];
+type TranslationApiConfig =
+	AppSettingsData[AppSettingsGroup.FunctionTranslation]["translationApiConfigList"][number];
+
+const normalizeCustomModelValue = (model: unknown) => {
+	const modelName = `${model ?? ""}`;
+	return modelName.startsWith(HARDENED_CUSTOM_MODEL_PREFIX)
+		? modelName.slice(HARDENED_CUSTOM_MODEL_PREFIX.length)
+		: modelName;
+};
+
+const getCustomTranslationType = (apiModel: unknown) =>
+	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
+
+const isGlmOcrApiConfig = (
+	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
+) =>
+	normalizeCustomModelValue(config?.api_model) ===
+		HARDENED_GLM_OCR_CHAT_API_CONFIG.api_model ||
+	`${config?.model_name ?? ""}` === HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name;
+
+const isQwen35TranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+) =>
+	normalizeCustomModelValue(config?.api_model) ===
+		HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model ||
+	`${config?.model_name ?? ""}` ===
+		HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name;
+
+const normalizeChatApiConfig = (
+	config: Partial<ChatApiConfig> | undefined,
+	fallback?: ChatApiConfig,
+): ChatApiConfig => ({
+	api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+	api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+	api_model: normalizeCustomModelValue(
+		config?.api_model ?? fallback?.api_model,
+	),
+	model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
+	support_thinking:
+		typeof config?.support_thinking === "boolean"
+			? config.support_thinking
+			: (fallback?.support_thinking ?? false),
+	support_vision:
+		typeof config?.support_vision === "boolean"
+			? config.support_vision
+			: (fallback?.support_vision ?? false),
+});
+
+const normalizeTranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+): TranslationApiConfig | undefined => {
+	if (config?.api_type === TranslationApiType.DeepL) {
+		return {
+			api_type: TranslationApiType.DeepL,
+			api_uri: `${config.api_uri ?? ""}`,
+			api_key: `${config.api_key ?? ""}`,
+			deepl_prefer_quality_optimized:
+				typeof config.deepl_prefer_quality_optimized === "boolean"
+					? config.deepl_prefer_quality_optimized
+					: false,
+		};
+	}
+
+	if (
+		config?.api_type === TranslationApiType.OpenAiCompatible ||
+		config?.api_type === undefined
+	) {
+		return {
+			api_type: TranslationApiType.OpenAiCompatible,
+			api_uri: `${config?.api_uri ?? ""}`,
+			api_key: `${config?.api_key ?? ""}`,
+			api_model: normalizeCustomModelValue(config?.api_model),
+			model_name: `${config?.model_name ?? ""}`,
+		};
+	}
+
+	return undefined;
+};
+
+const getTranslationApiConfigType = (config: TranslationApiConfig) =>
+	config.api_type === TranslationApiType.OpenAiCompatible
+		? getCustomTranslationType(config.api_model)
+		: config.api_type;
+
+const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
+	const qwen35Config = configList.find(isQwen35TranslationApiConfig);
+	if (qwen35Config?.api_model) {
+		return getCustomTranslationType(qwen35Config.api_model);
+	}
+
+	const openAiConfig = configList.find(
+		(config) =>
+			config.api_type === TranslationApiType.OpenAiCompatible &&
+			!!normalizeCustomModelValue(config.api_model),
+	);
+	if (openAiConfig?.api_model) {
+		return getCustomTranslationType(openAiConfig.api_model);
+	}
+
+	if (
+		configList.some((config) => config.api_type === TranslationApiType.DeepL)
+	) {
+		return TranslationApiType.DeepL;
+	}
+
+	return HARDENED_QWEN35_CUSTOM_MODEL;
+};
+
+const normalizeTranslationType = (
+	translationType: unknown,
+	configList: TranslationApiConfig[],
+) => {
+	const fallbackTranslationType = getFallbackTranslationType(configList);
+	const shouldUseFallback =
+		typeof translationType === "number" ||
+		isLegacyQwenFlashModel(translationType) ||
+		translationType === HARDENED_GLM_OCR_CUSTOM_MODEL;
+
+	if (shouldUseFallback || typeof translationType !== "string") {
+		return fallbackTranslationType;
+	}
+
+	if (
+		configList.some(
+			(config) => getTranslationApiConfigType(config) === translationType,
+		)
+	) {
+		return translationType;
+	}
+
+	return configList.length > 0 ? fallbackTranslationType : translationType;
 };
 
 const AppSettingsContextProviderCore: React.FC<{
@@ -329,11 +480,17 @@ const AppSettingsContextProviderCore: React.FC<{
 						typeof newSettings?.menuCollapsed === "boolean"
 							? newSettings.menuCollapsed
 							: (prevSettings?.menuCollapsed ?? false),
-					chatModel:
-						typeof newSettings?.chatModel === "string"
-							? newSettings.chatModel
-							: (prevSettings?.chatModel ??
-								defaultAppSettingsData[group].chatModel),
+					chatModel: (() => {
+						const chatModel =
+							typeof newSettings?.chatModel === "string"
+								? newSettings.chatModel
+								: (prevSettings?.chatModel ??
+									defaultAppSettingsData[group].chatModel);
+
+						return isLegacyQwenFlashModel(chatModel)
+							? HARDENED_QWEN35_CUSTOM_MODEL
+							: chatModel;
+					})(),
 					chatModelEnableThinking:
 						typeof newSettings?.chatModelEnableThinking === "boolean"
 							? newSettings.chatModelEnableThinking
@@ -543,11 +700,20 @@ const AppSettingsContextProviderCore: React.FC<{
 				const settingKeys: DrawToolbarKeyEventKey[] = Object.keys(
 					defaultDrawToolbarKeyEventSettings,
 				).filter((key) => {
-					if (
-						key === DrawToolbarKeyEventKey.OcrDetectTool ||
-						key === DrawToolbarKeyEventKey.OcrTranslateTool
-					) {
-						return isReady?.(PLUGIN_ID_RAPID_OCR);
+					if (key === DrawToolbarKeyEventKey.OcrDetectTool) {
+						return canUseOcr(
+							appSettingsRef.current,
+							isReady?.(PLUGIN_ID_GLM_OCR),
+							isReady?.(PLUGIN_ID_RAPID_OCR),
+						);
+					}
+
+					if (key === DrawToolbarKeyEventKey.OcrTranslateTool) {
+						return canUseOcr(
+							appSettingsRef.current,
+							isReady?.(PLUGIN_ID_GLM_OCR),
+							isReady?.(PLUGIN_ID_RAPID_OCR),
+						);
 					}
 
 					return true;
@@ -763,13 +929,32 @@ const AppSettingsContextProviderCore: React.FC<{
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
+				const legacyGlmOcrApiConfig =
+					appSettingsRef.current[
+						AppSettingsGroup.FunctionChat
+					].chatApiConfigList.find(isGlmOcrApiConfig);
 
 				settings = {
-					ocrModel:
-						typeof newSettings?.ocrModel === "string"
-							? newSettings.ocrModel
-							: (prevSettings?.ocrModel ??
-								defaultAppSettingsData[group].ocrModel),
+					ocrModel: (() => {
+						if (typeof newSettings?.ocrModel === "string") {
+							switch (newSettings.ocrModel) {
+								case OcrModel.GlmOcr:
+								case OcrModel.RapidOcrV4:
+								case OcrModel.RapidOcrV5:
+									return newSettings.ocrModel;
+							}
+						}
+
+						return (
+							prevSettings?.ocrModel ?? defaultAppSettingsData[group].ocrModel
+						);
+					})(),
+					glmOcrApiConfig: normalizeChatApiConfig(
+						newSettings?.glmOcrApiConfig,
+						prevSettings?.glmOcrApiConfig ??
+							legacyGlmOcrApiConfig ??
+							defaultAppSettingsData[group].glmOcrApiConfig,
+					),
 					htmlVisionModel:
 						typeof newSettings?.htmlVisionModel === "string"
 							? newSettings.htmlVisionModel
@@ -792,23 +977,20 @@ const AppSettingsContextProviderCore: React.FC<{
 					| AppSettingsData[typeof group]
 					| undefined;
 
+				const chatApiConfigList = Array.isArray(newSettings?.chatApiConfigList)
+					? newSettings.chatApiConfigList
+					: (prevSettings?.chatApiConfigList ??
+						defaultAppSettingsData[group].chatApiConfigList);
+
 				settings = {
 					autoCreateNewSession:
 						typeof newSettings?.autoCreateNewSession === "boolean"
 							? newSettings.autoCreateNewSession
 							: (prevSettings?.autoCreateNewSession ??
 								defaultAppSettingsData[group].autoCreateNewSession),
-					chatApiConfigList: Array.isArray(newSettings?.chatApiConfigList)
-						? newSettings.chatApiConfigList.map((item) => ({
-								api_uri: `${item.api_uri ?? ""}`,
-								api_key: `${item.api_key ?? ""}`,
-								api_model: `${item.api_model ?? ""}`,
-								model_name: `${item.model_name ?? ""}`,
-								support_thinking: !!item.support_thinking,
-								support_vision: !!item.support_vision,
-							}))
-						: (prevSettings?.chatApiConfigList ??
-							defaultAppSettingsData[group].chatApiConfigList),
+					chatApiConfigList: chatApiConfigList
+						.map((item) => normalizeChatApiConfig(item))
+						.filter((item) => !isGlmOcrApiConfig(item)),
 					autoCreateNewSessionOnCloseWindow:
 						typeof newSettings?.autoCreateNewSessionOnCloseWindow === "boolean"
 							? newSettings.autoCreateNewSessionOnCloseWindow
@@ -845,11 +1027,41 @@ const AppSettingsContextProviderCore: React.FC<{
 							: (prevSettings?.cacheTranslationType ??
 								defaultAppSettingsData[group].cacheTranslationType),
 				};
+
+				settings.cacheTranslationType = normalizeTranslationType(
+					settings.cacheTranslationType,
+					appSettingsRef.current[AppSettingsGroup.FunctionTranslation]
+						.translationApiConfigList,
+				);
 			} else if (group === AppSettingsGroup.FunctionTranslation) {
 				newSettings = newSettings as AppSettingsData[typeof group];
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
+				const defaultTranslationApiConfigInitialized =
+					typeof newSettings?.defaultTranslationApiConfigInitialized ===
+					"boolean"
+						? newSettings.defaultTranslationApiConfigInitialized
+						: (prevSettings?.defaultTranslationApiConfigInitialized ?? false);
+				let translationApiConfigList = (
+					Array.isArray(newSettings?.translationApiConfigList)
+						? newSettings.translationApiConfigList
+						: (prevSettings?.translationApiConfigList ??
+							defaultAppSettingsData[group].translationApiConfigList)
+				)
+					.map((item) => normalizeTranslationApiConfig(item))
+					.filter((item): item is TranslationApiConfig => !!item)
+					.filter((item) => !isGlmOcrApiConfig(item));
+
+				if (
+					!defaultTranslationApiConfigInitialized &&
+					!translationApiConfigList.some(isQwen35TranslationApiConfig)
+				) {
+					translationApiConfigList = [
+						HARDENED_QWEN35_TRANSLATION_API_CONFIG,
+						...translationApiConfigList,
+					];
+				}
 
 				settings = {
 					translationSystemPrompt:
@@ -862,20 +1074,8 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.optimizeAiTranslationLayout
 							: (prevSettings?.optimizeAiTranslationLayout ??
 								defaultAppSettingsData[group].optimizeAiTranslationLayout),
-					translationApiConfigList: Array.isArray(
-						newSettings?.translationApiConfigList,
-					)
-						? newSettings.translationApiConfigList.map((item) => ({
-								api_uri: `${item.api_uri ?? ""}`,
-								api_key: `${item.api_key ?? ""}`,
-								api_type: item.api_type,
-								deepl_prefer_quality_optimized:
-									typeof item.deepl_prefer_quality_optimized === "boolean"
-										? item.deepl_prefer_quality_optimized
-										: false,
-							}))
-						: (prevSettings?.translationApiConfigList ??
-							defaultAppSettingsData[group].translationApiConfigList),
+					translationApiConfigList,
+					defaultTranslationApiConfigInitialized: true,
 					sourceLanguage:
 						typeof newSettings?.sourceLanguage === "string"
 							? newSettings.sourceLanguage
@@ -898,6 +1098,11 @@ const AppSettingsContextProviderCore: React.FC<{
 							: (prevSettings?.translationType ??
 								defaultAppSettingsData[group].translationType),
 				};
+
+				settings.translationType = normalizeTranslationType(
+					settings.translationType,
+					settings.translationApiConfigList,
+				);
 			} else if (group === AppSettingsGroup.FunctionScreenshot) {
 				newSettings = newSettings as AppSettingsData[typeof group];
 				const prevSettings = appSettingsRef.current[group] as

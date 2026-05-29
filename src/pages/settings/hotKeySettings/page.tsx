@@ -6,6 +6,7 @@ import { FormattedMessage } from "react-intl";
 import { GroupTitle } from "@/components/groupTitle";
 import { KeyButton } from "@/components/keyButton";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
 	defaultCommonKeyEventComponentConfig,
 	defaultCommonKeyEventSettings,
@@ -16,19 +17,25 @@ import {
 } from "@/constants/drawToolbarKeyEvent";
 import {
 	PLUGIN_ID_AI_CHAT,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
-import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
+import {
+	AppSettingsActionContext,
+	AppSettingsPublisher,
+} from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { usePlatform } from "@/hooks/usePlatform";
+import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 import { DrawToolbarKeyEventKey } from "@/types/components/drawToolbar";
 import {
 	CommonKeyEventGroup,
 	type CommonKeyEventKey,
 } from "@/types/core/commonKeyEvent";
+import { canUseOcr } from "@/utils/ocr";
 
 export const HotKeySettingsPage = () => {
 	const { token } = theme.useToken();
@@ -48,6 +55,10 @@ export const HotKeySettingsPage = () => {
 	const [commonKeyEvent, setCommonKeyEvent] = useState<
 		AppSettingsData[AppSettingsGroup.CommonKeyEvent]
 	>(defaultCommonKeyEventSettings);
+	const [currentAppSettings, setCurrentAppSettings] = useState<AppSettingsData>(
+		defaultAppSettingsData,
+	);
+	useStateSubscriber(AppSettingsPublisher, setCurrentAppSettings);
 	useAppSettingsLoad(
 		useCallback((settings: AppSettingsData, preSettings?: AppSettingsData) => {
 			setAppSettingsLoading(false);
@@ -92,13 +103,20 @@ export const HotKeySettingsPage = () => {
 				}
 
 				if (key === DrawToolbarKeyEventKey.OcrDetectTool) {
-					return isReadyStatus?.(PLUGIN_ID_RAPID_OCR);
+					return canUseOcr(
+						currentAppSettings,
+						isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+						isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+					);
 				}
 
 				if (key === DrawToolbarKeyEventKey.OcrTranslateTool) {
 					return (
-						isReadyStatus?.(PLUGIN_ID_RAPID_OCR) &&
-						isReadyStatus?.(PLUGIN_ID_TRANSLATE)
+						canUseOcr(
+							currentAppSettings,
+							isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+							isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+						) && isReadyStatus?.(PLUGIN_ID_TRANSLATE)
 					);
 				}
 
@@ -144,7 +162,13 @@ export const HotKeySettingsPage = () => {
 					</Col>
 				);
 			});
-	}, [currentPlatform, drawToolbarKeyEvent, isReadyStatus, updateAppSettings]);
+	}, [
+		currentPlatform,
+		currentAppSettings,
+		drawToolbarKeyEvent,
+		isReadyStatus,
+		updateAppSettings,
+	]);
 
 	const keyEventFormItemList = useMemo(() => {
 		const groupFormItemMap: Record<CommonKeyEventGroup, React.ReactNode[]> = {

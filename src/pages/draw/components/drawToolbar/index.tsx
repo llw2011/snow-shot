@@ -38,6 +38,7 @@ import {
 	TextIcon,
 } from "@/components/icons";
 import {
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -59,6 +60,7 @@ import { DrawToolbarKeyEventKey } from "@/types/components/drawToolbar";
 import { DrawState } from "@/types/draw";
 import { getExcalidrawCanvas } from "@/utils/excalidraw";
 import { appWarn } from "@/utils/log";
+import { canUseOcr } from "@/utils/ocr";
 import { ScreenshotType } from "@/utils/types";
 import { zIndexs } from "@/utils/zIndex";
 import {
@@ -187,6 +189,7 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 		ScreenshotTypePublisher,
 		undefined,
 	);
+	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 
 	useStateSubscriber(
 		AppSettingsPublisher,
@@ -474,7 +477,13 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 					break;
 				case DrawState.OcrDetect:
 				case DrawState.OcrTranslate:
-					if (isReady?.(PLUGIN_ID_RAPID_OCR)) {
+					if (
+						canUseOcr(
+							getAppSettings(),
+							isReady?.(PLUGIN_ID_GLM_OCR),
+							isReady?.(PLUGIN_ID_RAPID_OCR),
+						)
+					) {
 						onOcrDetect();
 					}
 					break;
@@ -500,6 +509,7 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 			getDrawState,
 			intl,
 			isReady,
+			getAppSettings,
 			message,
 			onOcrDetect,
 			selectLayerActionRef,
@@ -896,14 +906,22 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 							<ToolButton
 								hidden={
 									customToolbarToolHiddenMap?.[DrawState.OcrDetect] ||
-									!isReadyStatus?.(PLUGIN_ID_RAPID_OCR)
+									!canUseOcr(
+										getAppSettings(),
+										isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+										isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+									)
 								}
 								componentKey={DrawToolbarKeyEventKey.OcrDetectTool}
 								icon={<OcrDetectIcon style={{ fontSize: "0.88em" }} />}
 								drawState={DrawState.OcrDetect}
 								disable={
 									disableNormalScreenshotTool ||
-									!isReadyStatus?.(PLUGIN_ID_RAPID_OCR)
+									!canUseOcr(
+										getAppSettings(),
+										isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+										isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+									)
 								}
 								onClick={() => {
 									onToolClick(DrawState.OcrDetect);
@@ -914,8 +932,11 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 								hidden={
 									customToolbarToolHiddenMap?.[DrawState.OcrTranslate] ||
 									!(
-										isReadyStatus?.(PLUGIN_ID_RAPID_OCR) &&
-										isReadyStatus?.(PLUGIN_ID_TRANSLATE)
+										canUseOcr(
+											getAppSettings(),
+											isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+											isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+										) && isReadyStatus?.(PLUGIN_ID_TRANSLATE)
 									)
 								}
 								componentKey={DrawToolbarKeyEventKey.OcrTranslateTool}
@@ -924,8 +945,11 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 								disable={
 									disableNormalScreenshotTool ||
 									!(
-										isReadyStatus?.(PLUGIN_ID_RAPID_OCR) &&
-										isReadyStatus?.(PLUGIN_ID_TRANSLATE)
+										canUseOcr(
+											getAppSettings(),
+											isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+											isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+										) && isReadyStatus?.(PLUGIN_ID_TRANSLATE)
 									)
 								}
 								onClick={() => {

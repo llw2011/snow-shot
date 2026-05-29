@@ -69,6 +69,7 @@ export type ChatApiConfig = {
 };
 
 export enum TranslationApiType {
+	OpenAiCompatible = "translation_api_openai_compatible",
 	DeepL = "translation_api_deepl",
 }
 
@@ -76,6 +77,8 @@ export type TranslationApiConfig = {
 	api_type: TranslationApiType;
 	api_uri: string;
 	api_key: string;
+	api_model?: string;
+	model_name?: string;
 	deepl_prefer_quality_optimized?: boolean;
 };
 
@@ -189,6 +192,7 @@ export enum ColorPickerShowMode {
 }
 
 export enum OcrModel {
+	GlmOcr = "GlmOcr",
 	RapidOcrV4 = "RapidOcrV4",
 	RapidOcrV5 = "RapidOcrV5",
 }
@@ -370,6 +374,8 @@ export type AppSettingsData = {
 	[AppSettingsGroup.FunctionOcr]: {
 		/** 文本识别模型 */
 		ocrModel: OcrModel;
+		/** GLM OCR API 配置 */
+		glmOcrApiConfig: ChatApiConfig;
 		/** 将图片转为 HTML 的视觉理解模型 */
 		htmlVisionModel: string;
 		/** 图片转为 HTML 的 System 提示词 */
@@ -382,6 +388,7 @@ export type AppSettingsData = {
 		optimizeAiTranslationLayout: boolean;
 		translationSystemPrompt: string;
 		translationApiConfigList: TranslationApiConfig[];
+		defaultTranslationApiConfigInitialized: boolean;
 		sourceLanguage: string;
 		targetLanguage: string;
 		translationDomain: TranslationDomain;

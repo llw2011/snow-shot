@@ -13,9 +13,11 @@ import {
 	createFixedContentWindow,
 	createFullScreenDrawWindow,
 } from "@/commands/core";
+import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -53,6 +55,7 @@ import {
 } from "@/types/components/appFunction";
 import { formatKey } from "@/utils/format";
 import { appError } from "@/utils/log";
+import { canUseOcr } from "@/utils/ocr";
 import { getPlatformValue } from "@/utils/platform";
 import { ScreenshotType } from "@/utils/types";
 import { showWindow } from "@/utils/window";
@@ -111,10 +114,14 @@ const TrayIconLoaderComponent = () => {
 		TrayIconDefaultIcon.Default,
 	);
 	const [enableTrayIcon, setEnableTrayIcon] = useState(false);
+	const [currentAppSettings, setCurrentAppSettings] = useState<AppSettingsData>(
+		defaultAppSettingsData,
+	);
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	useAppSettingsLoad(
 		useCallback(
 			(settings: AppSettingsData, previous: AppSettingsData | undefined) => {
+				setCurrentAppSettings(settings);
 				if (
 					shortcutKeysRef.current === undefined ||
 					!isEqual(
@@ -235,7 +242,11 @@ const TrayIconLoaderComponent = () => {
 						executeScreenshot(ScreenshotType.Fixed);
 					},
 				},
-				...(isReadyStatus(PLUGIN_ID_RAPID_OCR)
+				...(canUseOcr(
+					currentAppSettings,
+					isReadyStatus(PLUGIN_ID_GLM_OCR),
+					isReadyStatus(PLUGIN_ID_RAPID_OCR),
+				)
 					? [
 							{
 								id: `${appWindow.label}-screenshot-ocr`,
@@ -553,6 +564,7 @@ const TrayIconLoaderComponent = () => {
 		delayScreenshotSeconds,
 		iconPath,
 		message,
+		currentAppSettings,
 		defaultIcon,
 		getAppSettings,
 		setTrayIconState,

@@ -44,9 +44,11 @@ import {
 } from "@/components/icons";
 import { TrayIconStatePublisher } from "@/components/trayIconLoader";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
+import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -80,6 +82,7 @@ import {
 	type AppFunctionGroup,
 } from "@/types/components/appFunction";
 import { appError } from "@/utils/log";
+import { canUseOcr } from "@/utils/ocr";
 import { ScreenshotType } from "@/utils/types";
 import { ChangeDelaySeconds } from "./components/changeDelaySeconds";
 
@@ -121,6 +124,9 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 		// useCallback((settings: AppSettingsData) => {}, []),
 		undefined,
 	);
+	const [currentAppSettings, setCurrentAppSettings] = useState<AppSettingsData>(
+		defaultAppSettingsData,
+	);
 
 	const { isReadyStatus } = usePluginServiceContext();
 	const {
@@ -140,7 +146,11 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 				}
 
 				if (key === AppFunction.ScreenshotOcr) {
-					return isReadyStatus?.(PLUGIN_ID_RAPID_OCR);
+					return canUseOcr(
+						currentAppSettings,
+						isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+						isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+					);
 				}
 
 				if (key === AppFunction.Chat) {
@@ -153,8 +163,11 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 
 				if (key === AppFunction.ScreenshotOcrTranslate) {
 					return (
-						isReadyStatus?.(PLUGIN_ID_RAPID_OCR) &&
-						isReadyStatus?.(PLUGIN_ID_TRANSLATE)
+						canUseOcr(
+							currentAppSettings,
+							isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+							isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+						) && isReadyStatus?.(PLUGIN_ID_TRANSLATE)
 					);
 				}
 
@@ -404,7 +417,7 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 		);
 
 		return { configs, groupConfigs };
-	}, [getAppSettings, getTrayIconState, isReadyStatus]);
+	}, [currentAppSettings, getAppSettings, getTrayIconState, isReadyStatus]);
 
 	const [shortcutKeyStatus, setShortcutKeyStatus] =
 		useState<Record<AppFunction, ShortcutKeyStatus>>();
@@ -473,6 +486,7 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 	const hasUnregisteredAll = useRef(false);
 	useAppSettingsLoad(
 		useCallback((settings: AppSettingsData) => {
+			setCurrentAppSettings(settings);
 			(hasUnregisteredAll.current ? Promise.resolve() : unregisterAll()).then(
 				() => {
 					setAppFunctionSettings(settings[AppSettingsGroup.AppFunction]);

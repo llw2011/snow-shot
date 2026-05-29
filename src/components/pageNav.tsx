@@ -1,5 +1,4 @@
 import { Tabs, type TabsProps, theme } from "antd";
-import { debounce } from "es-toolkit";
 import {
 	useCallback,
 	useEffect,
@@ -11,7 +10,13 @@ import {
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
 export type PageNavActionType = {
-	updateActiveKey: (scrollTop: number) => void;
+	updateActiveKey: (scrollTop: number, metrics?: PageNavScrollMetrics) => void;
+};
+
+export type PageNavScrollMetrics = {
+	scrollHeight?: number;
+	contentScrollHeight?: number;
+	clientHeight?: number;
 };
 
 export const PageNav: React.FC<{
@@ -27,63 +32,145 @@ export const PageNav: React.FC<{
 	useEffect(() => {
 		tabItemsRef.current = tabItems.items;
 	}, [tabItems]);
-	const anchorTopListRef = useRef<{ key: string; offsetTop: number }[]>([]);
 
-	const updateActiveKey = useCallback((scrollTop: number) => {
-		const anchorTopList = anchorTopListRef.current;
-		if (anchorTopList.length === 0) {
-			return;
+	const tabItemsKey = useMemo(
+		() => (tabItems.items ?? []).map((item) => item.key).join("|"),
+		[tabItems.items],
+	);
+
+	const getAnchorTopList = useCallback(() => {
+		if (typeof document === "undefined") {
+			return [];
 		}
 
-		let targetKey = "";
-		for (const anchor of anchorTopList) {
-			if (anchor.offsetTop <= scrollTop) {
-				targetKey = anchor.key;
-			} else {
-				break;
-			}
-		}
+		return (tabItemsRef.current ?? [])
+			.map((item) => {
+				const key = item.key?.toString();
+				if (!key) {
+					return undefined;
+				}
 
-		if (!targetKey) {
-			return;
-		}
+				const element = document.getElementById(key);
+				if (!element) {
+					return undefined;
+				}
 
-		setActiveKey(targetKey);
+				return {
+					key,
+					offsetTop: element.offsetTop,
+				};
+			})
+			.filter((item): item is { key: string; offsetTop: number } => !!item)
+			.sort((a, b) => a.offsetTop - b.offsetTop);
 	}, []);
-	const updateActiveKeyDebounce = useMemo(
-		() => debounce(updateActiveKey, 256),
+
+	const updateActiveKey = useCallback(
+		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
+			const anchorTopList = getAnchorTopList();
+			if (anchorTopList.length === 0) {
+				return;
+			}
+
+			let targetKey = anchorTopList[0].key;
+			const scrollHeight =
+				typeof metrics?.contentScrollHeight === "number"
+					? metrics.contentScrollHeight
+					: metrics?.scrollHeight;
+			if (
+				typeof scrollHeight === "number" &&
+				typeof metrics?.clientHeight === "number" &&
+				scrollHeight > metrics.clientHeight &&
+				scrollTop >= scrollHeight - metrics.clientHeight - 2
+			) {
+				targetKey = anchorTopList[anchorTopList.length - 1].key;
+			} else {
+				const activeTop = scrollTop + 32;
+				for (const anchor of anchorTopList) {
+					if (anchor.offsetTop <= activeTop) {
+						targetKey = anchor.key;
+					} else {
+						break;
+					}
+				}
+			}
+
+			setActiveKey((prevKey) => {
+				if (prevKey === targetKey) {
+					return prevKey;
+				}
+
+				return targetKey;
+			});
+		},
+		[getAnchorTopList],
+	);
+
+	const updateActiveKeyRafRef = useRef<number | undefined>(undefined);
+	const updateActiveKeyScrollTopRef = useRef(0);
+	const updateActiveKeyMetricsRef = useRef<PageNavScrollMetrics | undefined>(
+		undefined,
+	);
+	const scheduleUpdateActiveKey = useCallback(
+		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
+			updateActiveKeyScrollTopRef.current = scrollTop;
+			updateActiveKeyMetricsRef.current = metrics;
+			if (typeof window === "undefined") {
+				updateActiveKey(scrollTop, metrics);
+				return;
+			}
+
+			if (updateActiveKeyRafRef.current !== undefined) {
+				return;
+			}
+
+			updateActiveKeyRafRef.current = window.requestAnimationFrame(() => {
+				updateActiveKeyRafRef.current = undefined;
+				updateActiveKey(
+					updateActiveKeyScrollTopRef.current,
+					updateActiveKeyMetricsRef.current,
+				);
+			});
+		},
 		[updateActiveKey],
 	);
+
 	useEffect(() => {
-		if (!document) {
-			return;
-		}
+		return () => {
+			if (
+				typeof window !== "undefined" &&
+				updateActiveKeyRafRef.current !== undefined
+			) {
+				window.cancelAnimationFrame(updateActiveKeyRafRef.current);
+			}
+		};
+	}, []);
 
+	useEffect(() => {
 		const tabs = tabItems.items;
-		if (!tabs || tabs.length === 0) {
+		const firstTabKey = tabs?.[0]?.key?.toString();
+		if (!firstTabKey) {
+			setActiveKey(undefined);
 			return;
 		}
-		setActiveKey(tabs[0].key as string);
 
-		anchorTopListRef.current = tabs.map((item) => {
-			const element = document.getElementById(item.key as string);
-			return {
-				key: item.key as string,
-				offsetTop: element
-					? element.offsetTop - element.clientHeight
-					: Number.MAX_SAFE_INTEGER,
-			};
+		const tabKeys = new Set(tabs?.map((item) => item.key?.toString()));
+		setActiveKey((prevKey) => {
+			if (prevKey && tabKeys.has(prevKey)) {
+				return prevKey;
+			}
+
+			return firstTabKey;
 		});
 
-		updateActiveKeyDebounce(0);
-	}, [tabItems, updateActiveKeyDebounce]);
+		scheduleUpdateActiveKey(0);
+	}, [tabItems.items, scheduleUpdateActiveKey]);
 
 	useImperativeHandle(
 		actionRef,
 		() => ({
-			updateActiveKey: updateActiveKeyDebounce,
+			updateActiveKey: scheduleUpdateActiveKey,
 		}),
-		[updateActiveKeyDebounce],
+		[scheduleUpdateActiveKey],
 	);
 
 	return (
@@ -92,6 +179,7 @@ export const PageNav: React.FC<{
 			style={{ display: tabItems.hideTabs ? "none" : undefined }}
 		>
 			<Tabs
+				key={`${tabItemsKey}:${activeKey ?? ""}`}
 				activeKey={activeKey}
 				items={tabItems.items}
 				size="small"

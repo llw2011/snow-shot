@@ -15,7 +15,10 @@ import {
 import { FormattedMessage, useIntl } from "react-intl";
 import { ocrDetect, ocrDetectWithSharedBuffer } from "@/commands/ocr";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
-import { PLUGIN_ID_RAPID_OCR } from "@/constants/pluginService";
+import {
+	PLUGIN_ID_GLM_OCR,
+	PLUGIN_ID_RAPID_OCR,
+} from "@/constants/pluginService";
 import { AntdContext } from "@/contexts/antdContext";
 import { AppContext } from "@/contexts/appContext";
 import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
@@ -37,6 +40,7 @@ import type { OcrDetectResult } from "@/types/commands/ocr";
 import type { ElementRect } from "@/types/commands/screenshot";
 import { writeHtmlToClipboard, writeTextToClipboard } from "@/utils/clipboard";
 import { appError } from "@/utils/log";
+import { canUseOcr, isGlmOcrModel } from "@/utils/ocr";
 import { getPlatformValue } from "@/utils/platform";
 import { randomString } from "@/utils/random";
 import { getWebViewSharedBuffer } from "@/utils/webview";
@@ -96,6 +100,31 @@ export const covertOcrResultToText = (ocrResult: OcrDetectResult) => {
 	return ocrResult.text_blocks.map((block) => block.text).join("\n");
 };
 
+const createFullCanvasOcrResult = (
+	canvas: HTMLCanvasElement,
+	text: string,
+	scaleFactor: number,
+): OcrDetectResult => ({
+	text_blocks: text.trim()
+		? [
+				{
+					text: text.trim(),
+					text_score: 1,
+					box_points: [
+						{ x: 0, y: 0 },
+						{ x: canvas.width, y: 0 },
+						{ x: canvas.width, y: canvas.height },
+						{ x: 0, y: canvas.height },
+					],
+				},
+			]
+		: [],
+	scale_factor: scaleFactor,
+});
+
+const GLM_OCR_SYSTEM_PROMPT =
+	"Extract all visible text from the image. Output plain text only. Preserve line breaks when they help readability.";
+
 export enum OcrResultType {
 	Ocr = "ocr",
 	Translated = "translated",
@@ -113,7 +142,17 @@ export const useVisionModelList = () => {
 
 	const getVisionModelList = useCallback(async () => {
 		const settings = getAppSettings();
-		const visionModelList = settings[
+		const glmOcrModel = settings[AppSettingsGroup.FunctionOcr].glmOcrApiConfig;
+		const visionModelList: VisionModel[] = [
+			{
+				config: {
+					...glmOcrModel,
+					api_model: `${CUSTOM_MODEL_PREFIX}${glmOcrModel.api_model}`,
+				},
+				isOfficial: false,
+			},
+		];
+		const chatVisionModelList = settings[
 			AppSettingsGroup.FunctionChat
 		].chatApiConfigList
 			.filter((config) => config.support_vision)
@@ -127,7 +166,7 @@ export const useVisionModelList = () => {
 				};
 			});
 
-		return visionModelList;
+		return [...visionModelList, ...chatVisionModelList];
 	}, [getAppSettings]);
 
 	return useMemo(() => {
@@ -506,6 +545,55 @@ export const OcrResult: React.FC<{
 			scaleFactor: number,
 			detectAngle: boolean,
 		): Promise<OcrDetectResult | undefined> => {
+			if (
+				isGlmOcrModel(getAppSettings()[AppSettingsGroup.FunctionOcr].ocrModel)
+			) {
+				const modelConfig =
+					getAppSettings()[AppSettingsGroup.FunctionOcr].glmOcrApiConfig;
+
+				const client = new OpenAI({
+					apiKey: modelConfig.api_key,
+					baseURL: modelConfig.api_uri,
+					dangerouslyAllowBrowser: true,
+					fetch: appFetch,
+				});
+
+				const imageBase64 = canvas.toDataURL("image/webp", 0.7);
+				const response = await client.chat.completions.create({
+					model: modelConfig.api_model.replace(CUSTOM_MODEL_PREFIX, ""),
+					messages: [
+						{
+							role: "system",
+							content: GLM_OCR_SYSTEM_PROMPT,
+						},
+						{
+							role: "user",
+							content: [
+								{
+									type: "image_url",
+									image_url: {
+										url: imageBase64,
+									},
+								},
+								{
+									type: "text",
+									text: "OCR this image.",
+								},
+							],
+						},
+					],
+					max_completion_tokens:
+						getAppSettings()[AppSettingsGroup.SystemChat].maxTokens,
+					temperature: 0,
+				});
+
+				return createFullCanvasOcrResult(
+					canvas,
+					response.choices[0]?.message.content ?? "",
+					scaleFactor,
+				);
+			}
+
 			const ocrResultWithSharedBuffer = await ocrDetectWithSharedBufferAction(
 				canvas,
 				scaleFactor,
@@ -531,7 +619,7 @@ export const OcrResult: React.FC<{
 			);
 			return ocrResult;
 		},
-		[ocrDetectWithSharedBufferAction],
+		[getAppSettings, ocrDetectWithSharedBufferAction],
 	);
 
 	/** 请求 ID，避免 OCR 检测中切换工具后仍然触发 OCR 结果 */
@@ -555,7 +643,13 @@ export const OcrResult: React.FC<{
 	] = useStateRef<AppOcrResult | undefined>(undefined);
 	const initDrawCanvas = useCallback(
 		async (params: OcrResultInitDrawCanvasParams) => {
-			if (!isReady?.(PLUGIN_ID_RAPID_OCR)) {
+			if (
+				!canUseOcr(
+					getAppSettings(),
+					isReady?.(PLUGIN_ID_GLM_OCR),
+					isReady?.(PLUGIN_ID_RAPID_OCR),
+				)
+			) {
 				return;
 			}
 
@@ -691,7 +785,13 @@ export const OcrResult: React.FC<{
 
 	const initImage = useCallback(
 		async (params: OcrResultInitImageParams) => {
-			if (!isReady?.(PLUGIN_ID_RAPID_OCR)) {
+			if (
+				!canUseOcr(
+					getAppSettings(),
+					isReady?.(PLUGIN_ID_GLM_OCR),
+					isReady?.(PLUGIN_ID_RAPID_OCR),
+				)
+			) {
 				return;
 			}
 

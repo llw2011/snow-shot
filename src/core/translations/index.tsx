@@ -71,10 +71,6 @@ export const useTranslationRequest = (options?: {
 	const [targetLanguage, setTargetLanguage, targetLanguageRef] =
 		useStateRef<string>("zh-CHS");
 
-	// 用户自定义的 AI 对话配置
-	const [chatApiConfigList, setChatApiConfigList] = useState<
-		ChatApiConfig[] | undefined
-	>(undefined);
 	/// 用户自定义的翻译 API 配置
 	const [translationApiConfigList, setTranslationApiConfigList] = useState<
 		TranslationApiConfig[] | undefined
@@ -119,9 +115,6 @@ export const useTranslationRequest = (options?: {
 					);
 				}
 
-				setChatApiConfigList(
-					settings[AppSettingsGroup.FunctionChat].chatApiConfigList,
-				);
 				setTranslationApiConfigList(
 					settings[AppSettingsGroup.FunctionTranslation]
 						.translationApiConfigList,
@@ -164,12 +157,20 @@ export const useTranslationRequest = (options?: {
 	] = useStateRef<TranslationServiceConfig[]>([]);
 
 	const getTranslationApiConfigTypeName = useCallback(
-		(apiConfigType: TranslationApiType) => {
-			switch (apiConfigType) {
+		(apiConfig: TranslationApiConfig) => {
+			switch (apiConfig.api_type) {
+				case TranslationApiType.OpenAiCompatible:
+					return (
+						apiConfig.model_name ||
+						apiConfig.api_model ||
+						intl.formatMessage({
+							id: "tools.translation.type.openAiCompatible",
+						})
+					);
 				case TranslationApiType.DeepL:
 					return intl.formatMessage({ id: "tools.translation.type.deepl" });
 				default:
-					return apiConfigType;
+					return apiConfig.api_type;
 			}
 		},
 		[intl],
@@ -182,21 +183,26 @@ export const useTranslationRequest = (options?: {
 	useEffect(() => {
 		setSupportedTranslationTypesLoading(true);
 		setSupportedTranslationTypes([
-			...(chatApiConfigList?.map((item): TranslationServiceConfig => {
-				return {
-					type: `${CUSTOM_MODEL_PREFIX}${item.api_model}`,
-					name: item.model_name,
-					apiConfig: {
-						...item,
-						support_thinking: false,
-					},
-					isOfficial: false,
-				};
-			}) ?? []),
 			...(translationApiConfigList?.map((item): TranslationServiceConfig => {
+				if (item.api_type === TranslationApiType.OpenAiCompatible) {
+					return {
+						type: `${CUSTOM_MODEL_PREFIX}${item.api_model ?? ""}`,
+						name: getTranslationApiConfigTypeName(item),
+						apiConfig: {
+							api_uri: item.api_uri,
+							api_key: item.api_key,
+							api_model: item.api_model ?? "",
+							model_name: item.model_name ?? item.api_model ?? "",
+							support_thinking: false,
+							support_vision: false,
+						},
+						isOfficial: false,
+					};
+				}
+
 				return {
 					type: item.api_type,
-					name: getTranslationApiConfigTypeName(item.api_type),
+					name: getTranslationApiConfigTypeName(item),
 					translationApiConfig: item,
 					isOfficial: false,
 				};
@@ -204,7 +210,6 @@ export const useTranslationRequest = (options?: {
 		]);
 		setSupportedTranslationTypesLoading(false);
 	}, [
-		chatApiConfigList,
 		setSupportedTranslationTypes,
 		translationApiConfigList,
 		getTranslationApiConfigTypeName,

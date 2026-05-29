@@ -42,6 +42,7 @@ export const tools = {
 	"tools.translation.domain": "翻译领域",
 	"tools.translation.type.youdao": "有道翻译",
 	"tools.translation.type.deepseek": "DeepSeek",
+	"tools.translation.type.openAiCompatible": "AI / OpenAI 兼容",
 	"tools.translation.type.deepl": "DeepL 翻译",
 	"tools.translation.type.googleWeb": "Google 网页翻译",
 	"tools.translation.domain.general": "通用领域",

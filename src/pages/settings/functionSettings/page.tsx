@@ -50,6 +50,7 @@ import {
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -78,6 +79,7 @@ import {
 	getImageSaveDirectory,
 	getVideoRecordSaveDirectory,
 } from "@/utils/file";
+import { canUseOcr } from "@/utils/ocr";
 import { TestChat } from "./components/testChat";
 import { TranslationConfig } from "./components/translationConfig";
 
@@ -281,6 +283,20 @@ export const FunctionSettingsPage = () => {
 	);
 
 	const { isReadyStatus } = usePluginServiceContext();
+	const currentFunctionOcrModel = Form.useWatch("ocrModel", functionOcrForm);
+	const ocrReady = canUseOcr(
+		{
+			...defaultAppSettingsData,
+			[AppSettingsGroup.FunctionOcr]: {
+				...defaultAppSettingsData[AppSettingsGroup.FunctionOcr],
+				ocrModel:
+					currentFunctionOcrModel ??
+					defaultAppSettingsData[AppSettingsGroup.FunctionOcr].ocrModel,
+			},
+		},
+		isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+		isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+	);
 
 	const initedMicrophoneDeviceNameOptions = useRef(false);
 	useEffect(() => {
@@ -550,6 +566,12 @@ export const FunctionSettingsPage = () => {
 		return [
 			{
 				label: intl.formatMessage({
+					id: "settings.functionSettings.translationSettings.apiConfig.apiType.openAiCompatible",
+				}),
+				value: TranslationApiType.OpenAiCompatible,
+			},
+			{
+				label: intl.formatMessage({
 					id: "settings.functionSettings.translationSettings.apiConfig.apiType.deepL",
 				}),
 				value: TranslationApiType.DeepL,
@@ -593,7 +615,21 @@ export const FunctionSettingsPage = () => {
 	}, [intl]);
 
 	const ocrModelOptions = useMemo(() => {
+		const options = [
+			{
+				label: intl.formatMessage({
+					id: "settings.systemSettings.screenshotSettings.ocrModel.glmOcr",
+				}),
+				value: OcrModel.GlmOcr,
+			},
+		];
+
+		if (!isReadyStatus?.(PLUGIN_ID_RAPID_OCR)) {
+			return options;
+		}
+
 		return [
+			...options,
 			{
 				label: intl.formatMessage({
 					id: "settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV4",
@@ -607,7 +643,7 @@ export const FunctionSettingsPage = () => {
 				value: OcrModel.RapidOcrV5,
 			},
 		];
-	}, [intl]);
+	}, [intl, isReadyStatus]);
 
 	const { getVisionModelList } = useVisionModelList();
 	const [htmlVisionModelOptions, setHtmlVisionModelOptions] = useState<
@@ -749,7 +785,7 @@ export const FunctionSettingsPage = () => {
 						</Col>
 					</Row>
 
-					{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+					{ocrReady && (
 						<Row gutter={token.marginLG}>
 							<Col span={12}>
 								<ProFormSelect
@@ -1067,7 +1103,7 @@ export const FunctionSettingsPage = () => {
 							/>
 						</Col>
 
-						{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+						{ocrReady && (
 							<Col span={12}>
 								<ProFormSwitch
 									label={
@@ -1109,7 +1145,7 @@ export const FunctionSettingsPage = () => {
 				</ProForm>
 			</Spin>
 
-			{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+			{isReadyStatus?.(PLUGIN_ID_GLM_OCR) && (
 				<>
 					<Divider />
 
@@ -1156,6 +1192,55 @@ export const FunctionSettingsPage = () => {
 										}
 										name="ocrModel"
 										options={ocrModelOptions}
+										allowClear={false}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProFormText
+										name={["glmOcrApiConfig", "model_name"]}
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName" />
+												}
+											/>
+										}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProFormText
+										name={["glmOcrApiConfig", "api_uri"]}
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri" />
+												}
+											/>
+										}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProFormText.Password
+										name={["glmOcrApiConfig", "api_key"]}
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey" />
+												}
+											/>
+										}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProFormText
+										name={["glmOcrApiConfig", "api_model"]}
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel" />
+												}
+											/>
+										}
 									/>
 								</Col>
 
@@ -1306,7 +1391,9 @@ export const FunctionSettingsPage = () => {
 										creatorRecord={() => ({
 											api_uri: "",
 											api_key: "",
-											api_type: TranslationApiType.DeepL,
+											api_model: "",
+											model_name: "",
+											api_type: TranslationApiType.OpenAiCompatible,
 										})}
 									>
 										<Row gutter={token.marginLG} style={{ width: "100%" }}>
@@ -1324,74 +1411,178 @@ export const FunctionSettingsPage = () => {
 													options={translationApiTypeOptions}
 												/>
 											</Col>
-											<Col span={12}>
-												<ProFormText
-													name="api_uri"
-													label={
-														<IconLabel
-															label={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
-															}
-															tooltipTitle={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
-															}
-														/>
-													}
-													rules={[
-														{
-															required: true,
-															message: intl.formatMessage({
-																id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
-															}),
-														},
-													]}
-												/>
-											</Col>
-											<Col span={12}>
-												<ProFormText.Password
-													name="api_key"
-													label={
-														<IconLabel
-															label={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
-															}
-															tooltipTitle={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
-															}
-														/>
-													}
-													rules={[
-														{
-															required: true,
-															message: intl.formatMessage({
-																id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
-															}),
-														},
-													]}
-												/>
-											</Col>
 
 											<ProFormDependency<{ api_type: TranslationApiType }>
 												name={["api_type"]}
 											>
 												{({ api_type }) => {
+													if (
+														api_type === TranslationApiType.OpenAiCompatible ||
+														!api_type
+													) {
+														return (
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="model_name"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.modelName.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_model"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiModel.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+															</>
+														);
+													}
+
 													if (api_type === TranslationApiType.DeepL) {
 														return (
-															<Col span={12}>
-																<ProFormSwitch
-																	name="deepl_prefer_quality_optimized"
-																	label={
-																		<IconLabel
-																			label={
-																				<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
-																			}
-																			tooltipTitle={
-																				<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
-																			}
-																		/>
-																	}
-																/>
-															</Col>
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormSwitch
+																		name="deepl_prefer_quality_optimized"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
+																				}
+																			/>
+																		}
+																	/>
+																</Col>
+															</>
 														);
 													}
 

@@ -8,6 +8,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { pluginInstallPlugin, pluginUninstallPlugin } from "@/commands/plugin";
 import {
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
@@ -27,6 +28,9 @@ export const PluginsPage = () => {
 					break;
 				case PLUGIN_ID_RAPID_OCR:
 					link = "https://github.com/RapidAI/RapidOCR";
+					break;
+				case PLUGIN_ID_GLM_OCR:
+					link = "https://ollama.com/";
 					break;
 			}
 

@@ -16,7 +16,6 @@ import {
 	Image,
 	Row,
 	Select,
-	Space,
 	Spin,
 	theme,
 } from "antd";
@@ -30,7 +29,11 @@ import { DarkModeIcon, LanguageIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
 import { getDefaultIconPath } from "@/components/trayIconLoader";
-import { PLUGIN_ID_RAPID_OCR } from "@/constants/pluginService";
+import { defaultAppSettingsData } from "@/constants/appSettings";
+import {
+	PLUGIN_ID_GLM_OCR,
+	PLUGIN_ID_RAPID_OCR,
+} from "@/constants/pluginService";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -45,6 +48,7 @@ import {
 	TrayIconDefaultIcon,
 } from "@/types/appSettings";
 import { DrawState } from "@/types/draw";
+import { canUseOcr } from "@/utils/ocr";
 
 const { Option } = Select;
 
@@ -53,6 +57,9 @@ export const GeneralSettingsPage = () => {
 	const { token } = theme.useToken();
 
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
+	const [currentAppSettings, setCurrentAppSettings] = useState<AppSettingsData>(
+		defaultAppSettingsData,
+	);
 	const [commonForm] = Form.useForm<AppSettingsData[AppSettingsGroup.Common]>();
 	const [screenshotForm] =
 		Form.useForm<AppSettingsData[AppSettingsGroup.Screenshot]>();
@@ -65,6 +72,7 @@ export const GeneralSettingsPage = () => {
 	useAppSettingsLoad(
 		useCallback(
 			(settings: AppSettingsData, preSettings?: AppSettingsData) => {
+				setCurrentAppSettings(settings);
 				setAppSettingsLoading(false);
 				if (
 					preSettings === undefined ||
@@ -186,12 +194,16 @@ export const GeneralSettingsPage = () => {
 				item.value === DrawState.OcrDetect ||
 				item.value === DrawState.OcrTranslate
 			) {
-				return isReadyStatus(PLUGIN_ID_RAPID_OCR);
+				return canUseOcr(
+					currentAppSettings,
+					isReadyStatus(PLUGIN_ID_GLM_OCR),
+					isReadyStatus(PLUGIN_ID_RAPID_OCR),
+				);
 			}
 
 			return true;
 		});
-	}, [intl, isReadyStatus]);
+	}, [intl, isReadyStatus, currentAppSettings]);
 
 	const [defaultIconsOptions, setDefaultIconsOptions] = useState<
 		CheckboxOptionType<TrayIconDefaultIcon>[]
@@ -214,21 +226,35 @@ export const GeneralSettingsPage = () => {
 			getDefaultIconPath(TrayIconDefaultIcon.SnowDark, appDataDir),
 		]);
 
-		const iconSize = 24;
+		const iconSize = 18;
+		const renderIconOptionLabel = (
+			messageId: string,
+			src: string,
+			alt: string,
+		) => (
+			<span className="tray-icon-option">
+				<span>
+					{intl.formatMessage({
+						id: messageId,
+					})}
+				</span>
+				<span className="tray-icon-preview">
+					<Image
+						preview={false}
+						src={src}
+						width={iconSize}
+						height={iconSize}
+						alt={alt}
+					/>
+				</span>
+			</span>
+		);
 		setDefaultIconsOptions([
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.default",
-						})}
-						<Image
-							src={defaultIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="default"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.default",
+					defaultIconPath.web_path,
+					"default",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.default",
@@ -236,18 +262,10 @@ export const GeneralSettingsPage = () => {
 				value: TrayIconDefaultIcon.Default,
 			},
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.light",
-						})}
-						<Image
-							src={lightIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="light"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.light",
+					lightIconPath.web_path,
+					"light",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.light",
@@ -255,18 +273,10 @@ export const GeneralSettingsPage = () => {
 				value: TrayIconDefaultIcon.Light,
 			},
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.dark",
-						})}
-						<Image
-							src={darkIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="dark"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.dark",
+					darkIconPath.web_path,
+					"dark",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.dark",
@@ -274,18 +284,10 @@ export const GeneralSettingsPage = () => {
 				value: TrayIconDefaultIcon.Dark,
 			},
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.snowDefault",
-						})}
-						<Image
-							src={snowDefaultIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="snow-default"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.snowDefault",
+					snowDefaultIconPath.web_path,
+					"snow-default",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.snowDefault",
@@ -294,18 +296,10 @@ export const GeneralSettingsPage = () => {
 			},
 
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.snowLight",
-						})}
-						<Image
-							src={snowLightIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="snow-light"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.snowLight",
+					snowLightIconPath.web_path,
+					"snow-light",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.snowLight",
@@ -313,18 +307,10 @@ export const GeneralSettingsPage = () => {
 				value: TrayIconDefaultIcon.SnowLight,
 			},
 			{
-				label: (
-					<Space>
-						{intl.formatMessage({
-							id: "settings.commonSettings.trayIconSettings.defaultIcons.snowDark",
-						})}
-						<Image
-							src={snowDarkIconPath.web_path}
-							width={iconSize}
-							height={iconSize}
-							alt="snow-dark"
-						/>
-					</Space>
+				label: renderIconOptionLabel(
+					"settings.commonSettings.trayIconSettings.defaultIcons.snowDark",
+					snowDarkIconPath.web_path,
+					"snow-dark",
 				),
 				title: intl.formatMessage({
 					id: "settings.commonSettings.trayIconSettings.defaultIcons.snowDark",
@@ -804,6 +790,9 @@ export const GeneralSettingsPage = () => {
 								label={
 									<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons" />
 								}
+								fieldProps={{
+									className: "tray-icon-radio-group",
+								}}
 								options={defaultIconsOptions}
 							/>
 						</Col>
@@ -838,6 +827,9 @@ export const GeneralSettingsPage = () => {
 								label={
 									<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons.darkDefault" />
 								}
+								fieldProps={{
+									className: "tray-icon-radio-group",
+								}}
 								options={defaultIconsOptions}
 							/>
 						</Col>
@@ -875,6 +867,63 @@ export const GeneralSettingsPage = () => {
                     :global(.ant-form-item-control) {
                     flex-grow: unset !important;
                     min-width: 128px;
+                }
+
+                :global(.tray-icon-radio-group) {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px 12px;
+                    align-items: center;
+                }
+
+                :global(.tray-icon-radio-group .ant-radio-wrapper) {
+                    margin-inline-end: 0;
+                    align-items: center;
+                    white-space: nowrap;
+                }
+
+                :global(.tray-icon-radio-group .ant-radio + span) {
+                    padding-inline-start: 4px;
+                }
+
+                :global(.tray-icon-option) {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    line-height: 22px;
+                    white-space: nowrap;
+                }
+
+                :global(.tray-icon-preview) {
+                    width: 22px;
+                    height: 22px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 0 0 auto;
+                    border: 1px solid ${token.colorBorderSecondary};
+                    border-radius: ${token.borderRadiusSM}px;
+                    background-color: ${token.colorBgContainer};
+                    background-image:
+                        linear-gradient(45deg, ${token.colorFillSecondary} 25%, transparent 25%),
+                        linear-gradient(-45deg, ${token.colorFillSecondary} 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, ${token.colorFillSecondary} 75%),
+                        linear-gradient(-45deg, transparent 75%, ${token.colorFillSecondary} 75%);
+                    background-size: 8px 8px;
+                    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+                }
+
+                :global(.tray-icon-preview .ant-image) {
+                    width: 18px;
+                    height: 18px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                :global(.tray-icon-preview img) {
+                    display: block;
+                    object-fit: contain;
                 }
             `}</style>
 		</ContentWrap>

@@ -420,11 +420,25 @@ export const settings = {
 		"文本识别翻译依赖翻译原文和翻译结果具有相同的排版关系，而 AI 的输出可能存在排版错误。开启后将尝试优化排版，但显示出的内容顺序可能与原文不一致",
 	"settings.functionSettings.translationSettings.apiConfig": "API 配置",
 	"settings.functionSettings.translationSettings.apiConfig.apiType": "翻译服务",
+	"settings.functionSettings.translationSettings.apiConfig.apiType.openAiCompatible":
+		"AI / OpenAI 兼容",
 	"settings.functionSettings.translationSettings.apiConfig.apiType.deepL":
 		"DeepL",
+	"settings.functionSettings.translationSettings.apiConfig.modelName":
+		"服务名称",
+	"settings.functionSettings.translationSettings.apiConfig.modelName.tip":
+		"显示在翻译服务下拉中的名称，例如：百度",
+	"settings.functionSettings.translationSettings.apiConfig.modelName.required":
+		"请输入服务名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel":
+		"模型名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.tip":
+		"OpenAI 兼容接口使用的模型名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.required":
+		"请输入模型名称",
 	"settings.functionSettings.translationSettings.apiConfig.apiUri": "API 地址",
 	"settings.functionSettings.translationSettings.apiConfig.apiUri.tip":
-		"请直接指向翻译接口，如：https://api-free.deepl.com/v2/translate",
+		"OpenAI 兼容服务请填写 base URL；DeepL 请直接指向翻译接口，如：https://api-free.deepl.com/v2/translate",
 	"settings.functionSettings.translationSettings.apiConfig.apiKey": "API Key",
 	"settings.functionSettings.translationSettings.apiConfig.apiKey.tip":
 		"注意该配置在本地明文保存（也不会上传到云端）",
@@ -483,6 +497,8 @@ export const settings = {
 		"Rapid OCR V4",
 	"settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV5":
 		"Rapid OCR V5",
+	"settings.systemSettings.screenshotSettings.ocrModel.glmOcr":
+		"GLM OCR（本地 Ollama）",
 	"settings.systemSettings.screenshotSettings.ocrHotStart": "文本识别热启动",
 	"settings.systemSettings.screenshotSettings.ocrHotStart.tip":
 		"预加载文本识别模型，提高文本识别的识别速度，但会提高内存占用",
@@ -560,6 +576,14 @@ export const settings = {
 	"settings.systemSettings.coreSettings.hotLoadPageCount.tip":
 		"通过热加载页面，实现固定剪贴板内容到屏幕、视频录制、全屏画布等功能的快速加载，但同时提高了内存的占用",
 	"settings.functionSettings.ocrSettings": "文本识别",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName":
+		"GLM OCR 服务名称",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri":
+		"GLM OCR API 地址",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey":
+		"GLM OCR API Key",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel":
+		"GLM OCR 模型名称",
 	"settings.functionSettings.ocrSettings.htmlVisionModel": "视觉理解模型",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.tip":
 		"将图片转为 HTML 的视觉理解模型",

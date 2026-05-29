@@ -37,6 +37,7 @@ import { OcrTranslateIcon } from "@/components/icons";
 import { INIT_CONTAINER_KEY } from "@/components/imageLayer/actions";
 import {
 	PLUGIN_ID_AI_CHAT,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -74,6 +75,7 @@ import { generateImageFileName } from "@/utils/file";
 import { formatKey } from "@/utils/format";
 import { appError } from "@/utils/log";
 import { MousePosition } from "@/utils/mousePosition";
+import { canUseOcr } from "@/utils/ocr";
 import { TweenAnimation } from "@/utils/tweenAnimation";
 import { closeWindowComplete } from "@/utils/window";
 import { zIndexs } from "@/utils/zIndex";
@@ -788,8 +790,11 @@ const FixedContentCoreInner: React.FC<{
 
 			if (
 				!(
-					isReady?.(PLUGIN_ID_RAPID_OCR) &&
-					getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
+					canUseOcr(
+						getAppSettings(),
+						isReady?.(PLUGIN_ID_GLM_OCR),
+						isReady?.(PLUGIN_ID_RAPID_OCR),
+					) && getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
 				) &&
 				!params.allOcrResult
 			) {
@@ -851,7 +856,11 @@ const FixedContentCoreInner: React.FC<{
 					setEnableSelectText(true);
 					ocrResultActionRef.current.setEnable(true);
 				} else if (
-					isReady?.(PLUGIN_ID_RAPID_OCR) &&
+					canUseOcr(
+						getAppSettings(),
+						isReady?.(PLUGIN_ID_GLM_OCR),
+						isReady?.(PLUGIN_ID_RAPID_OCR),
+					) &&
 					getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
 				) {
 					ocrResultActionRef.current?.init({
@@ -1845,8 +1854,11 @@ const FixedContentCoreInner: React.FC<{
 					enabled: !isThumbnail,
 					action: saveToFile,
 				},
-				isReadyStatus(PLUGIN_ID_RAPID_OCR) ||
-				getSelectTextMode(fixedContentType) !== "ocr"
+				canUseOcr(
+					getAppSettings(),
+					isReadyStatus(PLUGIN_ID_GLM_OCR),
+					isReadyStatus(PLUGIN_ID_RAPID_OCR),
+				) || getSelectTextMode(fixedContentType) !== "ocr"
 					? {
 							id: `${appWindow.label}-ocrTool`,
 							text:
@@ -2059,6 +2071,7 @@ const FixedContentCoreInner: React.FC<{
 		switchVisionModelMarkdown,
 		enableVisionModelMarkdown,
 		enableTrayIcon,
+		getAppSettings,
 	]);
 
 	const onWheel = useCallback(
