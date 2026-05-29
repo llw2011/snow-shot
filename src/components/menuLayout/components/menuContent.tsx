@@ -14,7 +14,7 @@ import React, {
 	useState,
 } from "react";
 import RSC, { type Scrollbar } from "react-scrollbars-custom";
-import { PageNav, type PageNavActionType } from "@/components/pageNav";
+import { PageNav } from "@/components/pageNav";
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
 const { Content } = Layout;
@@ -34,7 +34,6 @@ const MenuContentCore: React.FC<{
 		return routeTabsMap[pathname] ?? routeTabsMap["/"] ?? [];
 	}, [pathname, routeTabsMap]);
 
-	const pageNavActionRef = useRef<PageNavActionType | null>(null);
 	const scrollbarRef = useRef<Scrollbar | null>(null);
 	const setScrollbarRef = useCallback(
 		(instance: Scrollbar | HTMLDivElement | null) => {
@@ -45,7 +44,6 @@ const MenuContentCore: React.FC<{
 		},
 		[],
 	);
-	const contentRef = useRef<HTMLDivElement>(null);
 
 	const [currentPlatform, setCurrentPlatform] = useState<
 		tauriOs.Platform | undefined
@@ -95,36 +93,9 @@ const MenuContentCore: React.FC<{
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div className="center">
-						<PageNav
-							tabItems={tabItems}
-							actionRef={pageNavActionRef}
-							scrollbarRef={scrollbarRef}
-						/>
-						<RSC
-							ref={setScrollbarRef}
-							onScroll={(e) => {
-								if ("scrollTop" in e && typeof e.scrollTop === "number") {
-									pageNavActionRef.current?.updateActiveKey(e.scrollTop, {
-										scrollHeight:
-											"scrollHeight" in e && typeof e.scrollHeight === "number"
-												? e.scrollHeight
-												: undefined,
-										contentScrollHeight:
-											"contentScrollHeight" in e &&
-											typeof e.contentScrollHeight === "number"
-												? e.contentScrollHeight
-												: undefined,
-										clientHeight:
-											"clientHeight" in e && typeof e.clientHeight === "number"
-												? e.clientHeight
-												: undefined,
-									});
-								}
-							}}
-						>
-							<div ref={contentRef} className="content-container">
-								{children}
-							</div>
+						<PageNav tabItems={tabItems} scrollbarRef={scrollbarRef} />
+						<RSC ref={setScrollbarRef}>
+							<div className="content-container">{children}</div>
 						</RSC>
 					</div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
