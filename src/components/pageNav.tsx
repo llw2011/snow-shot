@@ -20,6 +20,27 @@ export type PageNavScrollMetrics = {
 	clientHeight?: number;
 };
 
+type PageNavAnchor = {
+	key: string;
+	index: number;
+	clickScrollTop: number;
+};
+
+const SCROLL_BOTTOM_TOLERANCE = 1;
+const NON_BOTTOM_TARGET_GAP = 4;
+const NEXT_SECTION_OFFSET = 1;
+
+const clampScrollTop = (value: number, maxScrollTop: number) =>
+	Math.min(Math.max(value, 0), maxScrollTop);
+
+const getNonBottomMaxScrollTop = (maxScrollTop: number) => {
+	if (maxScrollTop <= 0) {
+		return 0;
+	}
+
+	return Math.max(0, maxScrollTop - NON_BOTTOM_TARGET_GAP);
+};
+
 export const PageNav: React.FC<{
 	tabItems: RouteMapItem;
 	actionRef: React.RefObject<PageNavActionType | null>;
@@ -68,7 +89,13 @@ export const PageNav: React.FC<{
 		[scrollbarRef],
 	);
 
-	const getAnchorScrollPositionList = useCallback(
+	const isAtBottom = useCallback(
+		(scrollTop: number, maxScrollTop: number) =>
+			maxScrollTop > 0 && scrollTop >= maxScrollTop - SCROLL_BOTTOM_TOLERANCE,
+		[],
+	);
+
+	const getAnchorList = useCallback(
 		(metrics?: PageNavScrollMetrics) => {
 			if (typeof document === "undefined") {
 				return [];
@@ -80,8 +107,9 @@ export const PageNav: React.FC<{
 			const scrollerRect = scrollerElement?.getBoundingClientRect();
 			const scrollTop = scrollState?.scrollTop ?? 0;
 			const maxScrollTop = getMaxScrollTop(metrics);
+			const nonBottomMaxScrollTop = getNonBottomMaxScrollTop(maxScrollTop);
 
-			return (tabItemsRef.current ?? [])
+			const rawAnchorList = (tabItemsRef.current ?? [])
 				.map((item, index) => {
 					const key = item.key?.toString();
 					if (!key) {
@@ -93,7 +121,7 @@ export const PageNav: React.FC<{
 						return undefined;
 					}
 
-					const targetScrollTop =
+					const rawScrollTop =
 						scrollerRect && scrollerElement
 							? scrollTop +
 								element.getBoundingClientRect().top -
@@ -103,36 +131,88 @@ export const PageNav: React.FC<{
 					return {
 						key,
 						index,
-						scrollTop:
-							maxScrollTop > 0
-								? Math.min(Math.max(targetScrollTop, 0), maxScrollTop)
-								: Math.max(targetScrollTop, 0),
+						rawScrollTop,
 					};
 				})
 				.filter(
-					(item): item is { key: string; index: number; scrollTop: number } =>
+					(
+						item,
+					): item is { key: string; index: number; rawScrollTop: number } =>
 						!!item,
-				)
-				.sort((a, b) => a.scrollTop - b.scrollTop || a.index - b.index);
+				);
+
+			return rawAnchorList
+				.map((anchor, anchorIndex): PageNavAnchor => {
+					const isLastAnchor = anchorIndex === rawAnchorList.length - 1;
+					const maxTargetScrollTop = isLastAnchor
+						? maxScrollTop
+						: nonBottomMaxScrollTop;
+
+					return {
+						key: anchor.key,
+						index: anchor.index,
+						clickScrollTop: clampScrollTop(
+							anchor.rawScrollTop,
+							maxTargetScrollTop,
+						),
+					};
+				})
+				.sort(
+					(a, b) => a.clickScrollTop - b.clickScrollTop || a.index - b.index,
+				);
 		},
 		[getMaxScrollTop, scrollbarRef],
 	);
 
-	const updateActiveKey = useCallback(
-		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
-			const anchorScrollPositionList = getAnchorScrollPositionList(metrics);
-			if (anchorScrollPositionList.length === 0) {
-				return;
+	const getActiveKey = useCallback(
+		(scrollTop: number, anchorList: PageNavAnchor[], maxScrollTop: number) => {
+			if (anchorList.length === 0) {
+				return undefined;
 			}
 
-			let targetKey = anchorScrollPositionList[0].key;
-			const boundaryOffset = 2;
-			for (const anchor of anchorScrollPositionList) {
-				if (anchor.scrollTop <= scrollTop + boundaryOffset) {
-					targetKey = anchor.key;
+			if (anchorList.length === 1 || maxScrollTop <= 0) {
+				return anchorList[0].key;
+			}
+
+			if (isAtBottom(scrollTop, maxScrollTop)) {
+				return anchorList[anchorList.length - 1].key;
+			}
+
+			const candidateList = anchorList.slice(0, -1);
+			let targetKey = candidateList[0].key;
+			const nonBottomMaxScrollTop = getNonBottomMaxScrollTop(maxScrollTop);
+			for (let index = 1; index < candidateList.length; index++) {
+				const currentAnchor = candidateList[index];
+				const previousAnchor = candidateList[index - 1];
+				const isLastCandidate = index === candidateList.length - 1;
+				const activationScrollTop =
+					isLastCandidate &&
+					currentAnchor.clickScrollTop >= nonBottomMaxScrollTop
+						? previousAnchor.clickScrollTop + NEXT_SECTION_OFFSET
+						: currentAnchor.clickScrollTop;
+
+				if (scrollTop >= activationScrollTop) {
+					targetKey = currentAnchor.key;
 				} else {
 					break;
 				}
+			}
+
+			return targetKey;
+		},
+		[isAtBottom],
+	);
+
+	const updateActiveKey = useCallback(
+		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
+			const anchorList = getAnchorList(metrics);
+			const targetKey = getActiveKey(
+				scrollTop,
+				anchorList,
+				getMaxScrollTop(metrics),
+			);
+			if (!targetKey) {
+				return;
 			}
 
 			setActiveKey((prevKey) => {
@@ -143,14 +223,12 @@ export const PageNav: React.FC<{
 				return targetKey;
 			});
 		},
-		[getAnchorScrollPositionList],
+		[getActiveKey, getAnchorList, getMaxScrollTop],
 	);
 
 	const scrollToKey = useCallback(
 		(key: string) => {
-			const anchor = getAnchorScrollPositionList().find(
-				(item) => item.key === key,
-			);
+			const anchor = getAnchorList().find((item) => item.key === key);
 			const scrollbar = scrollbarRef.current;
 			const scrollerElement = scrollbar?.scrollerElement;
 			if (!anchor || !scrollbar) {
@@ -159,16 +237,16 @@ export const PageNav: React.FC<{
 
 			if (scrollerElement) {
 				scrollerElement.scrollTo({
-					top: anchor.scrollTop,
+					top: anchor.clickScrollTop,
 					behavior: "smooth",
 				});
 			} else {
-				scrollbar.scrollTop = anchor.scrollTop;
+				scrollbar.scrollTop = anchor.clickScrollTop;
 			}
 
 			return true;
 		},
-		[getAnchorScrollPositionList, scrollbarRef],
+		[getAnchorList, scrollbarRef],
 	);
 
 	const updateActiveKeyRafRef = useRef<number | undefined>(undefined);
