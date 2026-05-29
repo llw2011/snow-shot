@@ -6,8 +6,14 @@ import {
 import * as tauriOs from "@tauri-apps/plugin-os";
 import { Button, Layout, Space, theme } from "antd";
 import { Header } from "antd/es/layout/layout";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import RSC from "react-scrollbars-custom";
+import React, {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import RSC, { type Scrollbar } from "react-scrollbars-custom";
 import { PageNav, type PageNavActionType } from "@/components/pageNav";
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
@@ -29,6 +35,16 @@ const MenuContentCore: React.FC<{
 	}, [pathname, routeTabsMap]);
 
 	const pageNavActionRef = useRef<PageNavActionType | null>(null);
+	const scrollbarRef = useRef<Scrollbar | null>(null);
+	const setScrollbarRef = useCallback(
+		(instance: Scrollbar | HTMLDivElement | null) => {
+			scrollbarRef.current =
+				instance && "getScrollState" in instance
+					? (instance as Scrollbar)
+					: null;
+		},
+		[],
+	);
 	const contentRef = useRef<HTMLDivElement>(null);
 
 	const [currentPlatform, setCurrentPlatform] = useState<
@@ -79,8 +95,13 @@ const MenuContentCore: React.FC<{
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div className="center">
-						<PageNav tabItems={tabItems} actionRef={pageNavActionRef} />
+						<PageNav
+							tabItems={tabItems}
+							actionRef={pageNavActionRef}
+							scrollbarRef={scrollbarRef}
+						/>
 						<RSC
+							ref={setScrollbarRef}
 							onScroll={(e) => {
 								if ("scrollTop" in e && typeof e.scrollTop === "number") {
 									pageNavActionRef.current?.updateActiveKey(e.scrollTop, {

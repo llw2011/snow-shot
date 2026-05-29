@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import type { Scrollbar } from "react-scrollbars-custom";
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
 export type PageNavActionType = {
@@ -22,7 +23,8 @@ export type PageNavScrollMetrics = {
 export const PageNav: React.FC<{
 	tabItems: RouteMapItem;
 	actionRef: React.RefObject<PageNavActionType | null>;
-}> = ({ tabItems, actionRef }) => {
+	scrollbarRef: React.RefObject<Scrollbar | null>;
+}> = ({ tabItems, actionRef, scrollbarRef }) => {
 	const { token } = theme.useToken();
 
 	const [activeKey, setActiveKey] = useState<string | undefined>(
@@ -38,59 +40,98 @@ export const PageNav: React.FC<{
 		[tabItems.items],
 	);
 
-	const getAnchorTopList = useCallback(() => {
-		if (typeof document === "undefined") {
-			return [];
-		}
-
-		return (tabItemsRef.current ?? [])
-			.map((item) => {
-				const key = item.key?.toString();
-				if (!key) {
-					return undefined;
-				}
-
-				const element = document.getElementById(key);
-				if (!element) {
-					return undefined;
-				}
-
-				return {
-					key,
-					offsetTop: element.offsetTop,
-				};
-			})
-			.filter((item): item is { key: string; offsetTop: number } => !!item)
-			.sort((a, b) => a.offsetTop - b.offsetTop);
-	}, []);
-
-	const updateActiveKey = useCallback(
-		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
-			const anchorTopList = getAnchorTopList();
-			if (anchorTopList.length === 0) {
-				return;
-			}
-
-			let targetKey = anchorTopList[0].key;
+	const getMaxScrollTop = useCallback(
+		(metrics?: PageNavScrollMetrics) => {
 			const scrollHeight =
 				typeof metrics?.contentScrollHeight === "number"
 					? metrics.contentScrollHeight
 					: metrics?.scrollHeight;
+
 			if (
 				typeof scrollHeight === "number" &&
-				typeof metrics?.clientHeight === "number" &&
-				scrollHeight > metrics.clientHeight &&
-				scrollTop >= scrollHeight - metrics.clientHeight - 2
+				typeof metrics?.clientHeight === "number"
 			) {
-				targetKey = anchorTopList[anchorTopList.length - 1].key;
-			} else {
-				const activeTop = scrollTop + 32;
-				for (const anchor of anchorTopList) {
-					if (anchor.offsetTop <= activeTop) {
-						targetKey = anchor.key;
-					} else {
-						break;
+				return Math.max(0, scrollHeight - metrics.clientHeight);
+			}
+
+			const scrollbar = scrollbarRef.current;
+			if (!scrollbar) {
+				return 0;
+			}
+
+			const scrollState = scrollbar.getScrollState(true);
+			return Math.max(
+				0,
+				scrollState.contentScrollHeight - scrollState.clientHeight,
+			);
+		},
+		[scrollbarRef],
+	);
+
+	const getAnchorScrollPositionList = useCallback(
+		(metrics?: PageNavScrollMetrics) => {
+			if (typeof document === "undefined") {
+				return [];
+			}
+
+			const scrollbar = scrollbarRef.current;
+			const scrollerElement = scrollbar?.scrollerElement;
+			const scrollState = scrollbar?.getScrollState(true);
+			const scrollerRect = scrollerElement?.getBoundingClientRect();
+			const scrollTop = scrollState?.scrollTop ?? 0;
+			const maxScrollTop = getMaxScrollTop(metrics);
+
+			return (tabItemsRef.current ?? [])
+				.map((item, index) => {
+					const key = item.key?.toString();
+					if (!key) {
+						return undefined;
 					}
+
+					const element = document.getElementById(key);
+					if (!element) {
+						return undefined;
+					}
+
+					const targetScrollTop =
+						scrollerRect && scrollerElement
+							? scrollTop +
+								element.getBoundingClientRect().top -
+								scrollerRect.top
+							: element.offsetTop;
+
+					return {
+						key,
+						index,
+						scrollTop:
+							maxScrollTop > 0
+								? Math.min(Math.max(targetScrollTop, 0), maxScrollTop)
+								: Math.max(targetScrollTop, 0),
+					};
+				})
+				.filter(
+					(item): item is { key: string; index: number; scrollTop: number } =>
+						!!item,
+				)
+				.sort((a, b) => a.scrollTop - b.scrollTop || a.index - b.index);
+		},
+		[getMaxScrollTop, scrollbarRef],
+	);
+
+	const updateActiveKey = useCallback(
+		(scrollTop: number, metrics?: PageNavScrollMetrics) => {
+			const anchorScrollPositionList = getAnchorScrollPositionList(metrics);
+			if (anchorScrollPositionList.length === 0) {
+				return;
+			}
+
+			let targetKey = anchorScrollPositionList[0].key;
+			const boundaryOffset = 2;
+			for (const anchor of anchorScrollPositionList) {
+				if (anchor.scrollTop <= scrollTop + boundaryOffset) {
+					targetKey = anchor.key;
+				} else {
+					break;
 				}
 			}
 
@@ -102,7 +143,32 @@ export const PageNav: React.FC<{
 				return targetKey;
 			});
 		},
-		[getAnchorTopList],
+		[getAnchorScrollPositionList],
+	);
+
+	const scrollToKey = useCallback(
+		(key: string) => {
+			const anchor = getAnchorScrollPositionList().find(
+				(item) => item.key === key,
+			);
+			const scrollbar = scrollbarRef.current;
+			const scrollerElement = scrollbar?.scrollerElement;
+			if (!anchor || !scrollbar) {
+				return false;
+			}
+
+			if (scrollerElement) {
+				scrollerElement.scrollTo({
+					top: anchor.scrollTop,
+					behavior: "smooth",
+				});
+			} else {
+				scrollbar.scrollTop = anchor.scrollTop;
+			}
+
+			return true;
+		},
+		[getAnchorScrollPositionList, scrollbarRef],
 	);
 
 	const updateActiveKeyRafRef = useRef<number | undefined>(undefined);
@@ -184,12 +250,9 @@ export const PageNav: React.FC<{
 				items={tabItems.items}
 				size="small"
 				onChange={(key) => {
-					const target = document.getElementById(key);
-					if (!target) {
-						return;
+					if (scrollToKey(key)) {
+						setActiveKey(key);
 					}
-					target.scrollIntoView({ behavior: "smooth" });
-					setActiveKey(key);
 				}}
 			/>
 
