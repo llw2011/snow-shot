@@ -33,6 +33,14 @@ export const pluginInstallPlugin = async (
 	await invoke("plugin_install_plugin", { name, force });
 };
 
+export const pluginInstallLocalPlugin = async (
+	name: string,
+	sourceDir: string,
+	force: boolean = false,
+) => {
+	await invoke("plugin_install_local_plugin", { name, sourceDir, force });
+};
+
 export const pluginUninstallPlugin = async (name: string) => {
 	await invoke("plugin_uninstall_plugin", { name });
 };

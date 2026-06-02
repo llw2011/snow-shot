@@ -316,6 +316,7 @@ pub fn run() {
             plugin::plugin_get_plugins_status,
             plugin::plugin_register_plugin,
             plugin::plugin_install_plugin,
+            plugin::plugin_install_local_plugin,
             plugin::plugin_uninstall_plugin,
             webview::create_webview_shared_buffer,
             webview::set_support_webview_shared_buffer,

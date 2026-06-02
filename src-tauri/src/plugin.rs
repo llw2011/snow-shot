@@ -59,6 +59,18 @@ pub async fn plugin_install_plugin(
 }
 
 #[command]
+pub async fn plugin_install_local_plugin(
+    plugin_service: tauri::State<'_, Arc<PluginService>>,
+    name: String,
+    source_dir: PathBuf,
+    force: bool,
+) -> Result<(), String> {
+    plugin_service
+        .install_local_plugin(name.clone(), &source_dir, force)
+        .await
+}
+
+#[command]
 pub async fn plugin_uninstall_plugin(
     plugin_service: tauri::State<'_, Arc<PluginService>>,
     name: String,

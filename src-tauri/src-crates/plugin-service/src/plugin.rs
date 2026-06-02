@@ -213,6 +213,55 @@ impl Plugin {
         Ok(Some(normalized))
     }
 
+    fn normalize_plugin_file_path(file_path: &Path) -> Result<PathBuf, String> {
+        let mut normalized = PathBuf::new();
+        for component in file_path.components() {
+            match component {
+                Component::Normal(part) => normalized.push(part),
+                Component::CurDir => {}
+                Component::ParentDir | Component::Prefix(_) | Component::RootDir => {
+                    return Err(format!(
+                        "unsafe plugin file path rejected: {}",
+                        file_path.display()
+                    ));
+                }
+            }
+        }
+
+        if normalized.as_os_str().is_empty() {
+            return Err(format!(
+                "empty plugin file path rejected: {}",
+                file_path.display()
+            ));
+        }
+
+        Ok(normalized)
+    }
+
+    fn find_local_source_file(source_dir: &Path, required_file: &Path) -> Option<PathBuf> {
+        let source_root = source_dir.canonicalize().ok()?;
+        let candidates = [
+            source_dir.join(required_file),
+            source_dir.join("bin").join(required_file),
+        ];
+
+        for candidate in candidates {
+            if !candidate.is_file() {
+                continue;
+            }
+
+            let candidate_real = match candidate.canonicalize() {
+                Ok(path) => path,
+                Err(_) => continue,
+            };
+            if candidate_real.starts_with(&source_root) {
+                return Some(candidate);
+            }
+        }
+
+        None
+    }
+
     pub async fn extract_zip_to_dir(
         zip_path: &Path,
         extract_to: &Path,
@@ -338,6 +387,117 @@ impl Plugin {
                     })?;
             }
         }
+
+        Ok(())
+    }
+
+    pub async fn install_from_dir(&self, source_dir: &Path, force: bool) -> Result<(), String> {
+        log::info!(
+            "[Plugin::install_from_dir] Installing local plugin: {}, source: {}",
+            self.name,
+            source_dir.display()
+        );
+
+        self.refresh_status().await;
+
+        let status = self.get_status().await;
+        if !(status == PluginStatus::NotInstalled || (force && status == PluginStatus::Installed)) {
+            return Ok(());
+        }
+
+        if !source_dir.is_dir() {
+            return Err(format!(
+                "[Plugin::install_from_dir] Local plugin source directory not found: {}",
+                source_dir.display()
+            ));
+        }
+
+        if self.file_list.len() == 0 {
+            match fs::create_dir_all(&self.get_plugin_dir()).await {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(format!(
+                        "[Plugin::install_from_dir] Failed to create plugin directory: {}",
+                        e
+                    ));
+                }
+            }
+
+            self.set_status(PluginStatus::Installed).await;
+
+            return Ok(());
+        }
+
+        let mut copy_tasks = Vec::new();
+        for file in &self.file_list {
+            let normalized_file = Self::normalize_plugin_file_path(file)?;
+            let source_file =
+                Self::find_local_source_file(source_dir, &normalized_file).ok_or_else(|| {
+                    format!(
+                        "[Plugin::install_from_dir] Required plugin file not found in {} or {}/bin: {}",
+                        source_dir.display(),
+                        source_dir.display(),
+                        normalized_file.display()
+                    )
+                })?;
+
+            copy_tasks.push((source_file, normalized_file));
+        }
+
+        self.set_status(PluginStatus::Unzipping).await;
+
+        if self.get_plugin_dir().exists() {
+            match tokio::fs::remove_dir_all(&self.get_plugin_dir()).await {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(format!(
+                        "[Plugin::install_from_dir] Failed to clear plugin directory: {}",
+                        e
+                    ));
+                }
+            }
+        }
+
+        tokio::fs::create_dir_all(&self.get_plugin_dir())
+            .await
+            .map_err(|e| {
+                format!(
+                    "[Plugin::install_from_dir] Failed to create plugin directory: {}",
+                    e
+                )
+            })?;
+
+        for (source_file, relative_file) in copy_tasks {
+            let target_file = self.get_plugin_dir().join(&relative_file);
+            let target_parent = target_file.parent().ok_or_else(|| {
+                format!(
+                    "[Plugin::install_from_dir] Failed to get target parent directory: {}",
+                    target_file.display()
+                )
+            })?;
+
+            tokio::fs::create_dir_all(target_parent)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::install_from_dir] Failed to create target directory: {}",
+                        e
+                    )
+                })?;
+
+            tokio::fs::copy(&source_file, &target_file)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::install_from_dir] Failed to copy {} to {}: {}",
+                        source_file.display(),
+                        target_file.display(),
+                        e
+                    )
+                })?;
+        }
+
+        self.set_status(PluginStatus::Installed).await;
 
         Ok(())
     }
