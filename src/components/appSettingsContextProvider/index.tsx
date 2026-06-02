@@ -103,20 +103,33 @@ const normalizeCustomModelValue = (model: unknown) => {
 const getCustomTranslationType = (apiModel: unknown) =>
 	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
 
+const getApiConfigType = (
+	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
+) => (config && "api_type" in config ? config.api_type : undefined);
+
+const isOpenAiCompatibleTranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+) =>
+	config?.api_type === undefined ||
+	config.api_type === TranslationApiType.OpenAiCompatible;
+
 const isGlmOcrApiConfig = (
 	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
 ) =>
-	normalizeCustomModelValue(config?.api_model) ===
+	getApiConfigType(config) !== TranslationApiType.DeepL &&
+	(normalizeCustomModelValue(config?.api_model) ===
 		HARDENED_GLM_OCR_CHAT_API_CONFIG.api_model ||
-	`${config?.model_name ?? ""}` === HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name;
+		`${config?.model_name ?? ""}` ===
+			HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name);
 
 const isQwen35TranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
 ) =>
-	normalizeCustomModelValue(config?.api_model) ===
+	isOpenAiCompatibleTranslationApiConfig(config) &&
+	(normalizeCustomModelValue(config?.api_model) ===
 		HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model ||
-	`${config?.model_name ?? ""}` ===
-		HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name;
+		`${config?.model_name ?? ""}` ===
+			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
 
 const normalizeChatApiConfig = (
 	config: Partial<ChatApiConfig> | undefined,
@@ -140,16 +153,25 @@ const normalizeChatApiConfig = (
 
 const normalizeTranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
+	fallback?: TranslationApiConfig,
 ): TranslationApiConfig | undefined => {
+	const apiModel = normalizeCustomModelValue(
+		config?.api_model ?? fallback?.api_model,
+	);
+	const modelName = `${config?.model_name ?? fallback?.model_name ?? ""}`;
+	const deeplPreferQualityOptimized =
+		typeof config?.deepl_prefer_quality_optimized === "boolean"
+			? config.deepl_prefer_quality_optimized
+			: (fallback?.deepl_prefer_quality_optimized ?? false);
+
 	if (config?.api_type === TranslationApiType.DeepL) {
 		return {
 			api_type: TranslationApiType.DeepL,
-			api_uri: `${config.api_uri ?? ""}`,
-			api_key: `${config.api_key ?? ""}`,
-			deepl_prefer_quality_optimized:
-				typeof config.deepl_prefer_quality_optimized === "boolean"
-					? config.deepl_prefer_quality_optimized
-					: false,
+			api_uri: `${config.api_uri ?? fallback?.api_uri ?? ""}`,
+			api_key: `${config.api_key ?? fallback?.api_key ?? ""}`,
+			api_model: apiModel,
+			model_name: modelName,
+			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
 		};
 	}
 
@@ -159,10 +181,11 @@ const normalizeTranslationApiConfig = (
 	) {
 		return {
 			api_type: TranslationApiType.OpenAiCompatible,
-			api_uri: `${config?.api_uri ?? ""}`,
-			api_key: `${config?.api_key ?? ""}`,
-			api_model: normalizeCustomModelValue(config?.api_model),
-			model_name: `${config?.model_name ?? ""}`,
+			api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+			api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+			api_model: apiModel,
+			model_name: modelName,
+			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
 		};
 	}
 
@@ -1043,13 +1066,27 @@ const AppSettingsContextProviderCore: React.FC<{
 					"boolean"
 						? newSettings.defaultTranslationApiConfigInitialized
 						: (prevSettings?.defaultTranslationApiConfigInitialized ?? false);
-				let translationApiConfigList = (
-					Array.isArray(newSettings?.translationApiConfigList)
-						? newSettings.translationApiConfigList
-						: (prevSettings?.translationApiConfigList ??
-							defaultAppSettingsData[group].translationApiConfigList)
+				const previousTranslationApiConfigList =
+					prevSettings?.translationApiConfigList;
+				const newTranslationApiConfigList = Array.isArray(
+					newSettings?.translationApiConfigList,
 				)
-					.map((item) => normalizeTranslationApiConfig(item))
+					? newSettings.translationApiConfigList
+					: (previousTranslationApiConfigList ??
+						defaultAppSettingsData[group].translationApiConfigList);
+				const shouldPreservePreviousTranslationApiConfig =
+					Array.isArray(newSettings?.translationApiConfigList) &&
+					previousTranslationApiConfigList?.length ===
+						newTranslationApiConfigList.length;
+				let translationApiConfigList = newTranslationApiConfigList
+					.map((item, index) =>
+						normalizeTranslationApiConfig(
+							item,
+							shouldPreservePreviousTranslationApiConfig
+								? previousTranslationApiConfigList[index]
+								: undefined,
+						),
+					)
 					.filter((item): item is TranslationApiConfig => !!item)
 					.filter((item) => !isGlmOcrApiConfig(item));
 

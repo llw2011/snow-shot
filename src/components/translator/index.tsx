@@ -335,6 +335,11 @@ const TranslatorCore: React.FC<{
 		() => debounce(requestTranslate, 1500),
 		[requestTranslate],
 	);
+	useEffect(() => {
+		return () => {
+			requestTranslateDebounce.cancel();
+		};
+	}, [requestTranslateDebounce]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 翻译相关配置变更的时候也要重新翻译
 	useEffect(() => {

@@ -221,6 +221,22 @@ export const useTranslationRequest = (options?: {
 	const [deltaTranslateLoading, setDeltaTranslateLoading] = useState(false);
 	const [translatedContent, setTranslatedContent, translatedContentRef] =
 		useStateRef<string>("");
+	const translateRequestSerialRef = useRef(0);
+	const beginTranslationRequest = useCallback(() => {
+		translateRequestSerialRef.current += 1;
+		return translateRequestSerialRef.current;
+	}, []);
+	const isCurrentTranslationRequest = useCallback(
+		(requestSerial: number) =>
+			requestSerial === translateRequestSerialRef.current,
+		[],
+	);
+	const invalidateTranslationRequest = useCallback(() => {
+		translateRequestSerialRef.current += 1;
+		setStartTranslateLoading(false);
+		setDeltaTranslateLoading(false);
+		setTranslatedContent("");
+	}, [setTranslatedContent]);
 
 	const customTranslation = useCallback(
 		async (params: {
@@ -229,6 +245,7 @@ export const useTranslationRequest = (options?: {
 			targetLanguage: string;
 			translationType: string;
 			translationDomain: TranslationDomain;
+			requestSerial: number;
 			requestId?: number;
 		}): Promise<{
 			success: boolean;
@@ -248,7 +265,9 @@ export const useTranslationRequest = (options?: {
 
 			if ("translationApiConfig" in config) {
 				if (config.type === TranslationApiType.DeepL) {
-					setStartTranslateLoading(true);
+					if (isCurrentTranslationRequest(params.requestSerial)) {
+						setStartTranslateLoading(true);
+					}
 
 					let result: DeepLTranslateResult | undefined;
 					try {
@@ -269,7 +288,9 @@ export const useTranslationRequest = (options?: {
 						appError("[customTranslation] translateTextDeepL error", error);
 					}
 
-					setStartTranslateLoading(false);
+					if (isCurrentTranslationRequest(params.requestSerial)) {
+						setStartTranslateLoading(false);
+					}
 
 					if (!result) {
 						return {
@@ -277,12 +298,14 @@ export const useTranslationRequest = (options?: {
 						};
 					}
 
-					options?.onComplete?.(
-						result.translations.map((item) => ({
-							content: item.text,
-						})),
-						params.requestId,
-					);
+					if (isCurrentTranslationRequest(params.requestSerial)) {
+						options?.onComplete?.(
+							result.translations.map((item) => ({
+								content: item.text,
+							})),
+							params.requestId,
+						);
+					}
 
 					return {
 						success: true,
@@ -306,7 +329,9 @@ export const useTranslationRequest = (options?: {
 				fetch: appFetch,
 			});
 
-			setStartTranslateLoading(true);
+			if (isCurrentTranslationRequest(params.requestSerial)) {
+				setStartTranslateLoading(true);
+			}
 
 			let responseContent: string = "";
 			try {
@@ -318,9 +343,9 @@ export const useTranslationRequest = (options?: {
 							content: getTranslationPrompt(
 								translationConfig?.translationSystemPrompt ??
 									defaultTranslationPrompt,
-								sourceLanguage,
-								targetLanguage,
-								translationDomain,
+								params.sourceLanguage,
+								params.targetLanguage,
+								params.translationDomain,
 							),
 						},
 						{
@@ -333,27 +358,37 @@ export const useTranslationRequest = (options?: {
 					stream: true,
 				});
 
-				setDeltaTranslateLoading(true);
+				if (isCurrentTranslationRequest(params.requestSerial)) {
+					setDeltaTranslateLoading(true);
+				}
 				try {
-					setTranslatedContent("");
+					if (isCurrentTranslationRequest(params.requestSerial)) {
+						setTranslatedContent("");
+					}
 					for await (const event of streamResponse) {
 						if (event.choices.length > 0 && event.choices[0].delta.content) {
-							setTranslatedContent(
-								(prevContent) =>
-									`${prevContent}${event.choices[0].delta.content}`,
-							);
 							responseContent += event.choices[0].delta.content;
-							options?.onDeltaContent?.(event.choices[0].delta.content);
+							if (isCurrentTranslationRequest(params.requestSerial)) {
+								setTranslatedContent(
+									(prevContent) =>
+										`${prevContent}${event.choices[0].delta.content}`,
+								);
+								options?.onDeltaContent?.(event.choices[0].delta.content);
+							}
 						}
 					}
 				} catch (error) {
 					appError("[customTranslation] streamResponse error", error);
 				}
-				setDeltaTranslateLoading(false);
+				if (isCurrentTranslationRequest(params.requestSerial)) {
+					setDeltaTranslateLoading(false);
+				}
 			} catch (error) {
 				appError("[customTranslation] error", error);
 			} finally {
-				setStartTranslateLoading(false);
+				if (isCurrentTranslationRequest(params.requestSerial)) {
+					setStartTranslateLoading(false);
+				}
 			}
 
 			const result =
@@ -361,7 +396,9 @@ export const useTranslationRequest = (options?: {
 					? responseContent.split("%%").map((item) => ({ content: trim(item) }))
 					: [{ content: responseContent }];
 
-			options?.onComplete?.(result, params.requestId);
+			if (isCurrentTranslationRequest(params.requestSerial)) {
+				options?.onComplete?.(result, params.requestId);
+			}
 
 			return {
 				success: true,
@@ -369,20 +406,19 @@ export const useTranslationRequest = (options?: {
 			};
 		},
 		[
-			sourceLanguage,
-			targetLanguage,
-			translationDomain,
 			supportedTranslationTypesRef,
 			chatConfig?.maxTokens,
 			chatConfig?.temperature,
 			options,
 			translationConfig?.translationSystemPrompt,
 			setTranslatedContent,
+			isCurrentTranslationRequest,
 		],
 	);
 
 	const requestTranslate = useCallback(
 		async (sourceContent: string[], requestId?: number) => {
+			const requestSerial = beginTranslationRequest();
 			const translationType = translationTypeRef.current;
 			const translationDomain = translationDomainRef.current;
 			const sourceLanguage = sourceLanguageRef.current;
@@ -398,6 +434,10 @@ export const useTranslationRequest = (options?: {
 				await new Promise((resolve) => setTimeout(resolve, 17));
 			}
 
+			if (!isCurrentTranslationRequest(requestSerial)) {
+				return;
+			}
+
 			if (typeof translationType === "string") {
 				const result = await customTranslation({
 					sourceContent: sourceContent,
@@ -405,11 +445,16 @@ export const useTranslationRequest = (options?: {
 					targetLanguage: targetLanguage,
 					translationType: translationType,
 					translationDomain: translationDomain,
+					requestSerial: requestSerial,
 					requestId: requestId,
 				});
 				if (result.success) {
 					return;
 				}
+			}
+
+			if (!isCurrentTranslationRequest(requestSerial)) {
+				return;
 			}
 
 			message.error(
@@ -426,11 +471,14 @@ export const useTranslationRequest = (options?: {
 			translationTypeRef,
 			reloadOnlineConfigs,
 			intl,
+			beginTranslationRequest,
+			isCurrentTranslationRequest,
 		],
 	);
 
 	const updateTranslationDomain = useCallback(
 		(translationDomain: TranslationDomain) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -453,11 +501,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateTranslationType = useCallback(
 		(translationType: TranslationType | string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -480,11 +533,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateSourceLanguage = useCallback(
 		(sourceLanguage: string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -507,11 +565,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateTargetLanguage = useCallback(
 		(targetLanguage: string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -534,7 +597,11 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const getTranslatedContent = useCallback(() => {
