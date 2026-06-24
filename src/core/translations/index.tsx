@@ -2,7 +2,11 @@ import { trim } from "es-toolkit";
 import OpenAI from "openai";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { defaultTranslationPrompt } from "@/constants/components/translation";
+import {
+	defaultTranslationPrompt,
+	strictStructuredTranslationPrompt,
+	structuredTranslationPrompt,
+} from "@/constants/components/translation";
 import { AntdContext } from "@/contexts/antdContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -45,6 +49,94 @@ export type TranslationServiceConfig = (
 ) & {
 	isOfficial: boolean;
 };
+
+type TranslationResultItem = {
+	content: string;
+};
+
+type StructuredTranslationInputItem = {
+	id: number;
+	text: string;
+};
+
+const buildStructuredTranslationInput = (sourceContent: string[]) =>
+	sourceContent.map(
+		(text, id): StructuredTranslationInputItem => ({
+			id,
+			text,
+		}),
+	);
+
+const tryParseJson = (content: string): unknown => {
+	const trimmedContent = content.trim();
+	const fencedJsonMatch = trimmedContent.match(
+		/^```(?:json)?\s*([\s\S]*?)\s*```$/i,
+	);
+	const candidate = fencedJsonMatch?.[1]?.trim() ?? trimmedContent;
+
+	try {
+		return JSON.parse(candidate);
+	} catch {
+		const startIndex = candidate.indexOf("[");
+		const endIndex = candidate.lastIndexOf("]");
+		if (startIndex < 0 || endIndex <= startIndex) {
+			return undefined;
+		}
+
+		try {
+			return JSON.parse(candidate.slice(startIndex, endIndex + 1));
+		} catch {
+			return undefined;
+		}
+	}
+};
+
+const parseStructuredTranslationResult = (
+	responseContent: string,
+	sourceContentLength: number,
+): TranslationResultItem[] | undefined => {
+	const parsedContent = tryParseJson(responseContent);
+	if (!Array.isArray(parsedContent)) {
+		return undefined;
+	}
+
+	const translationsById = new Map<number, string>();
+	for (const item of parsedContent) {
+		if (!item || typeof item !== "object") {
+			return undefined;
+		}
+
+		const typedItem = item as Record<string, unknown>;
+		if (
+			typeof typedItem.id !== "number" ||
+			!Number.isInteger(typedItem.id) ||
+			typedItem.id < 0 ||
+			typedItem.id >= sourceContentLength ||
+			typeof typedItem.translation !== "string" ||
+			translationsById.has(typedItem.id)
+		) {
+			return undefined;
+		}
+
+		translationsById.set(typedItem.id, typedItem.translation);
+	}
+
+	if (translationsById.size !== sourceContentLength) {
+		return undefined;
+	}
+
+	return Array.from({ length: sourceContentLength }, (_, id) => ({
+		content: trim(translationsById.get(id) ?? ""),
+	}));
+};
+
+const buildStructuredTranslationSystemPrompt = (
+	basePrompt: string,
+	strictRetry: boolean,
+) =>
+	`${basePrompt}\n\n${structuredTranslationPrompt}${
+		strictRetry ? `\n\n${strictStructuredTranslationPrompt}` : ""
+	}`;
 
 export const useTranslationRequest = (options?: {
 	/// 配置从 Cache 中加载
@@ -246,9 +338,7 @@ export const useTranslationRequest = (options?: {
 			requestId?: number;
 		}): Promise<{
 			success: boolean;
-			result?: {
-				content: string;
-			}[];
+			result?: TranslationResultItem[];
 		}> => {
 			const config = supportedTranslationTypesRef.current.find(
 				(item) => item.type === params.translationType,
@@ -330,36 +420,95 @@ export const useTranslationRequest = (options?: {
 				setStartTranslateLoading(true);
 			}
 
-			let responseContent: string = "";
-			try {
-				const streamResponse = await client.chat.completions.create(
+			const model = config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, "");
+			const baseSystemPrompt = getTranslationPrompt(
+				translationConfig?.translationSystemPrompt ?? defaultTranslationPrompt,
+				params.sourceLanguage,
+				params.targetLanguage,
+				params.translationDomain,
+			);
+			const completionOptions = {
+				timeout: translationConfig?.translationTimeoutMs ?? 60000,
+			};
+			const completionBaseParams = {
+				model,
+				max_completion_tokens: translationConfig?.translationMaxTokens ?? 4096,
+				temperature: translationConfig?.translationTemperature ?? 0.2,
+				top_p: translationConfig?.translationTopP ?? 0.9,
+			};
+
+			const requestStructuredTranslation = async (strictRetry: boolean) => {
+				const structuredResponse = await client.chat.completions.create(
 					{
-						model: config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, ""),
+						...completionBaseParams,
 						messages: [
 							{
 								role: "system",
-								content: getTranslationPrompt(
-									translationConfig?.translationSystemPrompt ??
-										defaultTranslationPrompt,
-									params.sourceLanguage,
-									params.targetLanguage,
-									params.translationDomain,
+								content: buildStructuredTranslationSystemPrompt(
+									baseSystemPrompt,
+									strictRetry,
 								),
+							},
+							{
+								role: "user",
+								content: JSON.stringify(
+									buildStructuredTranslationInput(params.sourceContent),
+								),
+							},
+						],
+						stream: false,
+					},
+					completionOptions,
+				);
+
+				return parseStructuredTranslationResult(
+					structuredResponse.choices[0]?.message.content ?? "",
+					params.sourceContent.length,
+				);
+			};
+
+			try {
+				if (params.sourceContent.length > 1) {
+					const structuredResult =
+						(await requestStructuredTranslation(false)) ??
+						(await requestStructuredTranslation(true));
+
+					if (structuredResult) {
+						if (isCurrentTranslationRequest(params.requestSerial)) {
+							setTranslatedContent(
+								structuredResult.map((item) => item.content).join("\n"),
+							);
+							options?.onComplete?.(structuredResult, params.requestId);
+						}
+
+						return {
+							success: true,
+							result: structuredResult,
+						};
+					}
+
+					appError(
+						"[customTranslation] structured translation validation failed; falling back to legacy separator protocol",
+					);
+				}
+
+				let responseContent = "";
+				const streamResponse = await client.chat.completions.create(
+					{
+						...completionBaseParams,
+						messages: [
+							{
+								role: "system",
+								content: baseSystemPrompt,
 							},
 							{
 								role: "user",
 								content: params.sourceContent.join("%%"),
 							},
 						],
-						max_completion_tokens:
-							translationConfig?.translationMaxTokens ?? 4096,
-						temperature: translationConfig?.translationTemperature ?? 0.2,
-						top_p: translationConfig?.translationTopP ?? 0.9,
 						stream: true,
 					},
-					{
-						timeout: translationConfig?.translationTimeoutMs ?? 60000,
-					},
+					completionOptions,
 				);
 
 				if (isCurrentTranslationRequest(params.requestSerial)) {
@@ -387,26 +536,32 @@ export const useTranslationRequest = (options?: {
 				if (isCurrentTranslationRequest(params.requestSerial)) {
 					setDeltaTranslateLoading(false);
 				}
+				const result =
+					params.sourceContent.length > 1
+						? responseContent
+								.split("%%")
+								.map((item) => ({ content: trim(item) }))
+						: [{ content: responseContent }];
+
+				if (isCurrentTranslationRequest(params.requestSerial)) {
+					options?.onComplete?.(result, params.requestId);
+				}
+
+				return {
+					success: true,
+					result,
+				};
 			} catch (error) {
 				appError("[customTranslation] error", error);
 			} finally {
 				if (isCurrentTranslationRequest(params.requestSerial)) {
 					setStartTranslateLoading(false);
+					setDeltaTranslateLoading(false);
 				}
 			}
 
-			const result =
-				params.sourceContent.length > 1
-					? responseContent.split("%%").map((item) => ({ content: trim(item) }))
-					: [{ content: responseContent }];
-
-			if (isCurrentTranslationRequest(params.requestSerial)) {
-				options?.onComplete?.(result, params.requestId);
-			}
-
 			return {
-				success: true,
-				result: [{ content: responseContent }],
+				success: false,
 			};
 		},
 		[
