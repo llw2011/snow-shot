@@ -32,6 +32,7 @@ import {
 	TranslationType,
 	type TranslationTypeOption,
 } from "@/types/servies/translation";
+import { getCachedData, setCachedData } from "@/utils/cache";
 import { appError } from "@/utils/log";
 
 export type TranslationServiceConfig = (
@@ -69,6 +70,101 @@ type TranslationRequestResult = {
 	aborted?: boolean;
 	timeout?: boolean;
 	result?: TranslationResultItem[];
+};
+
+type TranslationCachePayload = {
+	version: string;
+	result: TranslationResultItem[];
+};
+
+const TRANSLATION_CACHE_VERSION = "qwen-translation-cache-v1";
+const TRANSLATION_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+const TRANSLATION_CACHE_KEY_PREFIX = "translation:";
+const TRANSLATION_CACHE_PROTOCOL_VERSION =
+	"single-stream-v1;structured-json-v1;legacy-separator-v1";
+
+const createSha256Hash = async (content: string) => {
+	if (!globalThis.crypto?.subtle) {
+		return undefined;
+	}
+
+	const digest = await globalThis.crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(content),
+	);
+
+	return Array.from(new Uint8Array(digest), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
+};
+
+const createTranslationCacheKey = async (params: {
+	apiUri?: string;
+	model: string;
+	sourceLanguage: string;
+	targetLanguage: string;
+	translationDomain: TranslationDomain;
+	baseSystemPrompt: string;
+	sourceContent: string[];
+	completionParams: {
+		max_completion_tokens: number;
+		temperature: number;
+		top_p: number;
+	};
+}) => {
+	const hash = await createSha256Hash(
+		JSON.stringify({
+			version: TRANSLATION_CACHE_VERSION,
+			protocol: TRANSLATION_CACHE_PROTOCOL_VERSION,
+			apiUri: params.apiUri,
+			model: params.model,
+			sourceLanguage: params.sourceLanguage,
+			targetLanguage: params.targetLanguage,
+			translationDomain: params.translationDomain,
+			baseSystemPrompt: params.baseSystemPrompt,
+			structuredTranslationPrompt,
+			strictStructuredTranslationPrompt,
+			completionParams: params.completionParams,
+			sourceContent: params.sourceContent,
+		}),
+	);
+
+	return hash ? `${TRANSLATION_CACHE_KEY_PREFIX}${hash}` : undefined;
+};
+
+const getTranslationCacheResult = (
+	cacheKey: string,
+	sourceContentLength: number,
+) => {
+	const cached = getCachedData<TranslationCachePayload>(
+		cacheKey,
+		TRANSLATION_CACHE_DURATION,
+	);
+	if (
+		!cached ||
+		cached.version !== TRANSLATION_CACHE_VERSION ||
+		!Array.isArray(cached.result) ||
+		cached.result.length !== sourceContentLength ||
+		cached.result.some((item) => !item || typeof item.content !== "string")
+	) {
+		return undefined;
+	}
+
+	return cached.result.map((item) => ({ content: item.content }));
+};
+
+const setTranslationCacheResult = (
+	cacheKey: string | undefined,
+	result: TranslationResultItem[],
+) => {
+	if (!cacheKey) {
+		return;
+	}
+
+	setCachedData<TranslationCachePayload>(cacheKey, {
+		version: TRANSLATION_CACHE_VERSION,
+		result: result.map((item) => ({ content: item.content })),
+	});
 };
 
 const buildStructuredTranslationInput = (sourceContent: string[]) =>
@@ -447,17 +543,6 @@ export const useTranslationRequest = (options?: {
 				};
 			}
 
-			const client = new OpenAI({
-				apiKey: config.apiConfig.api_key,
-				baseURL: config.apiConfig.api_uri,
-				dangerouslyAllowBrowser: true,
-				fetch: appFetch,
-			});
-
-			if (isCurrentTranslationRequest(requestSerial)) {
-				setStartTranslateLoading(true);
-			}
-
 			const model = config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, "");
 			const baseSystemPrompt = getTranslationPrompt(
 				translationConfig?.translationSystemPrompt ?? defaultTranslationPrompt,
@@ -476,6 +561,57 @@ export const useTranslationRequest = (options?: {
 				temperature: translationConfig?.translationTemperature ?? 0.2,
 				top_p: translationConfig?.translationTopP ?? 0.9,
 			};
+			let translationCacheKey: string | undefined;
+			try {
+				translationCacheKey = await createTranslationCacheKey({
+					apiUri: config.apiConfig.api_uri,
+					model,
+					sourceLanguage: params.sourceLanguage,
+					targetLanguage: params.targetLanguage,
+					translationDomain: params.translationDomain,
+					baseSystemPrompt,
+					sourceContent: params.sourceContent,
+					completionParams: completionBaseParams,
+				});
+			} catch (error) {
+				appError("[customTranslation] translation cache key error", error);
+			}
+
+			if (!isCurrentTranslationRequest(requestSerial)) {
+				return {
+					success: false,
+					aborted: true,
+				};
+			}
+
+			const cachedResult = translationCacheKey
+				? getTranslationCacheResult(
+						translationCacheKey,
+						params.sourceContent.length,
+					)
+				: undefined;
+
+			if (cachedResult) {
+				setTranslatedContent(
+					cachedResult.map((item) => item.content).join("\n"),
+				);
+				options?.onComplete?.(cachedResult, params.requestId);
+				return {
+					success: true,
+					result: cachedResult,
+				};
+			}
+
+			const client = new OpenAI({
+				apiKey: config.apiConfig.api_key,
+				baseURL: config.apiConfig.api_uri,
+				dangerouslyAllowBrowser: true,
+				fetch: appFetch,
+			});
+
+			if (isCurrentTranslationRequest(requestSerial)) {
+				setStartTranslateLoading(true);
+			}
 
 			const requestStructuredTranslation = async (strictRetry: boolean) => {
 				const structuredResponse = await client.chat.completions.create(
@@ -519,6 +655,7 @@ export const useTranslationRequest = (options?: {
 								structuredResult.map((item) => item.content).join("\n"),
 							);
 							options?.onComplete?.(structuredResult, params.requestId);
+							setTranslationCacheResult(translationCacheKey, structuredResult);
 						}
 
 						return {
@@ -588,6 +725,7 @@ export const useTranslationRequest = (options?: {
 
 				if (isCurrentTranslationRequest(requestSerial)) {
 					options?.onComplete?.(result, params.requestId);
+					setTranslationCacheResult(translationCacheKey, result);
 				}
 
 				return {

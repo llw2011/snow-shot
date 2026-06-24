@@ -52,6 +52,30 @@ const removeCacheFromStorage = (key: string): void => {
 	}
 };
 
+export const getCachedData = <T>(
+	key: string,
+	duration = 5 * 60 * 1000,
+): T | undefined => {
+	const cached = getCacheFromStorage<T>(key);
+	if (!cached) {
+		return undefined;
+	}
+
+	if (Date.now() - cached.timestamp < duration) {
+		return cached.data;
+	}
+
+	removeCacheFromStorage(key);
+	return undefined;
+};
+
+export const setCachedData = <T>(key: string, data: T): void => {
+	setCacheToStorage(key, {
+		data,
+		timestamp: Date.now(),
+	});
+};
+
 /**
  * 带缓存的高阶函数
  * 将异步函数包装为带缓存功能的函数
