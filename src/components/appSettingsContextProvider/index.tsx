@@ -1113,6 +1113,29 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.optimizeAiTranslationLayout
 							: (prevSettings?.optimizeAiTranslationLayout ??
 								defaultAppSettingsData[group].optimizeAiTranslationLayout),
+					translationMaxTokens:
+						typeof newSettings?.translationMaxTokens === "number"
+							? Math.min(Math.max(newSettings.translationMaxTokens, 512), 8192)
+							: (prevSettings?.translationMaxTokens ??
+								defaultAppSettingsData[group].translationMaxTokens),
+					translationTemperature:
+						typeof newSettings?.translationTemperature === "number"
+							? Math.min(Math.max(newSettings.translationTemperature, 0), 2)
+							: (prevSettings?.translationTemperature ??
+								defaultAppSettingsData[group].translationTemperature),
+					translationTopP:
+						typeof newSettings?.translationTopP === "number"
+							? Math.min(Math.max(newSettings.translationTopP, 0), 1)
+							: (prevSettings?.translationTopP ??
+								defaultAppSettingsData[group].translationTopP),
+					translationTimeoutMs:
+						typeof newSettings?.translationTimeoutMs === "number"
+							? Math.min(
+									Math.max(newSettings.translationTimeoutMs, 5000),
+									300000,
+								)
+							: (prevSettings?.translationTimeoutMs ??
+								defaultAppSettingsData[group].translationTimeoutMs),
 					translationApiConfigList,
 					defaultTranslationApiConfigInitialized: true,
 					sourceLanguage:

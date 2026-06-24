@@ -1364,6 +1364,97 @@ export const FunctionSettingsPage = () => {
 							</Row>
 
 							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormDigit
+										name="translationMaxTokens"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.maxTokens" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.maxTokens.tip" />
+												}
+											/>
+										}
+										min={512}
+										max={8192}
+										fieldProps={{
+											precision: 0,
+										}}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTemperature"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.temperature" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.temperature.tip" />
+												}
+											/>
+										}
+										min={0}
+										max={2}
+										fieldProps={{
+											precision: 1,
+											step: 0.1,
+										}}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTopP"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.topP" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.topP.tip" />
+												}
+											/>
+										}
+										min={0}
+										max={1}
+										fieldProps={{
+											precision: 2,
+											step: 0.05,
+										}}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTimeoutMs"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.timeoutMs" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.timeoutMs.tip" />
+												}
+											/>
+										}
+										min={5000}
+										max={300000}
+										fieldProps={{
+											precision: 0,
+											addonAfter: "ms",
+										}}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
 								<Col span={24}>
 									<ProFormList
 										name="translationApiConfigList"

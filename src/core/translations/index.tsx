@@ -75,8 +75,6 @@ export const useTranslationRequest = (options?: {
 	const [translationApiConfigList, setTranslationApiConfigList] = useState<
 		TranslationApiConfig[] | undefined
 	>(undefined);
-	const [chatConfig, setChatConfig] =
-		useState<AppSettingsData[AppSettingsGroup.SystemChat]>();
 	const [translationConfig, setTranslationConfig] =
 		useState<AppSettingsData[AppSettingsGroup.FunctionTranslation]>();
 
@@ -120,7 +118,6 @@ export const useTranslationRequest = (options?: {
 						.translationApiConfigList,
 				);
 
-				setChatConfig(settings[AppSettingsGroup.SystemChat]);
 				setTranslationConfig(settings[AppSettingsGroup.FunctionTranslation]);
 			},
 			[
@@ -335,28 +332,35 @@ export const useTranslationRequest = (options?: {
 
 			let responseContent: string = "";
 			try {
-				const streamResponse = await client.chat.completions.create({
-					model: config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, ""),
-					messages: [
-						{
-							role: "system",
-							content: getTranslationPrompt(
-								translationConfig?.translationSystemPrompt ??
-									defaultTranslationPrompt,
-								params.sourceLanguage,
-								params.targetLanguage,
-								params.translationDomain,
-							),
-						},
-						{
-							role: "user",
-							content: params.sourceContent.join("%%"),
-						},
-					],
-					max_completion_tokens: chatConfig?.maxTokens ?? 4096,
-					temperature: chatConfig?.temperature ?? 1,
-					stream: true,
-				});
+				const streamResponse = await client.chat.completions.create(
+					{
+						model: config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, ""),
+						messages: [
+							{
+								role: "system",
+								content: getTranslationPrompt(
+									translationConfig?.translationSystemPrompt ??
+										defaultTranslationPrompt,
+									params.sourceLanguage,
+									params.targetLanguage,
+									params.translationDomain,
+								),
+							},
+							{
+								role: "user",
+								content: params.sourceContent.join("%%"),
+							},
+						],
+						max_completion_tokens:
+							translationConfig?.translationMaxTokens ?? 4096,
+						temperature: translationConfig?.translationTemperature ?? 0.2,
+						top_p: translationConfig?.translationTopP ?? 0.9,
+						stream: true,
+					},
+					{
+						timeout: translationConfig?.translationTimeoutMs ?? 60000,
+					},
+				);
 
 				if (isCurrentTranslationRequest(params.requestSerial)) {
 					setDeltaTranslateLoading(true);
@@ -407,10 +411,12 @@ export const useTranslationRequest = (options?: {
 		},
 		[
 			supportedTranslationTypesRef,
-			chatConfig?.maxTokens,
-			chatConfig?.temperature,
 			options,
+			translationConfig?.translationMaxTokens,
 			translationConfig?.translationSystemPrompt,
+			translationConfig?.translationTemperature,
+			translationConfig?.translationTimeoutMs,
+			translationConfig?.translationTopP,
 			setTranslatedContent,
 			isCurrentTranslationRequest,
 		],

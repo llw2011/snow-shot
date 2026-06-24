@@ -418,6 +418,20 @@ export const settings = {
 		"优化 AI 翻译的排版",
 	"settings.functionSettings.translationSettings.optimizeAiTranslationLayout.tip":
 		"文本识别翻译依赖翻译原文和翻译结果具有相同的排版关系，而 AI 的输出可能存在排版错误。开启后将尝试优化排版，但显示出的内容顺序可能与原文不一致",
+	"settings.functionSettings.translationSettings.maxTokens":
+		"翻译最大 Token 数",
+	"settings.functionSettings.translationSettings.maxTokens.tip":
+		"限制单次翻译请求中模型生成译文的最大 token 数；该设置只影响翻译，不影响 AI 对话",
+	"settings.functionSettings.translationSettings.temperature":
+		"翻译 Temperature",
+	"settings.functionSettings.translationSettings.temperature.tip":
+		"更低的值会让翻译更稳定；本地 Qwen 默认使用 0.2",
+	"settings.functionSettings.translationSettings.topP": "翻译 Top P",
+	"settings.functionSettings.translationSettings.topP.tip":
+		"限制采样候选范围；本地 Qwen 默认使用 0.9",
+	"settings.functionSettings.translationSettings.timeoutMs": "翻译超时时间",
+	"settings.functionSettings.translationSettings.timeoutMs.tip":
+		"单次翻译请求的超时时间，单位毫秒；该设置只限制请求等待时间，不负责取消旧请求",
 	"settings.functionSettings.translationSettings.apiConfig": "API 配置",
 	"settings.functionSettings.translationSettings.apiConfig.apiType": "翻译服务",
 	"settings.functionSettings.translationSettings.apiConfig.apiType.openAiCompatible":

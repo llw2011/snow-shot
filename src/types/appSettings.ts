@@ -386,6 +386,10 @@ export type AppSettingsData = {
 	[AppSettingsGroup.FunctionTranslation]: {
 		/** 优化 AI 翻译的排版 */
 		optimizeAiTranslationLayout: boolean;
+		translationMaxTokens: number;
+		translationTemperature: number;
+		translationTopP: number;
+		translationTimeoutMs: number;
 		translationSystemPrompt: string;
 		translationApiConfigList: TranslationApiConfig[];
 		defaultTranslationApiConfigInitialized: boolean;
