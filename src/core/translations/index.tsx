@@ -34,6 +34,11 @@ import {
 } from "@/types/servies/translation";
 import { getCachedData, setCachedData } from "@/utils/cache";
 import { appError } from "@/utils/log";
+import {
+	buildStructuredTranslationInput,
+	parseStructuredTranslationResult,
+	type TranslationResultItem,
+} from "./structuredProtocol";
 
 export type TranslationServiceConfig = (
 	| TranslationTypeOption
@@ -49,15 +54,6 @@ export type TranslationServiceConfig = (
 	  }
 ) & {
 	isOfficial: boolean;
-};
-
-type TranslationResultItem = {
-	content: string;
-};
-
-type StructuredTranslationInputItem = {
-	id: number;
-	text: string;
 };
 
 type TranslationRequestHandle = {
@@ -165,77 +161,6 @@ const setTranslationCacheResult = (
 		version: TRANSLATION_CACHE_VERSION,
 		result: result.map((item) => ({ content: item.content })),
 	});
-};
-
-const buildStructuredTranslationInput = (sourceContent: string[]) =>
-	sourceContent.map(
-		(text, id): StructuredTranslationInputItem => ({
-			id,
-			text,
-		}),
-	);
-
-const tryParseJson = (content: string): unknown => {
-	const trimmedContent = content.trim();
-	const fencedJsonMatch = trimmedContent.match(
-		/^```(?:json)?\s*([\s\S]*?)\s*```$/i,
-	);
-	const candidate = fencedJsonMatch?.[1]?.trim() ?? trimmedContent;
-
-	try {
-		return JSON.parse(candidate);
-	} catch {
-		const startIndex = candidate.indexOf("[");
-		const endIndex = candidate.lastIndexOf("]");
-		if (startIndex < 0 || endIndex <= startIndex) {
-			return undefined;
-		}
-
-		try {
-			return JSON.parse(candidate.slice(startIndex, endIndex + 1));
-		} catch {
-			return undefined;
-		}
-	}
-};
-
-const parseStructuredTranslationResult = (
-	responseContent: string,
-	sourceContentLength: number,
-): TranslationResultItem[] | undefined => {
-	const parsedContent = tryParseJson(responseContent);
-	if (!Array.isArray(parsedContent)) {
-		return undefined;
-	}
-
-	const translationsById = new Map<number, string>();
-	for (const item of parsedContent) {
-		if (!item || typeof item !== "object") {
-			return undefined;
-		}
-
-		const typedItem = item as Record<string, unknown>;
-		if (
-			typeof typedItem.id !== "number" ||
-			!Number.isInteger(typedItem.id) ||
-			typedItem.id < 0 ||
-			typedItem.id >= sourceContentLength ||
-			typeof typedItem.translation !== "string" ||
-			translationsById.has(typedItem.id)
-		) {
-			return undefined;
-		}
-
-		translationsById.set(typedItem.id, typedItem.translation);
-	}
-
-	if (translationsById.size !== sourceContentLength) {
-		return undefined;
-	}
-
-	return Array.from({ length: sourceContentLength }, (_, id) => ({
-		content: trim(translationsById.get(id) ?? ""),
-	}));
 };
 
 const buildStructuredTranslationSystemPrompt = (
