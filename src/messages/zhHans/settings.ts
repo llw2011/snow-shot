@@ -479,6 +479,18 @@ export const settings = {
 	"settings.functionSettings.chatSettings.testChat": "测试 API 配置",
 	"settings.functionSettings.chatSettings.testPrompt":
 		'测试提示词: "Say "Hello, world!""',
+	"settings.functionSettings.chatSettings.testModelProbe.empty":
+		"聊天测试成功，但未读取到模型列表",
+	"settings.functionSettings.chatSettings.testModelProbe.matched":
+		"配置模型已在模型列表中找到：{model}",
+	"settings.functionSettings.chatSettings.testModelProbe.mapped":
+		"配置模型 {configuredModel} 不在模型列表中；服务已接受请求并映射为 {actualModel}",
+	"settings.functionSettings.chatSettings.testModelProbe.notListed":
+		"配置模型 {model} 不在模型列表中，但测试请求已成功",
+	"settings.functionSettings.chatSettings.testModelProbe.available":
+		"可用模型：{models}",
+	"settings.functionSettings.chatSettings.testModelProbe.failed":
+		"API 测试失败",
 	"settings.systemSettings.screenshotSettings": "截图",
 	"settings.systemSettings.screenshotSettings.tryGetElementByFocus":
 		"选取窗口元素增强",

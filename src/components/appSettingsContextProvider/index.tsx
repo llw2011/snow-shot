@@ -25,6 +25,7 @@ import {
 	HARDENED_GLM_OCR_CHAT_API_CONFIG,
 	HARDENED_GLM_OCR_CUSTOM_MODEL,
 	HARDENED_QWEN35_CUSTOM_MODEL,
+	HARDENED_QWEN35_LEGACY_API_MODELS,
 	HARDENED_QWEN35_TRANSLATION_API_CONFIG,
 } from "@/constants/appSettings";
 import { defaultCommonKeyEventSettings } from "@/constants/commonKeyEvent";
@@ -126,8 +127,9 @@ const isQwen35TranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
 ) =>
 	isOpenAiCompatibleTranslationApiConfig(config) &&
-	(normalizeCustomModelValue(config?.api_model) ===
-		HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model ||
+	([HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model]
+		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
+		.includes(normalizeCustomModelValue(config?.api_model)) ||
 		`${config?.model_name ?? ""}` ===
 			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
 

@@ -3,17 +3,29 @@ import { Alert, Spin, theme } from "antd";
 import OpenAI from "openai";
 import type React from "react";
 import { useCallback, useState } from "react";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { TestChatIcon } from "@/components/icons";
 import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { appFetch } from "@/services/tools";
+import { probeOpenAiCompatibleModels } from "@/services/tools/chat";
 import { AppSettingsGroup, type ChatApiConfig } from "@/types/appSettings";
 import { appError } from "@/utils/log";
 
+type TestStatus = {
+	type: "success" | "info" | "warning" | "error";
+	message: string;
+	description?: string;
+};
+
+const formatErrorMessage = (error: unknown) =>
+	error instanceof Error ? error.message : `Unknown error: ${error}`;
+
 export const TestChat: React.FC<{ config: ChatApiConfig }> = ({ config }) => {
+	const intl = useIntl();
 	const { token } = theme.useToken();
 	const [result, setResult] = useState("");
+	const [status, setStatus] = useState<TestStatus | undefined>(undefined);
 	const [loading, setLoading] = useState(false);
 
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
@@ -21,7 +33,15 @@ export const TestChat: React.FC<{ config: ChatApiConfig }> = ({ config }) => {
 	const handleTest = useCallback(async () => {
 		setLoading(true);
 		setResult("");
+		setStatus(undefined);
 		try {
+			const modelProbe = await probeOpenAiCompatibleModels(
+				config.api_uri,
+				config.api_key,
+			);
+			const configuredModelListed = modelProbe.models.includes(
+				config.api_model,
+			);
 			const client = new OpenAI({
 				apiKey: config.api_key,
 				baseURL: config.api_uri,
@@ -29,6 +49,7 @@ export const TestChat: React.FC<{ config: ChatApiConfig }> = ({ config }) => {
 				fetch: appFetch,
 			});
 
+			let actualModel = "";
 			const stream_response = await client.chat.completions.create({
 				model: config.api_model,
 				messages: [{ role: "user", content: 'Say "Hello, world!"' }],
@@ -38,16 +59,78 @@ export const TestChat: React.FC<{ config: ChatApiConfig }> = ({ config }) => {
 			});
 
 			for await (const event of stream_response) {
+				if (event.model) {
+					actualModel = event.model;
+				}
 				if (event.choices.length > 0 && event.choices[0].delta.content) {
 					setResult((prev) => `${prev}${event.choices[0].delta.content}`);
 				}
 			}
+
+			if (modelProbe.models.length === 0) {
+				setStatus({
+					type: modelProbe.errorMessage ? "warning" : "info",
+					message: intl.formatMessage({
+						id: "settings.functionSettings.chatSettings.testModelProbe.empty",
+					}),
+					description: modelProbe.errorMessage,
+				});
+			} else if (configuredModelListed) {
+				setStatus({
+					type: "success",
+					message: intl.formatMessage(
+						{
+							id: "settings.functionSettings.chatSettings.testModelProbe.matched",
+						},
+						{ model: config.api_model },
+					),
+					description: intl.formatMessage(
+						{
+							id: "settings.functionSettings.chatSettings.testModelProbe.available",
+						},
+						{ models: modelProbe.models.join(", ") },
+					),
+				});
+			} else {
+				setStatus({
+					type: "warning",
+					message: actualModel
+						? intl.formatMessage(
+								{
+									id: "settings.functionSettings.chatSettings.testModelProbe.mapped",
+								},
+								{
+									configuredModel: config.api_model,
+									actualModel,
+								},
+							)
+						: intl.formatMessage(
+								{
+									id: "settings.functionSettings.chatSettings.testModelProbe.notListed",
+								},
+								{ model: config.api_model },
+							),
+					description: intl.formatMessage(
+						{
+							id: "settings.functionSettings.chatSettings.testModelProbe.available",
+						},
+						{ models: modelProbe.models.join(", ") },
+					),
+				});
+			}
 		} catch (error) {
+			setStatus({
+				type: "error",
+				message: intl.formatMessage({
+					id: "settings.functionSettings.chatSettings.testModelProbe.failed",
+				}),
+				description: formatErrorMessage(error),
+			});
 			appError("[handleTest] error", error);
 		}
 
 		setLoading(false);
-	}, [config.api_key, config.api_model, config.api_uri, getAppSettings]);
+	}, [config.api_key, config.api_model, config.api_uri, getAppSettings, intl]);
 
 	return (
 		<ModalForm
@@ -79,6 +162,15 @@ export const TestChat: React.FC<{ config: ChatApiConfig }> = ({ config }) => {
 			<Spin spinning={loading}>
 				<div style={{ display: "inline-block" }}>{result}</div>
 			</Spin>
+			{status && (
+				<Alert
+					type={status.type}
+					message={status.message}
+					description={status.description}
+					style={{ marginTop: token.margin }}
+					showIcon
+				/>
+			)}
 		</ModalForm>
 	);
 };
