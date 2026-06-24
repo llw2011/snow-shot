@@ -315,6 +315,7 @@ const TranslatorCore: React.FC<{
 		updateTranslationDomain,
 		supportedTranslationTypesLoading,
 		requestTranslate,
+		cancelTranslation,
 		translatedContent,
 		getTranslatedContent,
 	} = useTranslationRequest(
@@ -338,12 +339,16 @@ const TranslatorCore: React.FC<{
 	useEffect(() => {
 		return () => {
 			requestTranslateDebounce.cancel();
+			cancelTranslation();
 		};
-	}, [requestTranslateDebounce]);
+	}, [requestTranslateDebounce, cancelTranslation]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 翻译相关配置变更的时候也要重新翻译
 	useEffect(() => {
 		if (sourceContent.trim() === "") {
+			requestTranslateDebounce.cancel();
+			translatedResultRef.current = [];
+			cancelTranslation();
 			return;
 		}
 
@@ -359,6 +364,7 @@ const TranslatorCore: React.FC<{
 		sourceContent,
 		requestTranslateDebounce,
 		requestTranslate,
+		cancelTranslation,
 		translationType,
 		sourceLanguage,
 		targetLanguage,

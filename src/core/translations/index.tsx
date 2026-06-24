@@ -59,6 +59,18 @@ type StructuredTranslationInputItem = {
 	text: string;
 };
 
+type TranslationRequestHandle = {
+	requestSerial: number;
+	abortController: AbortController;
+};
+
+type TranslationRequestResult = {
+	success: boolean;
+	aborted?: boolean;
+	timeout?: boolean;
+	result?: TranslationResultItem[];
+};
+
 const buildStructuredTranslationInput = (sourceContent: string[]) =>
 	sourceContent.map(
 		(text, id): StructuredTranslationInputItem => ({
@@ -137,6 +149,15 @@ const buildStructuredTranslationSystemPrompt = (
 	`${basePrompt}\n\n${structuredTranslationPrompt}${
 		strictRetry ? `\n\n${strictStructuredTranslationPrompt}` : ""
 	}`;
+
+const isOpenAiAbortError = (error: unknown) =>
+	error instanceof OpenAI.APIUserAbortError ||
+	(error instanceof Error &&
+		(error.name === "AbortError" || error.name === "APIUserAbortError"));
+
+const isOpenAiTimeoutError = (error: unknown) =>
+	error instanceof OpenAI.APIConnectionTimeoutError ||
+	(error instanceof Error && error.name === "APIConnectionTimeoutError");
 
 export const useTranslationRequest = (options?: {
 	/// 配置从 Cache 中加载
@@ -311,21 +332,40 @@ export const useTranslationRequest = (options?: {
 	const [translatedContent, setTranslatedContent, translatedContentRef] =
 		useStateRef<string>("");
 	const translateRequestSerialRef = useRef(0);
-	const beginTranslationRequest = useCallback(() => {
-		translateRequestSerialRef.current += 1;
-		return translateRequestSerialRef.current;
+	const translationAbortControllerRef = useRef<AbortController | undefined>(
+		undefined,
+	);
+	const abortCurrentTranslationRequest = useCallback(() => {
+		translationAbortControllerRef.current?.abort();
+		translationAbortControllerRef.current = undefined;
 	}, []);
+	const beginTranslationRequest = useCallback(() => {
+		abortCurrentTranslationRequest();
+		const abortController = new AbortController();
+		translationAbortControllerRef.current = abortController;
+		translateRequestSerialRef.current += 1;
+		return {
+			requestSerial: translateRequestSerialRef.current,
+			abortController,
+		};
+	}, [abortCurrentTranslationRequest]);
 	const isCurrentTranslationRequest = useCallback(
 		(requestSerial: number) =>
 			requestSerial === translateRequestSerialRef.current,
 		[],
 	);
 	const invalidateTranslationRequest = useCallback(() => {
+		abortCurrentTranslationRequest();
 		translateRequestSerialRef.current += 1;
 		setStartTranslateLoading(false);
 		setDeltaTranslateLoading(false);
 		setTranslatedContent("");
-	}, [setTranslatedContent]);
+	}, [abortCurrentTranslationRequest, setTranslatedContent]);
+	useEffect(() => {
+		return () => {
+			abortCurrentTranslationRequest();
+		};
+	}, [abortCurrentTranslationRequest]);
 
 	const customTranslation = useCallback(
 		async (params: {
@@ -334,12 +374,10 @@ export const useTranslationRequest = (options?: {
 			targetLanguage: string;
 			translationType: string;
 			translationDomain: TranslationDomain;
-			requestSerial: number;
+			requestHandle: TranslationRequestHandle;
 			requestId?: number;
-		}): Promise<{
-			success: boolean;
-			result?: TranslationResultItem[];
-		}> => {
+		}): Promise<TranslationRequestResult> => {
+			const requestSerial = params.requestHandle.requestSerial;
 			const config = supportedTranslationTypesRef.current.find(
 				(item) => item.type === params.translationType,
 			);
@@ -352,7 +390,7 @@ export const useTranslationRequest = (options?: {
 
 			if ("translationApiConfig" in config) {
 				if (config.type === TranslationApiType.DeepL) {
-					if (isCurrentTranslationRequest(params.requestSerial)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
 						setStartTranslateLoading(true);
 					}
 
@@ -375,7 +413,7 @@ export const useTranslationRequest = (options?: {
 						appError("[customTranslation] translateTextDeepL error", error);
 					}
 
-					if (isCurrentTranslationRequest(params.requestSerial)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
 						setStartTranslateLoading(false);
 					}
 
@@ -385,7 +423,7 @@ export const useTranslationRequest = (options?: {
 						};
 					}
 
-					if (isCurrentTranslationRequest(params.requestSerial)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
 						options?.onComplete?.(
 							result.translations.map((item) => ({
 								content: item.text,
@@ -416,7 +454,7 @@ export const useTranslationRequest = (options?: {
 				fetch: appFetch,
 			});
 
-			if (isCurrentTranslationRequest(params.requestSerial)) {
+			if (isCurrentTranslationRequest(requestSerial)) {
 				setStartTranslateLoading(true);
 			}
 
@@ -429,6 +467,8 @@ export const useTranslationRequest = (options?: {
 			);
 			const completionOptions = {
 				timeout: translationConfig?.translationTimeoutMs ?? 60000,
+				maxRetries: 0,
+				signal: params.requestHandle.abortController.signal,
 			};
 			const completionBaseParams = {
 				model,
@@ -474,7 +514,7 @@ export const useTranslationRequest = (options?: {
 						(await requestStructuredTranslation(true));
 
 					if (structuredResult) {
-						if (isCurrentTranslationRequest(params.requestSerial)) {
+						if (isCurrentTranslationRequest(requestSerial)) {
 							setTranslatedContent(
 								structuredResult.map((item) => item.content).join("\n"),
 							);
@@ -511,17 +551,17 @@ export const useTranslationRequest = (options?: {
 					completionOptions,
 				);
 
-				if (isCurrentTranslationRequest(params.requestSerial)) {
+				if (isCurrentTranslationRequest(requestSerial)) {
 					setDeltaTranslateLoading(true);
 				}
 				try {
-					if (isCurrentTranslationRequest(params.requestSerial)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
 						setTranslatedContent("");
 					}
 					for await (const event of streamResponse) {
 						if (event.choices.length > 0 && event.choices[0].delta.content) {
 							responseContent += event.choices[0].delta.content;
-							if (isCurrentTranslationRequest(params.requestSerial)) {
+							if (isCurrentTranslationRequest(requestSerial)) {
 								setTranslatedContent(
 									(prevContent) =>
 										`${prevContent}${event.choices[0].delta.content}`,
@@ -531,9 +571,12 @@ export const useTranslationRequest = (options?: {
 						}
 					}
 				} catch (error) {
+					if (isOpenAiAbortError(error) || isOpenAiTimeoutError(error)) {
+						throw error;
+					}
 					appError("[customTranslation] streamResponse error", error);
 				}
-				if (isCurrentTranslationRequest(params.requestSerial)) {
+				if (isCurrentTranslationRequest(requestSerial)) {
 					setDeltaTranslateLoading(false);
 				}
 				const result =
@@ -543,7 +586,7 @@ export const useTranslationRequest = (options?: {
 								.map((item) => ({ content: trim(item) }))
 						: [{ content: responseContent }];
 
-				if (isCurrentTranslationRequest(params.requestSerial)) {
+				if (isCurrentTranslationRequest(requestSerial)) {
 					options?.onComplete?.(result, params.requestId);
 				}
 
@@ -552,9 +595,30 @@ export const useTranslationRequest = (options?: {
 					result,
 				};
 			} catch (error) {
+				if (isOpenAiAbortError(error)) {
+					return {
+						success: false,
+						aborted: true,
+					};
+				}
+
+				if (isOpenAiTimeoutError(error)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
+						message.error(
+							intl.formatMessage({
+								id: "tools.translation.requestTimeout",
+							}),
+						);
+					}
+					return {
+						success: false,
+						timeout: true,
+					};
+				}
+
 				appError("[customTranslation] error", error);
 			} finally {
-				if (isCurrentTranslationRequest(params.requestSerial)) {
+				if (isCurrentTranslationRequest(requestSerial)) {
 					setStartTranslateLoading(false);
 					setDeltaTranslateLoading(false);
 				}
@@ -567,6 +631,8 @@ export const useTranslationRequest = (options?: {
 		[
 			supportedTranslationTypesRef,
 			options,
+			intl,
+			message,
 			translationConfig?.translationMaxTokens,
 			translationConfig?.translationSystemPrompt,
 			translationConfig?.translationTemperature,
@@ -579,7 +645,7 @@ export const useTranslationRequest = (options?: {
 
 	const requestTranslate = useCallback(
 		async (sourceContent: string[], requestId?: number) => {
-			const requestSerial = beginTranslationRequest();
+			const requestHandle = beginTranslationRequest();
 			const translationType = translationTypeRef.current;
 			const translationDomain = translationDomainRef.current;
 			const sourceLanguage = sourceLanguageRef.current;
@@ -595,7 +661,7 @@ export const useTranslationRequest = (options?: {
 				await new Promise((resolve) => setTimeout(resolve, 17));
 			}
 
-			if (!isCurrentTranslationRequest(requestSerial)) {
+			if (!isCurrentTranslationRequest(requestHandle.requestSerial)) {
 				return;
 			}
 
@@ -606,15 +672,18 @@ export const useTranslationRequest = (options?: {
 					targetLanguage: targetLanguage,
 					translationType: translationType,
 					translationDomain: translationDomain,
-					requestSerial: requestSerial,
+					requestHandle,
 					requestId: requestId,
 				});
+				if (result.aborted || result.timeout) {
+					return;
+				}
 				if (result.success) {
 					return;
 				}
 			}
 
-			if (!isCurrentTranslationRequest(requestSerial)) {
+			if (!isCurrentTranslationRequest(requestHandle.requestSerial)) {
 				return;
 			}
 
@@ -785,5 +854,6 @@ export const useTranslationRequest = (options?: {
 		supportedTranslationTypes,
 		supportedTranslationTypesLoading,
 		getTranslatedContent,
+		cancelTranslation: invalidateTranslationRequest,
 	};
 };
