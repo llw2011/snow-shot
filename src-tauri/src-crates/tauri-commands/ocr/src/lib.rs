@@ -125,18 +125,22 @@ pub async fn ocr_detect(
     };
 
     let mut scale_factor: f32 = match request.headers().get("x-scale-factor") {
-        Some(header) => match header.to_str() {
-            Ok(scale_factor) => scale_factor.parse::<f32>().unwrap(),
-            Err(_) => return Err("[ocr_detect] Invalid scale factor".to_string()),
-        },
+        Some(header) => header
+            .to_str()
+            .map_err(|_| "[ocr_detect] Invalid scale factor".to_string())?
+            .parse::<f32>()
+            .map_err(|_| "[ocr_detect] Invalid scale factor".to_string())?,
         None => return Err("[ocr_detect] Missing scale factor".to_string()),
     };
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return Err("[ocr_detect] Invalid scale factor".to_string());
+    }
 
     // 分辨率过小的图片识别可能有问题，当 scale_factor 低于 1.5 时，放大图片使有效缩放达到 1.5
     let target_scale_factor = 1.5;
     if scale_factor < target_scale_factor && scale_factor > 0.0 {
-        scale_factor = target_scale_factor;
         let resize_factor = target_scale_factor / scale_factor;
+        scale_factor = target_scale_factor;
         image = image.resize(
             (image.width() as f32 * resize_factor) as u32,
             (image.height() as f32 * resize_factor) as u32,
@@ -145,10 +149,11 @@ pub async fn ocr_detect(
     }
 
     let detect_angle = match request.headers().get("x-detect-angle") {
-        Some(header) => match header.to_str() {
-            Ok(detect_angle) => detect_angle.parse::<bool>().unwrap(),
-            Err(_) => return Err("[ocr_detect] Invalid detect angle".to_string()),
-        },
+        Some(header) => header
+            .to_str()
+            .map_err(|_| "[ocr_detect] Invalid detect angle".to_string())?
+            .parse::<bool>()
+            .map_err(|_| "[ocr_detect] Invalid detect angle".to_string())?,
         None => return Err("[ocr_detect] Missing detect angle".to_string()),
     };
 
@@ -175,21 +180,34 @@ pub async fn ocr_detect_with_shared_buffer(
         }
     };
 
+    if image_data.len() < 8 {
+        return Err("[ocr_detect_with_shared_buffer] Invalid image metadata".to_string());
+    }
+
+    let metadata_offset = image_data.len() - 8;
     let image_width = u32::from_le_bytes(
-        image_data[image_data.len() - 8..image_data.len() - 4]
+        image_data[metadata_offset..metadata_offset + 4]
             .try_into()
-            .unwrap(),
+            .map_err(|_| "[ocr_detect_with_shared_buffer] Invalid image width".to_string())?,
     );
     let image_height = u32::from_le_bytes(
-        image_data[image_data.len() - 4..image_data.len()]
+        image_data[metadata_offset + 4..]
             .try_into()
-            .unwrap(),
+            .map_err(|_| "[ocr_detect_with_shared_buffer] Invalid image height".to_string())?,
     );
+    let expected_pixel_len = (image_width as usize)
+        .checked_mul(image_height as usize)
+        .and_then(|len| len.checked_mul(4))
+        .ok_or_else(|| "[ocr_detect_with_shared_buffer] Invalid image size".to_string())?;
+    if metadata_offset != expected_pixel_len {
+        return Err("[ocr_detect_with_shared_buffer] Invalid image size".to_string());
+    }
+    let pixel_data = image_data[..metadata_offset].to_vec();
 
     ocr_detect_core(
         ocr_service,
         image::DynamicImage::ImageRgba8(
-            match image::RgbaImage::from_raw(image_width, image_height, image_data) {
+            match image::RgbaImage::from_raw(image_width, image_height, pixel_data) {
                 Some(image) => image,
                 None => return Err("[ocr_detect_with_shared_buffer] Invalid image".to_string()),
             },

@@ -304,9 +304,28 @@ impl Plugin {
 
         let entry_count = zip_reader.file().entries().len();
         for index in 0..entry_count {
-            let entry = zip_reader.file().entries().get(index).unwrap();
-            let entry_name = entry.filename().as_str().unwrap().to_string();
-            let is_dir = entry.dir().unwrap();
+            let entry = zip_reader.file().entries().get(index).ok_or_else(|| {
+                format!(
+                    "[Plugin::extract_zip_to_dir] Missing zip entry at index: {}",
+                    index
+                )
+            })?;
+            let entry_name = entry
+                .filename()
+                .as_str()
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::extract_zip_to_dir] Invalid zip entry filename at index {}: {}",
+                        index, e
+                    )
+                })?
+                .to_string();
+            let is_dir = entry.dir().map_err(|e| {
+                format!(
+                    "[Plugin::extract_zip_to_dir] Failed to read zip entry type at index {}: {}",
+                    index, e
+                )
+            })?;
 
             let normalized = match Self::normalize_zip_entry_path(&entry_name, plugin_name) {
                 Ok(Some(path)) => path,

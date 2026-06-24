@@ -16,12 +16,15 @@ pub async fn plugin_init(
 ) -> Result<(), String> {
     log::info!("[plugin_init] init plugin service");
 
+    let plugin_download_service_url = reqwest::Url::parse(&plugin_download_service_url)
+        .map_err(|e| format!("[plugin_init] Invalid plugin download service URL: {}", e))?;
+
     plugin_service
         .init(
             version,
             Path::new(&plugin_install_dir),
             Path::new(&plugin_download_dir),
-            reqwest::Url::parse(&plugin_download_service_url).unwrap(),
+            plugin_download_service_url,
             app,
         )
         .await;

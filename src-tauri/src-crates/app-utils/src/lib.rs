@@ -56,21 +56,26 @@ pub fn get_target_monitor() -> Result<(i32, i32, Monitor), String> {
             ));
         }
     };
-    let monitor = Monitor::from_point(mouse_x, mouse_y).unwrap_or_else(|_| {
-        // 在 Wayland 中，获取不到鼠标位置，选用第一个显示器作为位置
+    let monitor = match Monitor::from_point(mouse_x, mouse_y) {
+        Ok(monitor) => monitor,
+        Err(_) => {
+            // 在 Wayland 中，获取不到鼠标位置，选用第一个显示器作为位置
+            log::warn!("[get_target_monitor] No monitor found, using first monitor");
 
-        log::warn!("[get_target_monitor] No monitor found, using first monitor");
+            let monitor_list = xcap::Monitor::all()
+                .map_err(|e| format!("[get_target_monitor] Failed to get monitor list: {}", e))?;
+            let first_monitor = monitor_list
+                .first()
+                .ok_or_else(|| String::from("[get_target_monitor] No monitor found"))?;
 
-        let monitor_list = xcap::Monitor::all().expect("[get_target_monitor] No monitor found");
-        let first_monitor = monitor_list
-            .first()
-            .expect("[get_target_monitor] No monitor found");
+            mouse_x =
+                first_monitor.x().unwrap_or(0) + first_monitor.width().unwrap_or(0) as i32 / 2;
+            mouse_y =
+                first_monitor.y().unwrap_or(0) + first_monitor.height().unwrap_or(0) as i32 / 2;
 
-        mouse_x = first_monitor.x().unwrap_or(0) + first_monitor.width().unwrap_or(0) as i32 / 2;
-        mouse_y = first_monitor.y().unwrap_or(0) + first_monitor.height().unwrap_or(0) as i32 / 2;
-
-        first_monitor.clone()
-    });
+            first_monitor.clone()
+        }
+    };
 
     Ok((mouse_x, mouse_y, monitor))
 }
@@ -847,7 +852,12 @@ pub fn get_request_string_header(
         }
     };
     match BASE64_STANDARD.decode(base64_header) {
-        Ok(header) => Ok(String::from_utf8(header).unwrap()),
+        Ok(header) => String::from_utf8(header).map_err(|_| {
+            format!(
+                "[get_request_string_header] Invalid header encoding: {}",
+                header_name
+            )
+        }),
         Err(_) => Err(format!(
             "[get_request_string_header] Invalid header: {}",
             header_name
@@ -918,10 +928,10 @@ pub async fn set_exclude_from_capture(
             )
         };
 
-        if result.is_err() {
+        if let Err(e) = result {
             return Err(format!(
                 "[set_exclude_from_capture] Failed to set window display affinity: {}",
-                result.err().unwrap()
+                e
             ));
         }
 

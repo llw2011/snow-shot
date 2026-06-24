@@ -14,10 +14,18 @@ pub async fn save_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     };
 
     let file_path: PathBuf = match request.headers().get("x-file-path") {
-        Some(header) => match BASE64_STANDARD.decode(header.to_str().unwrap()) {
-            Ok(file_path) => PathBuf::from(String::from_utf8(file_path).unwrap()),
-            Err(_) => return Err(String::from("[save_file] Invalid file path")),
-        },
+        Some(header) => {
+            let header = header
+                .to_str()
+                .map_err(|_| String::from("[save_file] Invalid file path header"))?;
+            let file_path = BASE64_STANDARD
+                .decode(header)
+                .map_err(|_| String::from("[save_file] Invalid file path"))?;
+            PathBuf::from(
+                String::from_utf8(file_path)
+                    .map_err(|_| String::from("[save_file] Invalid file path encoding"))?,
+            )
+        }
         None => return Err(String::from("[save_file] Missing file path")),
     };
 
@@ -33,10 +41,16 @@ pub async fn save_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     }
 
     let file_type: String = match request.headers().get("x-file-type") {
-        Some(header) => match BASE64_STANDARD.decode(header.to_str().unwrap()) {
-            Ok(file_type) => String::from_utf8(file_type).unwrap(),
-            Err(_) => return Err(String::from("[save_file] Invalid file type")),
-        },
+        Some(header) => {
+            let header = header
+                .to_str()
+                .map_err(|_| String::from("[save_file] Invalid file type header"))?;
+            let file_type = BASE64_STANDARD
+                .decode(header)
+                .map_err(|_| String::from("[save_file] Invalid file type"))?;
+            String::from_utf8(file_type)
+                .map_err(|_| String::from("[save_file] Invalid file type encoding"))?
+        }
         None => return Err(String::from("[save_file] Missing file type")),
     };
 
@@ -113,10 +127,18 @@ pub async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> 
     };
 
     let file_path: PathBuf = match request.headers().get("x-file-path") {
-        Some(header) => match BASE64_STANDARD.decode(header.to_str().unwrap()) {
-            Ok(file_path) => PathBuf::from(String::from_utf8(file_path).unwrap()),
-            Err(_) => return Err(String::from("[write_file] Invalid file path")),
-        },
+        Some(header) => {
+            let header = header
+                .to_str()
+                .map_err(|_| String::from("[write_file] Invalid file path header"))?;
+            let file_path = BASE64_STANDARD
+                .decode(header)
+                .map_err(|_| String::from("[write_file] Invalid file path"))?;
+            PathBuf::from(
+                String::from_utf8(file_path)
+                    .map_err(|_| String::from("[write_file] Invalid file path encoding"))?,
+            )
+        }
         None => return Err(String::from("[write_file] Missing file path")),
     };
 
