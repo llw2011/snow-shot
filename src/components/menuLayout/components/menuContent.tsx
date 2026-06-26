@@ -54,9 +54,12 @@ const MenuContentCore: React.FC<{
 
 	return (
 		<Layout>
-			<Header data-tauri-drag-region className="app-tauri-drag-region">
+			<Header
+				data-tauri-drag-region
+				className="app-titlebar app-tauri-drag-region"
+			>
 				{currentPlatform !== "macos" && (
-					<Space>
+					<Space className="window-actions">
 						<Button
 							type="text"
 							size="small"
@@ -79,10 +82,8 @@ const MenuContentCore: React.FC<{
 
 				{currentPlatform === "macos" && (
 					<div data-tauri-drag-region className="logo-text">
-						<div data-tauri-drag-region className="logo-text-highlight">
-							Snow
-						</div>
-						<div data-tauri-drag-region>Shot</div>
+						<div data-tauri-drag-region className="logo-mark" />
+						<div data-tauri-drag-region>Snow Shot</div>
 					</div>
 				)}
 			</Header>
@@ -106,11 +107,29 @@ const MenuContentCore: React.FC<{
 			</Content>
 
 			<style jsx>{`
+                .app-titlebar {
+                    position: relative;
+                    height: 32px !important;
+                    background: var(--snow-shot-canvas) !important;
+                    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+                }
+
+                .app-titlebar :global(.window-actions .ant-btn) {
+                    color: var(--snow-shot-muted);
+                    border-radius: 6px;
+                }
+
+                .app-titlebar :global(.window-actions .ant-btn:hover) {
+                    color: var(--snow-shot-ink);
+                    background: var(--snow-shot-surface-card);
+                }
+
                 .content-wrap {
                     display: grid;
-                    grid-template-columns: ${token.padding}px auto ${token.padding}px;
-                    grid-template-rows: ${token.padding}px auto ${token.padding}px;
+                    grid-template-columns: ${token.paddingSM}px auto ${token.paddingSM}px;
+                    grid-template-rows: ${token.paddingSM}px auto ${token.paddingSM}px;
                     height: 100%;
+                    background: var(--snow-shot-canvas);
                 }
 
                 .content-wrap .center {
@@ -118,9 +137,10 @@ const MenuContentCore: React.FC<{
                     grid-row: 2;
                     overflow-y: hidden;
                     overflow-x: hidden;
-                    border-radius: ${token.borderRadiusLG}px;
+                    border-radius: ${token.borderRadius}px;
                     background: ${token.colorBgContainer};
-                    padding: ${token.padding}px ${token.borderRadiusLG}px;
+                    border: 1px solid ${token.colorBorderSecondary};
+                    padding: ${token.paddingSM}px ${token.paddingSM}px;
                     display: flex;
                     flex-direction: column;
                     transform: translateY(0px);
@@ -131,7 +151,7 @@ const MenuContentCore: React.FC<{
                 }
 
                 .content-container {
-                    padding: 0 ${token.padding}px;
+                    padding: 0 ${token.paddingSM}px;
                     width: 100%;
                     height: 100%;
                     overflow-x: hidden;
@@ -142,11 +162,11 @@ const MenuContentCore: React.FC<{
                     line-height: initial;
                     display: flex;
                     height: 32px;
+                    gap: 8px;
                     align-items: center;
                     justify-content: center;
                     color: var(--snow-shot-text-color);
-                    font-style: italic;
-                    font-weight: 600;
+                    font-weight: 650;
                     user-select: none;
                     /* 对齐系统里的 title 位置 */
                     position: absolute;
@@ -154,8 +174,13 @@ const MenuContentCore: React.FC<{
                     right: 0;
                 }
 
-                .logo-text-highlight {
-                    color: var(--snow-shot-purple-color);
+                .logo-mark {
+                    width: 15px;
+                    height: 15px;
+                    border: 1px solid var(--snow-shot-hairline-strong);
+                    border-radius: 5px;
+                    background: var(--snow-shot-surface-card);
+                    box-shadow: inset 0 0 0 3px var(--snow-shot-canvas);
                 }
             `}</style>
 		</Layout>

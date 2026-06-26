@@ -151,3 +151,188 @@ body {
     max-width: 100%;
     padding: 0;
 }
+
+:root {
+    --snow-shot-canvas: #07080a;
+    --snow-shot-surface: #0d0d0d;
+    --snow-shot-surface-elevated: #101111;
+    --snow-shot-surface-card: #121212;
+    --snow-shot-hairline: #242728;
+    --snow-shot-hairline-soft: rgba(255, 255, 255, 0.08);
+    --snow-shot-hairline-strong: rgba(255, 255, 255, 0.16);
+    --snow-shot-ink: #f4f4f6;
+    --snow-shot-body: #cdcdcd;
+    --snow-shot-muted: #9c9c9d;
+    --snow-shot-ash: #6a6b6c;
+    --snow-shot-blue: #57c1ff;
+    --snow-shot-red: #ff6161;
+    --snow-shot-green: #59d499;
+    --snow-shot-yellow: #ffc533;
+}
+
+.app-light {
+    --snow-shot-canvas: #f4f6fa;
+    --snow-shot-surface: #ffffff;
+    --snow-shot-surface-elevated: #f8fafc;
+    --snow-shot-surface-card: #ffffff;
+    --snow-shot-hairline: #dde2ea;
+    --snow-shot-hairline-soft: rgba(15, 23, 42, 0.08);
+    --snow-shot-hairline-strong: rgba(15, 23, 42, 0.16);
+    --snow-shot-ink: #15171a;
+    --snow-shot-body: #4c5563;
+    --snow-shot-muted: #6d7583;
+    --snow-shot-ash: #98a1ae;
+}
+
+body {
+    font-feature-settings: "calt", "kern", "liga", "ss03";
+    text-rendering: geometricPrecision;
+}
+
+.ant-app .menu-layout-wrap {
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 32%),
+        var(--snow-shot-canvas);
+}
+
+.ant-app .menu-layout-wrap .ant-layout {
+    background: transparent;
+}
+
+.ant-app .menu-layout-wrap .ant-layout-sider {
+    background: var(--snow-shot-canvas) !important;
+    border-right: 1px solid var(--snow-shot-hairline);
+    box-shadow: none !important;
+}
+
+.ant-app .menu-layout-wrap .ant-layout-sider-trigger {
+    background: var(--snow-shot-surface) !important;
+    border-top: 1px solid var(--snow-shot-hairline);
+    color: var(--snow-shot-muted);
+}
+
+.ant-app .menu-layout-wrap .ant-layout-header {
+    background: var(--snow-shot-canvas) !important;
+    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+}
+
+.ant-app .menu-layout-wrap .ant-menu {
+    background: transparent !important;
+    border-inline-end: 0 !important;
+}
+
+.ant-app .menu-layout-wrap .ant-menu-item,
+.ant-app .menu-layout-wrap .ant-menu-submenu-title {
+    border-radius: 8px !important;
+    color: var(--snow-shot-body);
+    margin-inline: 8px !important;
+    width: calc(100% - 16px) !important;
+}
+
+.ant-app .menu-layout-wrap .ant-menu-item:hover,
+.ant-app .menu-layout-wrap .ant-menu-submenu-title:hover {
+    background: var(--snow-shot-surface-elevated) !important;
+    color: var(--snow-shot-ink) !important;
+}
+
+.ant-app .menu-layout-wrap .ant-menu-item-selected {
+    background: var(--snow-shot-surface-card) !important;
+    color: var(--snow-shot-ink) !important;
+    box-shadow: inset 0 0 0 1px var(--snow-shot-hairline-strong);
+}
+
+.ant-app .menu-layout-wrap .ant-menu-sub {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-radius: 8px;
+    margin: 0 8px 8px;
+}
+
+.ant-app .menu-layout-wrap .ant-tabs-nav {
+    margin-bottom: 10px !important;
+}
+
+.ant-app .menu-layout-wrap .ant-tabs-tab {
+    border-radius: 999px;
+    padding: 4px 10px !important;
+}
+
+.ant-app .menu-layout-wrap .ant-tabs-tab-active {
+    background: var(--snow-shot-surface-elevated);
+}
+
+.ant-app .menu-layout-wrap .ant-tabs-ink-bar {
+    display: none;
+}
+
+.ant-app .menu-layout-wrap .ant-btn:not(.ant-btn-primary) {
+    border-color: var(--snow-shot-hairline);
+}
+
+.ant-app .menu-layout-wrap .ant-btn-primary {
+    box-shadow: none;
+}
+
+.ant-app .menu-layout-wrap .ant-input,
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper,
+.ant-app .menu-layout-wrap .ant-input-number,
+.ant-app .menu-layout-wrap .ant-select-selector,
+.ant-app .menu-layout-wrap .ant-picker,
+.ant-app .menu-layout-wrap .ant-color-picker-trigger {
+    border-color: var(--snow-shot-hairline) !important;
+}
+
+.ant-app .menu-layout-wrap .ant-card,
+.ant-app .menu-layout-wrap .ant-pro-card {
+    border-color: var(--snow-shot-hairline-soft);
+    box-shadow: none;
+}
+
+.snow-command-button.ant-btn {
+    height: 44px;
+    border-color: var(--snow-shot-hairline) !important;
+    background: var(--snow-shot-surface) !important;
+    color: var(--snow-shot-ink) !important;
+    box-shadow: none !important;
+    transition:
+        background-color 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.snow-command-button.ant-btn:hover,
+.snow-command-button.ant-btn:focus-visible {
+    background: var(--snow-shot-surface-elevated) !important;
+    border-color: var(--snow-shot-hairline-strong) !important;
+}
+
+.snow-command-button.ant-btn:active {
+    transform: translateY(1px);
+}
+
+.snow-command-button .ant-btn-icon {
+    color: var(--snow-shot-muted);
+}
+
+.snow-keycap-button.ant-btn {
+    height: 26px;
+    min-width: 72px;
+    padding-inline: 8px;
+    border-color: var(--snow-shot-hairline-strong) !important;
+    background:
+        linear-gradient(180deg, var(--snow-shot-surface-card), var(--snow-shot-surface)) !important;
+    color: var(--snow-shot-body) !important;
+    font-size: 12px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.snow-keycap-button.ant-btn-dangerous {
+    color: var(--snow-shot-red) !important;
+    border-color: rgba(255, 97, 97, 0.28) !important;
+}
+
+.components_group-title {
+    color: var(--snow-shot-ink) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0 !important;
+}

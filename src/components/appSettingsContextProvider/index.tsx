@@ -1781,20 +1781,68 @@ const AppSettingsContextProviderCore: React.FC<{
 	}, []);
 
 	const antdTheme = useMemo((): ThemeConfig => {
+		const isDarkMode = appContextValue.currentTheme === AppSettingsTheme.Dark;
 		const algorithms = [
-			appContextValue.currentTheme === AppSettingsTheme.Dark
-				? theme.darkAlgorithm
-				: theme.defaultAlgorithm,
+			isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
 		];
 		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
 			algorithms.push(theme.compactAlgorithm);
 		}
 
+		const snowShotToken = isDarkMode
+			? {
+					colorBgLayout: "#07080A",
+					colorBgContainer: "#0D0D0D",
+					colorBgElevated: "#101111",
+					colorBorder: "#242728",
+					colorBorderSecondary: "rgba(255, 255, 255, 0.08)",
+					colorFill: "rgba(255, 255, 255, 0.08)",
+					colorFillSecondary: "rgba(255, 255, 255, 0.06)",
+					colorFillTertiary: "rgba(255, 255, 255, 0.04)",
+					colorFillQuaternary: "rgba(255, 255, 255, 0.03)",
+					colorText: "#F4F4F6",
+					colorTextSecondary: "#CDCDCD",
+					colorTextTertiary: "#9C9C9D",
+					colorTextQuaternary: "#6A6B6C",
+					colorPrimaryBg: "rgba(255, 255, 255, 0.10)",
+					colorPrimaryBgHover: "rgba(255, 255, 255, 0.16)",
+					colorPrimaryBorder: "rgba(255, 255, 255, 0.30)",
+					colorPrimaryHover: "#F4F4F6",
+					colorPrimaryActive: "#E8E8E8",
+					colorLink: "#FFFFFF",
+					colorLinkHover: "#F4F4F6",
+					boxShadow: "none",
+					boxShadowSecondary: "none",
+				}
+			: {
+					colorBgLayout: "#F4F6FA",
+					colorBgContainer: "#FFFFFF",
+					colorBgElevated: "#FFFFFF",
+					colorBorder: "#DDE2EA",
+					colorBorderSecondary: "#E9EDF3",
+					colorText: "#15171A",
+					colorTextSecondary: "#4C5563",
+					colorTextTertiary: "#6D7583",
+					colorTextQuaternary: "#98A1AE",
+					boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+					boxShadowSecondary: "0 6px 18px rgba(15, 23, 42, 0.08)",
+				};
+
 		return {
 			algorithm: algorithms,
 			token: {
+				...snowShotToken,
 				colorPrimary: appSettings[AppSettingsGroup.Common].mainColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
+				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
+					? 32
+					: 36,
+				fontFamily:
+					'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+				fontSize: 14,
+				lineHeight: 1.5,
+				motionDurationFast: "0.12s",
+				motionDurationMid: "0.18s",
 			},
 		};
 	}, [

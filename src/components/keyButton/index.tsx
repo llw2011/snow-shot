@@ -365,6 +365,9 @@ export const KeyButton: React.FC<{
 			</Modal>
 			<Button
 				{...buttonProps}
+				className={["snow-keycap-button", buttonProps?.className]
+					.filter(Boolean)
+					.join(" ")}
 				icon={<KeyboardGrayIcon />}
 				danger={keyValue ? undefined : true}
 				onClick={(e) => {

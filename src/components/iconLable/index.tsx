@@ -22,6 +22,14 @@ export const IconLabel: React.FC<{
                 .icon-label {
                     display: flex;
                     align-items: center;
+                    min-width: 0;
+                }
+
+                .icon-label .icon-label-label {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 .icon-label .icon-label-icon {

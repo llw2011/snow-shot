@@ -170,6 +170,10 @@ export const ThemeSkin = () => {
                     .global-skin-container {
                         background-color: ${token.colorBgLayout};
                     }
+
+                    .ant-app .menu-layout-wrap {
+                        background: transparent !important;
+                    }
                         
 
 					.ant-app .menu-layout-wrap .ant-layout {
@@ -182,7 +186,7 @@ export const ThemeSkin = () => {
                     }
 
                     .ant-app .menu-layout-wrap .ant-layout-sider {
-                        background-color: ${siderMenuBackgroundColor};
+                        background-color: ${siderMenuBackgroundColor} !important;
                         backdrop-filter: blur(${maskBlur}px);
                     }
 

@@ -1,5 +1,5 @@
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { Space, Spin, Tooltip, theme } from "antd";
+import { Spin, Tooltip, theme } from "antd";
 import { useCallback, useContext, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { CheckPermissions } from "@/components/checkPermissions";
@@ -220,17 +220,13 @@ export const HomePage = () => {
 					}
 
 					return (
-						<div key={`${group}`} style={{ marginBottom: token.marginLG }}>
+						<div className="home-command-group" key={`${group}`}>
 							{groupTitle}
 							<Spin
 								key={`${group}`}
 								spinning={updateShortcutKeyStatusLoading || appSettingsLoading}
 							>
-								<Space
-									direction="vertical"
-									size="middle"
-									style={{ display: "flex" }}
-								>
+								<div className="home-command-list">
 									{configs
 										.filter((config) => {
 											if (
@@ -292,7 +288,10 @@ export const HomePage = () => {
 											}
 
 											return (
-												<div key={`${group}-${key}`}>
+												<div
+													className="home-command-item"
+													key={`${group}-${key}`}
+												>
 													<FunctionButton
 														label={config.title}
 														icon={config.icon}
@@ -336,11 +335,47 @@ export const HomePage = () => {
 												</div>
 											);
 										})}
-								</Space>
+								</div>
 							</Spin>
 						</div>
 					);
 				})}
+			<style jsx>{`
+                :global(.home-wrap) {
+                    padding-top: ${token.paddingXS}px;
+                }
+
+                .home-command-group {
+                    margin-bottom: ${token.margin}px;
+                    padding: ${token.paddingSM}px;
+                    border: 1px solid ${token.colorBorderSecondary};
+                    border-radius: ${token.borderRadius}px;
+                    background:
+                        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+                        ${token.colorBgContainer};
+                }
+
+                .home-command-group :global(.components_group-title) {
+                    margin-bottom: ${token.marginSM}px !important;
+                    padding: 0 ${token.paddingXXS}px;
+                }
+
+                .home-command-list {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: ${token.paddingXS}px;
+                }
+
+                .home-command-item {
+                    min-width: 0;
+                }
+
+                @media (max-width: 760px) {
+                    .home-command-list {
+                        grid-template-columns: minmax(0, 1fr);
+                    }
+                }
+            `}</style>
 		</ContentWrap>
 	);
 };
