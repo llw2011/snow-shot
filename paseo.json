@@ -6,6 +6,7 @@
 		"app": {
 			"type": "service",
 			"command": "pnpm.cmd dev",
+			"port": 8083,
 			"healthPath": "/"
 		},
 		"typecheck": {
