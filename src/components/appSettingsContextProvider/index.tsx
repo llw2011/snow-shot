@@ -24,6 +24,7 @@ import {
 	HARDENED_CUSTOM_MODEL_PREFIX,
 	HARDENED_GLM_OCR_CHAT_API_CONFIG,
 	HARDENED_GLM_OCR_CUSTOM_MODEL,
+	HARDENED_QWEN35_CHAT_API_CONFIG,
 	HARDENED_QWEN35_CUSTOM_MODEL,
 	HARDENED_QWEN35_LEGACY_API_MODELS,
 	HARDENED_QWEN35_TRANSLATION_API_CONFIG,
@@ -104,6 +105,9 @@ const normalizeCustomModelValue = (model: unknown) => {
 const getCustomTranslationType = (apiModel: unknown) =>
 	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
 
+const getCustomChatModelType = (apiModel: unknown) =>
+	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
+
 const getApiConfigType = (
 	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
 ) => (config && "api_type" in config ? config.api_type : undefined);
@@ -123,6 +127,12 @@ const isGlmOcrApiConfig = (
 		`${config?.model_name ?? ""}` ===
 			HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name);
 
+const isQwen35ChatApiConfig = (config: Partial<ChatApiConfig> | undefined) =>
+	[HARDENED_QWEN35_CHAT_API_CONFIG.api_model]
+		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
+		.includes(normalizeCustomModelValue(config?.api_model)) ||
+	`${config?.model_name ?? ""}` === HARDENED_QWEN35_CHAT_API_CONFIG.model_name;
+
 const isQwen35TranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
 ) =>
@@ -132,6 +142,26 @@ const isQwen35TranslationApiConfig = (
 		.includes(normalizeCustomModelValue(config?.api_model)) ||
 		`${config?.model_name ?? ""}` ===
 			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
+
+const normalizeQwen35ChatApiConfig = (config: ChatApiConfig): ChatApiConfig =>
+	isQwen35ChatApiConfig(config)
+		? {
+				...config,
+				api_uri: config.api_uri || HARDENED_QWEN35_CHAT_API_CONFIG.api_uri,
+				api_key: config.api_key || HARDENED_QWEN35_CHAT_API_CONFIG.api_key,
+				api_model: HARDENED_QWEN35_CHAT_API_CONFIG.api_model,
+				model_name:
+					config.model_name || HARDENED_QWEN35_CHAT_API_CONFIG.model_name,
+				support_thinking:
+					typeof config.support_thinking === "boolean"
+						? config.support_thinking
+						: HARDENED_QWEN35_CHAT_API_CONFIG.support_thinking,
+				support_vision:
+					typeof config.support_vision === "boolean"
+						? config.support_vision
+						: HARDENED_QWEN35_CHAT_API_CONFIG.support_vision,
+			}
+		: config;
 
 const normalizeQwen35TranslationApiConfig = (
 	config: TranslationApiConfig,
@@ -153,22 +183,23 @@ const normalizeQwen35TranslationApiConfig = (
 const normalizeChatApiConfig = (
 	config: Partial<ChatApiConfig> | undefined,
 	fallback?: ChatApiConfig,
-): ChatApiConfig => ({
-	api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
-	api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
-	api_model: normalizeCustomModelValue(
-		config?.api_model ?? fallback?.api_model,
-	),
-	model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
-	support_thinking:
-		typeof config?.support_thinking === "boolean"
-			? config.support_thinking
-			: (fallback?.support_thinking ?? false),
-	support_vision:
-		typeof config?.support_vision === "boolean"
-			? config.support_vision
-			: (fallback?.support_vision ?? false),
-});
+): ChatApiConfig =>
+	normalizeQwen35ChatApiConfig({
+		api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+		api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+		api_model: normalizeCustomModelValue(
+			config?.api_model ?? fallback?.api_model,
+		),
+		model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
+		support_thinking:
+			typeof config?.support_thinking === "boolean"
+				? config.support_thinking
+				: (fallback?.support_thinking ?? false),
+		support_vision:
+			typeof config?.support_vision === "boolean"
+				? config.support_vision
+				: (fallback?.support_vision ?? false),
+	});
 
 const normalizeTranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
@@ -238,6 +269,49 @@ const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
 	}
 
 	return HARDENED_QWEN35_CUSTOM_MODEL;
+};
+
+const getFallbackChatModel = (configList: ChatApiConfig[]) => {
+	const qwen35Config = configList.find(isQwen35ChatApiConfig);
+	if (qwen35Config?.api_model) {
+		return getCustomChatModelType(qwen35Config.api_model);
+	}
+
+	const openAiConfig = configList.find(
+		(config) => !!normalizeCustomModelValue(config.api_model),
+	);
+	if (openAiConfig?.api_model) {
+		return getCustomChatModelType(openAiConfig.api_model);
+	}
+
+	return HARDENED_QWEN35_CUSTOM_MODEL;
+};
+
+const normalizeChatModel = (
+	chatModel: unknown,
+	configList: ChatApiConfig[],
+) => {
+	const fallbackChatModel = getFallbackChatModel(configList);
+	const normalizedModel = normalizeCustomModelValue(chatModel);
+	const shouldUseFallback =
+		typeof chatModel !== "string" ||
+		isLegacyQwenFlashModel(chatModel) ||
+		HARDENED_QWEN35_LEGACY_API_MODELS.includes(normalizedModel) ||
+		chatModel === HARDENED_GLM_OCR_CUSTOM_MODEL;
+
+	if (shouldUseFallback) {
+		return fallbackChatModel;
+	}
+
+	if (
+		configList.some(
+			(config) => getCustomChatModelType(config.api_model) === chatModel,
+		)
+	) {
+		return chatModel;
+	}
+
+	return configList.length > 0 ? fallbackChatModel : chatModel;
 };
 
 const normalizeTranslationType = (
@@ -522,17 +596,19 @@ const AppSettingsContextProviderCore: React.FC<{
 						typeof newSettings?.menuCollapsed === "boolean"
 							? newSettings.menuCollapsed
 							: (prevSettings?.menuCollapsed ?? false),
-					chatModel: (() => {
-						const chatModel =
-							typeof newSettings?.chatModel === "string"
-								? newSettings.chatModel
-								: (prevSettings?.chatModel ??
-									defaultAppSettingsData[group].chatModel);
+					chatModel: normalizeChatModel(
+						(() => {
+							const chatModel =
+								typeof newSettings?.chatModel === "string"
+									? newSettings.chatModel
+									: (prevSettings?.chatModel ??
+										defaultAppSettingsData[group].chatModel);
 
-						return isLegacyQwenFlashModel(chatModel)
-							? HARDENED_QWEN35_CUSTOM_MODEL
-							: chatModel;
-					})(),
+							return chatModel;
+						})(),
+						appSettingsRef.current[AppSettingsGroup.FunctionChat]
+							.chatApiConfigList,
+					),
 					chatModelEnableThinking:
 						typeof newSettings?.chatModelEnableThinking === "boolean"
 							? newSettings.chatModelEnableThinking
@@ -1681,12 +1757,15 @@ const AppSettingsContextProviderCore: React.FC<{
 			) as any;
 		};
 
+		const cacheGroup = AppSettingsGroup.Cache;
 		const translationCacheGroup = AppSettingsGroup.FunctionTranslationCache;
+		const deferredGroups = [cacheGroup, translationCacheGroup];
 		await Promise.all(
 			(groups as AppSettingsGroup[])
-				.filter((group) => group !== translationCacheGroup)
+				.filter((group) => !deferredGroups.includes(group))
 				.map(loadAppSettingsGroup),
 		);
+		await loadAppSettingsGroup(cacheGroup);
 		await loadAppSettingsGroup(translationCacheGroup);
 
 		if (isEqual(appSettingsRef.current, settings)) {

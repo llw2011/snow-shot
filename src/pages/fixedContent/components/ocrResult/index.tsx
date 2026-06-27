@@ -15,6 +15,7 @@ import {
 import { FormattedMessage, useIntl } from "react-intl";
 import { ocrDetect, ocrDetectWithSharedBuffer } from "@/commands/ocr";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
+import { HARDENED_CUSTOM_MODEL_PREFIX } from "@/constants/appSettings";
 import {
 	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
@@ -33,7 +34,7 @@ import {
 	type CaptureBoundingBoxInfo,
 	ElementDraggingPublisher,
 } from "@/pages/draw/extra";
-import { CUSTOM_MODEL_PREFIX, MarkdownContent } from "@/pages/tools/chat/page";
+import { MarkdownContent } from "@/pages/tools/chat/page";
 import { appFetch } from "@/services/tools";
 import { AppSettingsGroup, type ChatApiConfig } from "@/types/appSettings";
 import type { OcrDetectResult } from "@/types/commands/ocr";
@@ -48,6 +49,8 @@ import {
 	alignTranslatedBySourceProportion,
 	getOcrResultIframeSrcDoc,
 } from "./extra";
+
+const CUSTOM_MODEL_PREFIX = HARDENED_CUSTOM_MODEL_PREFIX;
 
 // 定义角度阈值常量（以度为单位）
 const ROTATION_THRESHOLD = 3; // 小于3度的旋转被视为误差，不进行旋转
