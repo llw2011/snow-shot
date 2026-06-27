@@ -1,5 +1,6 @@
 :root {
     --background: #ffffff;
+    --snow-shot-window-radius: 14px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -12,11 +13,14 @@ html,
 body {
     width: 100vw;
     height: 100vh;
+    background: transparent;
     overflow: hidden;
 }
 
 #root {
     height: 100vh;
+    background: transparent;
+    overflow: hidden;
 }
 
 body {

@@ -562,6 +562,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 				<style jsx>{`
                     .menu-layout-wrap {
                         box-shadow: 0 0 12px 0 rgba(0, 0, 0, 0.21);
+                        border-radius: var(--snow-shot-window-radius);
                         overflow: hidden;
                         height: 100%;
                         position: fixed;

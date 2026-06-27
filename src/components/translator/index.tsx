@@ -238,10 +238,12 @@ export const useTranslationTypeOptions = (
 						options: customTranslationTypeOptions,
 					}
 				: undefined,
-			{
-				label: <FormattedMessage id="tools.translation.type.official" />,
-				options: officialTranslationTypeOptions,
-			},
+			officialTranslationTypeOptions.length > 0
+				? {
+						label: <FormattedMessage id="tools.translation.type.official" />,
+						options: officialTranslationTypeOptions,
+					}
+				: undefined,
 		].filter(Boolean) as SelectProps["options"];
 	}, [supportedTranslationTypes]);
 

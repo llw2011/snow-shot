@@ -29,6 +29,7 @@
 					"x": 16,
 					"y": 16
 				},
+				"transparent": true,
 				"visible": false,
 				"backgroundThrottling": "disabled",
 				"url": "/"
