@@ -133,6 +133,23 @@ const isQwen35TranslationApiConfig = (
 		`${config?.model_name ?? ""}` ===
 			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
 
+const normalizeQwen35TranslationApiConfig = (
+	config: TranslationApiConfig,
+): TranslationApiConfig =>
+	isQwen35TranslationApiConfig(config)
+		? {
+				...config,
+				api_uri:
+					config.api_uri || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_uri,
+				api_key:
+					config.api_key || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_key,
+				api_model: HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model,
+				model_name:
+					config.model_name ||
+					HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name,
+			}
+		: config;
+
 const normalizeChatApiConfig = (
 	config: Partial<ChatApiConfig> | undefined,
 	fallback?: ChatApiConfig,
@@ -181,14 +198,14 @@ const normalizeTranslationApiConfig = (
 		config?.api_type === TranslationApiType.OpenAiCompatible ||
 		config?.api_type === undefined
 	) {
-		return {
+		return normalizeQwen35TranslationApiConfig({
 			api_type: TranslationApiType.OpenAiCompatible,
 			api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
 			api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
 			api_model: apiModel,
 			model_name: modelName,
 			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
-		};
+		});
 	}
 
 	return undefined;
@@ -1625,37 +1642,23 @@ const AppSettingsContextProviderCore: React.FC<{
 			return;
 		}
 
-		await Promise.all(
-			(groups as AppSettingsGroup[]).map(async (group) => {
-				let fileContent = "";
-				try {
-					// 创建文件夹成功的话，文件不存在，则不读取
-					fileContent = await textFileRead(await getFilePath(group));
-				} catch (error) {
-					appWarn(
-						`[reloadAppSettings] read file ${await getFilePath(group)} failed: ${JSON.stringify(error)}`,
-					);
-				}
+		const loadAppSettingsGroup = async (group: AppSettingsGroup) => {
+			let fileContent = "";
+			try {
+				// 创建文件夹成功的话，文件不存在，则不读取
+				fileContent = await textFileRead(await getFilePath(group));
+			} catch (error) {
+				appWarn(
+					`[reloadAppSettings] read file ${await getFilePath(group)} failed: ${JSON.stringify(error)}`,
+				);
+			}
 
-				const saveToFile = appWindowRef.current?.label === "main";
+			const saveToFile = appWindowRef.current?.label === "main";
 
-				if (!fileContent) {
-					settings[group] = updateAppSettings(
-						group,
-						defaultAppSettingsData[group],
-						false,
-						saveToFile,
-						false,
-						true,
-						true,
-						// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
-					) as any;
-					return Promise.resolve();
-				}
-
+			if (!fileContent) {
 				settings[group] = updateAppSettings(
 					group,
-					fileContent,
+					defaultAppSettingsData[group],
 					false,
 					saveToFile,
 					false,
@@ -1663,8 +1666,28 @@ const AppSettingsContextProviderCore: React.FC<{
 					true,
 					// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
 				) as any;
-			}),
+				return;
+			}
+
+			settings[group] = updateAppSettings(
+				group,
+				fileContent,
+				false,
+				saveToFile,
+				false,
+				true,
+				true,
+				// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
+			) as any;
+		};
+
+		const translationCacheGroup = AppSettingsGroup.FunctionTranslationCache;
+		await Promise.all(
+			(groups as AppSettingsGroup[])
+				.filter((group) => group !== translationCacheGroup)
+				.map(loadAppSettingsGroup),
 		);
+		await loadAppSettingsGroup(translationCacheGroup);
 
 		if (isEqual(appSettingsRef.current, settings)) {
 			setAppSettings(settings);
