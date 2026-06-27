@@ -169,6 +169,9 @@ export const ThemeSkin = () => {
 
                     .global-skin-container {
                         background-color: ${token.colorBgLayout};
+                        border-radius: var(--snow-shot-window-radius);
+                        clip-path: inset(0 round var(--snow-shot-window-radius));
+                        overflow: hidden;
                     }
 
                     .ant-app .menu-layout-wrap {

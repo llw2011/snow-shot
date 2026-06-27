@@ -15,12 +15,16 @@ body {
     height: 100vh;
     background: transparent;
     overflow: hidden;
+    border-radius: var(--snow-shot-window-radius);
+    clip-path: inset(0 round var(--snow-shot-window-radius));
 }
 
 #root {
     height: 100vh;
     background: transparent;
     overflow: hidden;
+    border-radius: var(--snow-shot-window-radius);
+    clip-path: inset(0 round var(--snow-shot-window-radius));
 }
 
 body {
@@ -41,6 +45,10 @@ body {
 .ant-app {
     height: 100%;
     width: 100%;
+    background: transparent;
+    overflow: hidden;
+    border-radius: var(--snow-shot-window-radius);
+    clip-path: inset(0 round var(--snow-shot-window-radius));
 }
 
 .ant-modal-title div {
@@ -197,6 +205,7 @@ body {
     background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 32%),
         var(--snow-shot-canvas);
+    background-clip: padding-box;
 }
 
 .ant-app .menu-layout-wrap .ant-layout {
