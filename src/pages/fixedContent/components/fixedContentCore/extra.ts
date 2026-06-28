@@ -202,7 +202,7 @@ export const getStyleProps = (
 	};
 };
 
-export const getTransformProps = (
+const getTransformProps = (
 	width: number,
 	height: number,
 	processImageConfig: FixedContentProcessImageConfig,

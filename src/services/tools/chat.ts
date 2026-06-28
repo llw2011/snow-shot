@@ -7,12 +7,6 @@ export interface ChatModel {
 	support_vision: boolean;
 }
 
-export const getChatModelsWithCache = async (): Promise<
-	ChatModel[] | undefined
-> => {
-	return [];
-};
-
 export type OpenAiCompatibleModelProbeResult = {
 	models: string[];
 	checkedUrls: string[];

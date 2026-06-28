@@ -70,8 +70,8 @@ pub async fn ocr_detect_core(
     // 分辨率过小的图片识别可能有问题，当 scale_factor 低于 1.5 时，放大图片使有效缩放达到 1.5
     let target_scale_factor = 1.5;
     if scale_factor < target_scale_factor && scale_factor > 0.0 {
-        scale_factor = target_scale_factor;
         let resize_factor = target_scale_factor / scale_factor;
+        scale_factor = target_scale_factor;
         image = image.resize(
             (image.width() as f32 * resize_factor) as u32,
             (image.height() as f32 * resize_factor) as u32,
@@ -85,7 +85,8 @@ pub async fn ocr_detect_core(
         image::DynamicImage::ImageRgb8(image) => image,
         image::DynamicImage::ImageRgba8(image) => {
             let rgb_data = convert_rgba_to_rgb(image.as_raw());
-            image::RgbImage::from_raw(image.width(), image.height(), rgb_data).unwrap()
+            image::RgbImage::from_raw(image.width(), image.height(), rgb_data)
+                .ok_or_else(|| "[ocr_detect_core] Invalid RGBA image".to_string())?
         }
         _ => return Err("[ocr_detect_core] Invalid image".to_string()),
     };
@@ -173,6 +174,10 @@ pub async fn ocr_detect_with_shared_buffer(
     detect_angle: bool,
 ) -> Result<OcrDetectResult, String> {
     log::info!("[ocr_detect_with_shared_buffer] start detect");
+
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return Err("[ocr_detect_with_shared_buffer] Invalid scale factor".to_string());
+    }
 
     let image_data = match shared_buffer_service.receive_data(channel_id) {
         Ok(image_data) => image_data,

@@ -103,7 +103,7 @@ export type SelectLayerActionType = {
 	onCaptureFinish: () => Promise<void>;
 };
 
-export type SelectLayerProps = {
+type SelectLayerProps = {
 	actionRef: React.RefObject<SelectLayerActionType | undefined>;
 };
 

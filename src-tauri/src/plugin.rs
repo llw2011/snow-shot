@@ -4,7 +4,6 @@ use snow_shot_plugin_service::plugin_service::PluginStatusResult;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::command;
-use tauri_plugin_http::reqwest;
 
 #[command]
 pub async fn plugin_init(
@@ -13,19 +12,14 @@ pub async fn plugin_init(
     version: String,
     plugin_install_dir: String,
     plugin_download_dir: String,
-    plugin_download_service_url: String,
 ) -> Result<(), String> {
     log::info!("[plugin_init] init plugin service");
-
-    let plugin_download_service_url = reqwest::Url::parse(&plugin_download_service_url)
-        .map_err(|e| format!("[plugin_init] Invalid plugin download service URL: {}", e))?;
 
     plugin_service
         .init(
             version,
             Path::new(&plugin_install_dir),
             Path::new(&plugin_download_dir),
-            plugin_download_service_url,
             app,
         )
         .await;

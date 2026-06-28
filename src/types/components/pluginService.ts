@@ -19,20 +19,17 @@ export class PluginConfig {
 	version: string = "";
 	plugin_install_dir: string = "";
 	plugin_download_dir: string = "";
-	plugin_download_service_url: string = "";
 
 	constructor(
 		plugins: PluginItem[],
 		version: string,
 		plugin_install_dir: string,
 		plugin_download_dir: string,
-		plugin_download_service_url: string,
 	) {
 		this.plugins = new Map(plugins.map((plugin) => [plugin.id, plugin]));
 		this.version = version;
 		this.plugin_install_dir = plugin_install_dir;
 		this.plugin_download_dir = plugin_download_dir;
-		this.plugin_download_service_url = plugin_download_service_url;
 	}
 
 	async getPluginDirPath(name: string) {

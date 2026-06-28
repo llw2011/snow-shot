@@ -13,7 +13,7 @@ export type StatePublisherListener<Value> = (
 	previousValue: Value,
 ) => void;
 
-export type StatePublisherContext<Value> = {
+type StatePublisherContext<Value> = {
 	stateRef: RefObject<Value>;
 	stateListenersRef: RefObject<Map<number, StatePublisherListener<Value>>>;
 	publish: (value: Value) => void;
@@ -42,7 +42,7 @@ export function createPublisher<Value>(
 	return { defaultValue, ignoreUndefined, context };
 }
 
-export function PublisherProvider<Value>({
+function PublisherProvider<Value>({
 	children,
 	statePublisher,
 }: {

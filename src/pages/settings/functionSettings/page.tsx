@@ -284,14 +284,27 @@ export const FunctionSettingsPage = () => {
 
 	const { isReadyStatus } = usePluginServiceContext();
 	const currentFunctionOcrModel = Form.useWatch("ocrModel", functionOcrForm);
+	const selectedFunctionOcrModel =
+		currentFunctionOcrModel ??
+		defaultAppSettingsData[AppSettingsGroup.FunctionOcr].ocrModel;
+	const isCurrentGlmOcrModel = selectedFunctionOcrModel === OcrModel.GlmOcr;
+	const isCurrentRapidOcrModel =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4 ||
+		selectedFunctionOcrModel === OcrModel.RapidOcrV5;
+	const rapidOcrRuntimeMessageId =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4
+			? "settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.title"
+			: "settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.title";
+	const rapidOcrRuntimeDescriptionId =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4
+			? "settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.description"
+			: "settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.description";
 	const ocrReady = canUseOcr(
 		{
 			...defaultAppSettingsData,
 			[AppSettingsGroup.FunctionOcr]: {
 				...defaultAppSettingsData[AppSettingsGroup.FunctionOcr],
-				ocrModel:
-					currentFunctionOcrModel ??
-					defaultAppSettingsData[AppSettingsGroup.FunctionOcr].ocrModel,
+				ocrModel: selectedFunctionOcrModel,
 			},
 		},
 		isReadyStatus?.(PLUGIN_ID_GLM_OCR),
@@ -1189,6 +1202,9 @@ export const FunctionSettingsPage = () => {
 												label={
 													<FormattedMessage id="settings.systemSettings.screenshotSettings.ocrModel" />
 												}
+												tooltipTitle={
+													<FormattedMessage id="settings.systemSettings.screenshotSettings.ocrModel.tip" />
+												}
 											/>
 										}
 										name="ocrModel"
@@ -1196,57 +1212,84 @@ export const FunctionSettingsPage = () => {
 										allowClear={false}
 									/>
 								</Col>
-								<Col span={12}>
-									<ProFormText
-										name={["glmOcrApiConfig", "model_name"]}
-										label={
-											<IconLabel
+								{isCurrentRapidOcrModel && (
+									<Col span={12}>
+										<Alert
+											type="info"
+											showIcon
+											message={
+												<FormattedMessage id={rapidOcrRuntimeMessageId} />
+											}
+											description={
+												<FormattedMessage id={rapidOcrRuntimeDescriptionId} />
+											}
+										/>
+									</Col>
+								)}
+								{isCurrentGlmOcrModel && (
+									<>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "model_name"]}
 												label={
-													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName" />
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName" />
+														}
+													/>
 												}
 											/>
-										}
-									/>
-								</Col>
-								<Col span={12}>
-									<ProFormText
-										name={["glmOcrApiConfig", "api_uri"]}
-										label={
-											<IconLabel
+										</Col>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "api_uri"]}
 												label={
-													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri" />
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri" />
+														}
+														tooltipTitle={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri.tip" />
+														}
+													/>
 												}
 											/>
-										}
-									/>
-								</Col>
-								<Col span={12}>
-									<ProFormText.Password
-										name={["glmOcrApiConfig", "api_key"]}
-										label={
-											<IconLabel
+										</Col>
+										<Col span={12}>
+											<ProFormText.Password
+												name={["glmOcrApiConfig", "api_key"]}
 												label={
-													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey" />
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey" />
+														}
+													/>
 												}
 											/>
-										}
-									/>
-								</Col>
-								<Col span={12}>
-									<ProFormText
-										name={["glmOcrApiConfig", "api_model"]}
-										label={
-											<IconLabel
+										</Col>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "api_model"]}
 												label={
-													<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel" />
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel" />
+														}
+													/>
 												}
 											/>
-										}
-									/>
-								</Col>
+										</Col>
+									</>
+								)}
 
 								{isReadyStatus?.(PLUGIN_ID_AI_CHAT) && (
 									<>
+										<Col span={24}>
+											<Divider style={{ margin: `${token.margin}px 0` }} />
+											<SubGroupTitle>
+												<FormattedMessage id="settings.functionSettings.ocrSettings.visionSettings" />
+											</SubGroupTitle>
+										</Col>
 										<Col span={12}>
 											<ProFormSelect
 												name="htmlVisionModel"

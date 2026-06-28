@@ -223,105 +223,105 @@ export type BaseLayerRenderData =
 	| BaseLayerRenderTransferImageSharedBufferData
 	| BaseLayerRenderApplyProcessImageConfigToCanvasData;
 
-export type RenderInitResult = {
+type RenderInitResult = {
 	type: BaseLayerRenderMessageType.Init;
 	payload: OffscreenCanvas | HTMLCanvasElement | undefined;
 };
 
-export type RenderDisposeResult = {
+type RenderDisposeResult = {
 	type: BaseLayerRenderMessageType.Dispose;
 	payload: undefined;
 };
 
-export type RenderCreateNewCanvasContainerResult = {
+type RenderCreateNewCanvasContainerResult = {
 	type: BaseLayerRenderMessageType.CreateNewCanvasContainer;
 	payload: {
 		containerKey: string | undefined;
 	};
 };
 
-export type RenderResizeCanvasResult = {
+type RenderResizeCanvasResult = {
 	type: BaseLayerRenderMessageType.ResizeCanvas;
 	payload: undefined;
 };
 
-export type RenderClearCanvasResult = {
+type RenderClearCanvasResult = {
 	type: BaseLayerRenderMessageType.ClearCanvas;
 	payload: undefined;
 };
 
-export type RenderGetImageBitmapResult = {
+type RenderGetImageBitmapResult = {
 	type: BaseLayerRenderMessageType.GetImageBitmap;
 	payload: {
 		imageBitmap: ImageBitmap | undefined;
 	};
 };
 
-export type RenderRenderToCanvasResult = {
+type RenderRenderToCanvasResult = {
 	type: BaseLayerRenderMessageType.RenderToCanvas;
 	payload: {
 		canvas: PIXI.ICanvas | undefined;
 	};
 };
 
-export type RenderRenderToPngResult = {
+type RenderRenderToPngResult = {
 	type: BaseLayerRenderMessageType.RenderToPng;
 	payload: {
 		data: ArrayBuffer | undefined;
 	};
 };
 
-export type RenderCanvasRenderResult = {
+type RenderCanvasRenderResult = {
 	type: BaseLayerRenderMessageType.CanvasRender;
 	payload: undefined;
 };
 
-export type RenderAddImageToContainerResult = {
+type RenderAddImageToContainerResult = {
 	type: BaseLayerRenderMessageType.AddImageToContainer;
 	payload: undefined;
 };
 
-export type RenderClearContainerResult = {
+type RenderClearContainerResult = {
 	type: BaseLayerRenderMessageType.ClearContainer;
 	payload: undefined;
 };
 
-export type RenderCreateBlurSpriteResult = {
+type RenderCreateBlurSpriteResult = {
 	type: BaseLayerRenderMessageType.CreateBlurSprite;
 	payload: undefined;
 };
 
-export type RenderUpdateBlurSpriteResult = {
+type RenderUpdateBlurSpriteResult = {
 	type: BaseLayerRenderMessageType.UpdateBlurSprite;
 	payload: undefined;
 };
 
-export type RenderUpdateWatermarkSpriteResult = {
+type RenderUpdateWatermarkSpriteResult = {
 	type: BaseLayerRenderMessageType.UpdateWatermarkSprite;
 	payload: undefined;
 };
 
-export type RenderDeleteBlurSpriteResult = {
+type RenderDeleteBlurSpriteResult = {
 	type: BaseLayerRenderMessageType.DeleteBlurSprite;
 	payload: undefined;
 };
 
-export type RenderUpdateHighlightElementResult = {
+type RenderUpdateHighlightElementResult = {
 	type: BaseLayerRenderMessageType.UpdateHighlightElement;
 	payload: undefined;
 };
 
-export type RenderUpdateHighlightResult = {
+type RenderUpdateHighlightResult = {
 	type: BaseLayerRenderMessageType.UpdateHighlight;
 	payload: undefined;
 };
 
-export type RenderClearContextResult = {
+type RenderClearContextResult = {
 	type: BaseLayerRenderMessageType.ClearContext;
 	payload: undefined;
 };
 
-export type RenderInitBaseImageTextureResult = {
+type RenderInitBaseImageTextureResult = {
 	type: BaseLayerRenderMessageType.InitBaseImageTexture;
 	payload: {
 		width: number;
@@ -329,19 +329,19 @@ export type RenderInitBaseImageTextureResult = {
 	};
 };
 
-export type RenderApplyProcessImageConfigToCanvasResult = {
+type RenderApplyProcessImageConfigToCanvasResult = {
 	type: BaseLayerRenderMessageType.ApplyProcessImageConfigToCanvas;
 	payload: undefined;
 };
 
-export type RenderTransferImageSharedBufferResult = {
+type RenderTransferImageSharedBufferResult = {
 	type: BaseLayerRenderMessageType.TransferImageSharedBuffer;
 	payload: {
 		imageSharedBuffer: ImageSharedBufferData | undefined;
 	};
 };
 
-export type RenderBlurSpriteResult =
+type RenderBlurSpriteResult =
 	| RenderCreateBlurSpriteResult
 	| RenderUpdateBlurSpriteResult
 	| RenderUpdateWatermarkSpriteResult

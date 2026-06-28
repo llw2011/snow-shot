@@ -68,7 +68,7 @@ export type AllOcrResult = {
 	currentOcrResultType: OcrResultType | undefined;
 };
 
-export type OcrResultInitDrawCanvasParams = {
+type OcrResultInitDrawCanvasParams = {
 	selectRect: ElementRect;
 	canvas: HTMLCanvasElement;
 	captureBoundingBoxInfo: CaptureBoundingBoxInfo;
@@ -76,7 +76,7 @@ export type OcrResultInitDrawCanvasParams = {
 	allOcrResult: AllOcrResult | undefined;
 };
 
-export type OcrResultInitImageParams = {
+type OcrResultInitImageParams = {
 	canvas: HTMLCanvasElement;
 	monitorScaleFactor: number;
 };
@@ -135,7 +135,7 @@ export enum OcrResultType {
 	VisionModelMarkdown = "visionModelMarkdown",
 }
 
-export type VisionModel = {
+type VisionModel = {
 	config: ChatApiConfig;
 	isOfficial: boolean;
 };

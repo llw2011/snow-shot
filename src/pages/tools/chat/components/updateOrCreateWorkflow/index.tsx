@@ -31,7 +31,7 @@ export type UpdateOrCreateWorkflowActionType = {
 	setOpen: (value: boolean) => void;
 };
 
-export const USER_INPUT_ENV_VARIABLE = "{{USER_INPUT}}";
+const USER_INPUT_ENV_VARIABLE = "{{USER_INPUT}}";
 
 export const UpdateOrCreateWorkflow: React.FC<{
 	workflow?: ChatWorkflowConfig;

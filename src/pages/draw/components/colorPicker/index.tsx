@@ -79,7 +79,7 @@ import {
 	COLOR_PICKER_PREVIEW_SCALE,
 } from "./renderActions";
 
-export const isEnableColorPicker = (
+const isEnableColorPicker = (
 	captureStep: CaptureStep,
 	drawState: DrawState,
 	captureEvent: CaptureEventParams | undefined,
@@ -109,7 +109,7 @@ export type ColorPickerActionType = {
 	getCurrentColor: () => ColorInstance | undefined;
 };
 
-export enum ColorPickerColorFormat {
+enum ColorPickerColorFormat {
 	RGB = "rgb",
 	HEX = "hex",
 	HSL = "hsl",

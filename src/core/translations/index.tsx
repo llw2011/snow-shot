@@ -164,6 +164,20 @@ const setTranslationCacheResult = (
 	});
 };
 
+const validateTranslationResult = (
+	result: TranslationResultItem[],
+	sourceContentLength: number,
+) => {
+	if (
+		result.length !== sourceContentLength ||
+		result.some((item) => !item || typeof item.content !== "string")
+	) {
+		return undefined;
+	}
+
+	return result;
+};
+
 const buildStructuredTranslationSystemPrompt = (
 	basePrompt: string,
 	strictRetry: boolean,
@@ -445,20 +459,26 @@ export const useTranslationRequest = (options?: {
 						};
 					}
 
+					const translationResult = validateTranslationResult(
+						result.translations.map((item) => ({
+							content: item.text,
+						})),
+						params.sourceContent.length,
+					);
+					if (!translationResult) {
+						appError("[customTranslation] invalid DeepL translation result");
+						return {
+							success: false,
+						};
+					}
+
 					if (isCurrentTranslationRequest(requestSerial)) {
-						options?.onComplete?.(
-							result.translations.map((item) => ({
-								content: item.text,
-							})),
-							params.requestId,
-						);
+						options?.onComplete?.(translationResult, params.requestId);
 					}
 
 					return {
 						success: true,
-						result: result.translations.map((item) => ({
-							content: item.text,
-						})),
+						result: translationResult,
 					};
 				}
 			}
@@ -642,12 +662,20 @@ export const useTranslationRequest = (options?: {
 				if (isCurrentTranslationRequest(requestSerial)) {
 					setDeltaTranslateLoading(false);
 				}
-				const result =
+				const result = validateTranslationResult(
 					params.sourceContent.length > 1
 						? responseContent
 								.split("%%")
 								.map((item) => ({ content: trim(item) }))
-						: [{ content: responseContent }];
+						: [{ content: responseContent }],
+					params.sourceContent.length,
+				);
+				if (!result) {
+					appError("[customTranslation] legacy translation validation failed");
+					return {
+						success: false,
+					};
+				}
 
 				if (isCurrentTranslationRequest(requestSerial)) {
 					options?.onComplete?.(result, params.requestId);

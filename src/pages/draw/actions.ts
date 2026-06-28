@@ -543,9 +543,3 @@ export const handleOcrDetect = async (
 		undefined,
 	);
 };
-
-export const saveCanvasToCloud = async (): Promise<{
-	error: Error;
-}> => ({
-	error: new Error("Cloud save is disabled in the hardened build"),
-});

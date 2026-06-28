@@ -1,15 +1,7 @@
 // 缓存数据类型
-export interface CacheData<T> {
+interface CacheData<T> {
 	data: T;
 	timestamp: number;
-}
-
-// 缓存配置
-export interface CacheOptions {
-	/** 缓存过期时间（毫秒），默认 5 分钟 */
-	duration?: number;
-	/** 缓存键名 */
-	key: string;
 }
 
 // 缓存键前缀
@@ -74,87 +66,4 @@ export const setCachedData = <T>(key: string, data: T): void => {
 		data,
 		timestamp: Date.now(),
 	});
-};
-
-/**
- * 带缓存的高阶函数
- * 将异步函数包装为带缓存功能的函数
- *
- * @param fn 原始异步函数
- * @param options 缓存配置选项
- * @returns 带缓存功能的新函数
- *
- * @example
- * ```ts
- * const getChatModelsWithCache = withCache(
- *   getChatModels,
- *   { key: 'chat-models', duration: 5 * 60 * 1000 }
- * );
- * ```
- */
-export const withCache = <T>(
-	fn: () => Promise<T | undefined>,
-	options: CacheOptions,
-) => {
-	const { duration = 5 * 60 * 1000, key } = options;
-
-	return async (): Promise<T | undefined> => {
-		try {
-			// 检查缓存
-			const cached = getCacheFromStorage<T>(key);
-			if (cached) {
-				const now = Date.now();
-				// 缓存未过期，返回缓存数据
-				if (now - cached.timestamp < duration) {
-					return cached.data;
-				}
-				// 缓存已过期，删除旧缓存
-				removeCacheFromStorage(key);
-			}
-
-			// 执行原始函数
-			const result = await fn();
-
-			// 存储结果到缓存
-			if (result !== undefined) {
-				const cacheData: CacheData<T> = {
-					data: result,
-					timestamp: Date.now(),
-				};
-				setCacheToStorage(key, cacheData);
-			}
-
-			return result;
-		} catch (error) {
-			console.error(`缓存操作失败 [${key}]:`, error);
-			// 缓存失败时直接执行原始函数
-			return await fn();
-		}
-	};
-};
-
-/**
- * 清除指定缓存
- * @param key 缓存键名
- */
-export const clearCache = (key: string) => {
-	removeCacheFromStorage(key);
-};
-
-/**
- * 清除所有缓存
- */
-export const clearAllCache = () => {
-	try {
-		// 获取所有 localStorage 的键
-		const keys = Object.keys(localStorage);
-		// 只删除以缓存前缀开头的键
-		keys.forEach((key) => {
-			if (key.startsWith(CACHE_PREFIX)) {
-				localStorage.removeItem(key);
-			}
-		});
-	} catch (error) {
-		console.error("清除所有缓存失败:", error);
-	}
 };

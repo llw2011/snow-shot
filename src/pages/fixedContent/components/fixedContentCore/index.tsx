@@ -118,15 +118,15 @@ export type FixedContentInitDrawParams = {
 	selectRectParams: SelectRectParams;
 };
 
-export type FixedContentInitHtmlParams = {
+type FixedContentInitHtmlParams = {
 	htmlContent: string;
 };
 
-export type FixedContentInitTextParams = {
+type FixedContentInitTextParams = {
 	textContent: string;
 };
 
-export type FixedContentInitImageParams = {
+type FixedContentInitImageParams = {
 	imageContent: ArrayBuffer | ImageSharedBufferData | Blob | string;
 };
 
@@ -141,7 +141,7 @@ export type FixedContentActionType = {
 	initDrawPreload: (width: number, height: number) => Promise<void>;
 };
 
-export enum FixedContentType {
+enum FixedContentType {
 	DrawCanvas = "drawCanvas",
 	Html = "html",
 	Text = "text",
@@ -167,7 +167,7 @@ export type FixedContentWindowSize = {
 	height: number;
 };
 
-export enum FixedContentScrollAction {
+enum FixedContentScrollAction {
 	Zoom = "zoom",
 	RotateX = "rotateX",
 	RotateY = "rotateY",
@@ -180,8 +180,8 @@ export type FixedContentProcessImageConfig = {
 	verticalFlip: boolean;
 };
 
-export const SCALE_WINDOW_MAX_SCALE = 300;
-export const SCALE_WINDOW_MIN_SCALE = 20;
+const SCALE_WINDOW_MAX_SCALE = 300;
+const SCALE_WINDOW_MIN_SCALE = 20;
 
 const FixedContentCoreInner: React.FC<{
 	actionRef: React.RefObject<FixedContentActionType | undefined>;

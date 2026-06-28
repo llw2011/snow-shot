@@ -40,19 +40,19 @@ export enum DragMode {
 // 全屏遮罩的透明度
 const MASK_OPACITY = 0.5;
 // 全屏遮罩圆形 controls 点的宽度
-export const MASK_CIRCLE_CONTROL_WIDTH = 4;
+const MASK_CIRCLE_CONTROL_WIDTH = 4;
 // 全屏遮罩圆形 controls 点的描边宽度
-export const MASK_CIRCLE_CONTROL_STROKE_WIDTH = 1.5;
+const MASK_CIRCLE_CONTROL_STROKE_WIDTH = 1.5;
 // 全屏遮罩圆形 controls 点显示控制点的宽度
-export const MASK_CIRCLE_CONTROL_SHOW_END_CONTROL_WIDTH = 32;
+const MASK_CIRCLE_CONTROL_SHOW_END_CONTROL_WIDTH = 32;
 // 全屏遮罩圆形 controls 点显示中点控制点的宽度
-export const MASK_CIRCLE_CONTROL_SHOW_MID_CONTROL_WIDTH = 64;
+const MASK_CIRCLE_CONTROL_SHOW_MID_CONTROL_WIDTH = 64;
 // 全屏遮罩的 mask 的描边宽度
-export const MASK_CONTROL_BORDER_STROKE_WIDTH = 2;
+const MASK_CONTROL_BORDER_STROKE_WIDTH = 2;
 
 // 全屏辅助线相关常量
-export const AUXILIARY_LINE_WIDTH = 1;
-export const AUXILIARY_LINE_DASH = [10, 3];
+const AUXILIARY_LINE_WIDTH = 1;
+const AUXILIARY_LINE_DASH = [10, 3];
 
 const LIGHT_MASK_BACKGROUND_COLOR = "#00000080";
 const DARK_MASK_BACKGROUND_COLOR = Color("#434343")

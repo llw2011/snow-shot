@@ -909,6 +909,12 @@ mod tests {
 
     use super::*;
 
+    fn test_output_path(file_name: &str) -> std::path::PathBuf {
+        let output_dir = std::path::PathBuf::from(env::current_dir().unwrap()).join("../../test_output");
+        std::fs::create_dir_all(&output_dir).unwrap();
+        output_dir.join(file_name)
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     fn test_get_all_monitors() {
@@ -979,10 +985,7 @@ mod tests {
         println!("current_dir: {:?}", env::current_dir().unwrap());
 
         image
-            .save(
-                std::path::PathBuf::from(env::current_dir().unwrap())
-                    .join("../../test_output/capture_multi_monitor.webp"),
-            )
+            .save(test_output_path("capture_multi_monitor.webp"))
             .unwrap();
 
         println!("time: {:?}", instance.elapsed());
@@ -1076,10 +1079,7 @@ mod tests {
             .unwrap();
 
         image
-            .save(
-                std::path::PathBuf::from(env::current_dir().unwrap())
-                    .join("../../test_output/capture_single_monitor.webp"),
-            )
+            .save(test_output_path("capture_single_monitor.webp"))
             .unwrap();
 
         println!("time: {:?}", instance.elapsed());

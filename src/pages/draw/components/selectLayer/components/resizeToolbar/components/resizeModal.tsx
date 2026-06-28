@@ -58,7 +58,7 @@ export type ResizeModalParams = {
 	lockDragAspectRatio: boolean | undefined;
 };
 
-export type QuickSetType =
+type QuickSetType =
 	| "previousSelectRect"
 	| "currentSelectRect"
 	| number

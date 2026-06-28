@@ -15,28 +15,6 @@ export const switchAlwaysOnTop = async (windowId: number) => {
 };
 
 /**
- * Capture the monitor image at the current mouse position.
- */
-export const captureCurrentMonitor = async (
-	encoder: ImageEncoder,
-): Promise<ImageBuffer | undefined> => {
-	const result = await invoke<ArrayBuffer>("capture_current_monitor", {
-		encoder,
-	});
-
-	if (result.byteLength === 0) {
-		return undefined;
-	}
-
-	return {
-		encoder,
-		data: new Blob([result]),
-		bufferType: ImageBufferType.Pixels,
-		buffer: result,
-	};
-};
-
-/**
  * 捕获焦点窗口
  * @param filePath 文件路径
  * @param copyToClipboard 是否复制到剪贴板

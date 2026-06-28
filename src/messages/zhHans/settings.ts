@@ -425,10 +425,10 @@ export const settings = {
 	"settings.functionSettings.translationSettings.temperature":
 		"翻译 Temperature",
 	"settings.functionSettings.translationSettings.temperature.tip":
-		"更低的值会让翻译更稳定；本地 Qwen 默认使用 0.2",
+		"更低的值会让翻译更稳定；默认值为 0.2",
 	"settings.functionSettings.translationSettings.topP": "翻译 Top P",
 	"settings.functionSettings.translationSettings.topP.tip":
-		"限制采样候选范围；本地 Qwen 默认使用 0.9",
+		"限制采样候选范围；默认值为 0.9",
 	"settings.functionSettings.translationSettings.timeoutMs": "翻译超时时间",
 	"settings.functionSettings.translationSettings.timeoutMs.tip":
 		"单次翻译请求的超时时间，单位毫秒；该设置只限制请求等待时间，不负责取消旧请求",
@@ -519,12 +519,14 @@ export const settings = {
 	"settings.systemSettings.screenshotSettings.tryGetElementByFocus.always":
 		"保持启用",
 	"settings.systemSettings.screenshotSettings.ocrModel": "文本识别模型",
+	"settings.systemSettings.screenshotSettings.ocrModel.tip":
+		"当前选择就是截图 OCR 实际使用的后端。GLM OCR 调用用户配置的 OpenAI 兼容 API 服务；Rapid OCR V4/V5 在 Snow Shot 本机进程内加载 ONNX 模型执行，不启动独立服务，也没有端口。",
 	"settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV4":
-		"Rapid OCR V4",
+		"Rapid OCR V4（本机 ONNX）",
 	"settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV5":
-		"Rapid OCR V5",
+		"Rapid OCR V5（本机 ONNX）",
 	"settings.systemSettings.screenshotSettings.ocrModel.glmOcr":
-		"GLM OCR（本地 Ollama）",
+		"GLM OCR（API 服务）",
 	"settings.systemSettings.screenshotSettings.ocrHotStart": "文本识别热启动",
 	"settings.systemSettings.screenshotSettings.ocrHotStart.tip":
 		"预加载文本识别模型，提高文本识别的识别速度，但会提高内存占用",
@@ -606,13 +608,26 @@ export const settings = {
 		"GLM OCR 服务名称",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri":
 		"GLM OCR API 地址",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri.tip":
+		"GLM OCR 的服务地址和端口配置在这里。Rapid OCR 不使用这个地址，也没有服务端口。",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey":
 		"GLM OCR API Key",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel":
 		"GLM OCR 模型名称",
-	"settings.functionSettings.ocrSettings.htmlVisionModel": "视觉理解模型",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.title":
+		"Rapid OCR V4（兼容回退）",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.description":
+		"本机 ONNX 推理，不调用 GLM OCR API，也没有服务端口。V4 与 V5 共享检测/方向分类链路，主要区别是识别模型：V4 使用 PP-OCRv4 识别模型，更适合作为稳定兼容或旧结果对比回退；日常使用优先 V5。",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.title":
+		"Rapid OCR V5（推荐日常使用）",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.description":
+		"本机 ONNX 推理，不调用 GLM OCR API，也没有服务端口。V5 与 V4 共享检测/方向分类链路，主要区别是识别模型：V5 使用 PP-OCRv5 识别模型，日常截图取字、中英文混排优先选它；遇到兼容性问题再回退 V4 对比。",
+	"settings.functionSettings.ocrSettings.visionSettings":
+		"视觉理解（非截图 OCR）",
+	"settings.functionSettings.ocrSettings.htmlVisionModel":
+		"图片转 HTML 视觉模型",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.tip":
-		"将图片转为 HTML 的视觉理解模型",
+		"仅用于图片转 HTML/Markdown 等视觉理解功能，不决定截图文本识别模型。截图 OCR 实际后端由“文本识别模型”选择。",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.default": "默认",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.default.tip":
 		"默认使用首个支持视觉理解的模型",

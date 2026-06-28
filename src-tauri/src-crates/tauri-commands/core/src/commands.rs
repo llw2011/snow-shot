@@ -1028,19 +1028,13 @@ pub async fn write_image_pixels_to_clipboard_with_shared_buffer(
     };
 
     // 最后 8 个字节是 image_width 和 image_height
-    let image_width = u32::from_le_bytes(
-        image_data[image_data.len() - 8..image_data.len() - 4]
-            .try_into()
-            .unwrap(),
-    );
-    let image_height = u32::from_le_bytes(
-        image_data[image_data.len() - 4..image_data.len()]
-            .try_into()
-            .unwrap(),
-    );
+    let (pixel_data, image_width, image_height) = snow_shot_app_utils::split_rgba_image_metadata(
+        &image_data,
+        "write_image_pixels_to_clipboard_with_shared_buffer",
+    )?;
 
     match app.clipboard().write_image(&tauri::image::Image::new(
-        &image_data[..image_data.len() - 8],
+        pixel_data,
         image_width,
         image_height,
     )) {

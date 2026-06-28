@@ -1,7 +1,7 @@
 import type { ExcalidrawPropsCustomOptions } from "@mg-chao/excalidraw/types";
 import { Button, theme } from "antd";
 
-export const ColorIcon: React.FC<{ color: string }> = ({ color }) => {
+const ColorIcon: React.FC<{ color: string }> = ({ color }) => {
 	const { token } = theme.useToken();
 	return (
 		<div className="color-icon">

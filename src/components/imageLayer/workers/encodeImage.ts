@@ -1,11 +1,5 @@
 import type { ImageSharedBufferData } from "@/pages/draw/tools";
 
-export type DecodeResult = {
-	data: ImageData;
-	width: number;
-	height: number;
-};
-
 export async function encodeImage(
 	encodeImageWorker: Worker | undefined,
 	imageSharedBuffer: ImageSharedBufferData,

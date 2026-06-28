@@ -1,5 +1,4 @@
 import type { ExcalidrawPropsCustomOptions } from "@mg-chao/excalidraw/types";
-import { useCallback, useEffect, useRef } from "react";
 import { ButtonIcon } from "./buttonIcon";
 import { buttonIconSelectRadioRender } from "./buttonIconSelectRadioRender";
 import { ButtonList } from "./buttonList";
@@ -17,18 +16,6 @@ import { ChangeFontSizeSlider, ChangeStrokeWidthSlider } from "./radioSlider";
 import { rangeRender } from "./rangeRender";
 import SubToolEditor from "./SubToolEditor";
 import SerialNumberEditor from "./serialNumberEditor";
-
-export const useGetPopupContainer = () => {
-	const containerRef = useRef<HTMLElement>(null);
-	useEffect(() => {
-		containerRef.current =
-			document.getElementById("layout-menu-render") ?? document.body;
-	}, []);
-
-	return useCallback(() => {
-		return containerRef.current ?? document.body;
-	}, []);
-};
 
 export const generatePickerRenders: (
 	enableSliderChangeWidth: boolean,

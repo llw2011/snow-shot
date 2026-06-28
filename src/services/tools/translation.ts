@@ -1,14 +1,5 @@
-import type {
-	DeepLTranslateResult,
-	TranslationTypeOption,
-} from "@/types/servies/translation";
+import type { DeepLTranslateResult } from "@/types/servies/translation";
 import { ServiceResponse, serviceBaseFetch } from ".";
-
-export const getTranslationTypesWithCache = async (): Promise<
-	TranslationTypeOption[] | undefined
-> => {
-	return [];
-};
 
 export const translateTextDeepL = async (
 	apiUri: string,

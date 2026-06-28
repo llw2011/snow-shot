@@ -6,7 +6,7 @@ export type DecodeResult = {
 
 let decodeWorker: Worker | undefined;
 
-export function registerWebWorker() {
+function registerWebWorker() {
 	try {
 		decodeWorker = new Worker(new URL("./getPixelsWorker.ts", import.meta.url));
 	} catch (error) {

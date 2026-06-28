@@ -189,22 +189,10 @@ impl Plugin {
         instance
     }
 
-    #[allow(unused)]
-    pub fn get_relative_path(&self) -> PathBuf {
-        self.relative_path.clone()
-    }
-
-    #[allow(unused)]
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 
-    #[allow(unused)]
-    pub fn get_version(&self) -> String {
-        self.version.clone()
-    }
-
-    #[allow(unused)]
     pub async fn get_status(&self) -> PluginStatus {
         self.status.read().await.clone()
     }
