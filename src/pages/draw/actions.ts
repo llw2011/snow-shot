@@ -1,11 +1,12 @@
 ﻿import type { ExcalidrawElement } from "@mg-chao/excalidraw/element/types";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
-import { createDrawWindow, saveFile } from "@/commands";
 import {
+	createDrawWindow,
 	writeBitmapImageToClipboard,
 	writeBitmapImageToClipboardWithSharedBuffer,
 	writeImagePixelsToClipboardWithSharedBuffer,
 } from "@/commands/core";
+import { saveFile } from "@/commands/file";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
 import type { ImageLayerActionType } from "@/components/imageLayer";
 import { INIT_CONTAINER_KEY } from "@/components/imageLayer/actions";

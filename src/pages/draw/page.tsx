@@ -16,11 +16,12 @@ import React, {
 	useState,
 } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-import { createDrawWindow, getMousePosition } from "@/commands";
 import {
 	closeWindowAfterDelay,
+	createDrawWindow,
 	createFixedContentWindow,
 	getMonitorsBoundingBox,
+	getMousePosition,
 	setCurrentWindowAlwaysOnTop,
 } from "@/commands/core";
 import { setCaptureState } from "@/commands/globalSate";

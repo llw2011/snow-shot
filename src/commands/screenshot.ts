@@ -14,9 +14,26 @@ export const switchAlwaysOnTop = async (windowId: number) => {
 	return result;
 };
 
-export const setDrawWindowStyle = async () => {
-	const result = await invoke("set_draw_window_style");
-	return result;
+/**
+ * Capture the monitor image at the current mouse position.
+ */
+export const captureCurrentMonitor = async (
+	encoder: ImageEncoder,
+): Promise<ImageBuffer | undefined> => {
+	const result = await invoke<ArrayBuffer>("capture_current_monitor", {
+		encoder,
+	});
+
+	if (result.byteLength === 0) {
+		return undefined;
+	}
+
+	return {
+		encoder,
+		data: new Blob([result]),
+		bufferType: ImageBufferType.Pixels,
+		buffer: result,
+	};
 };
 
 /**

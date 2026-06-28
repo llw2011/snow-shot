@@ -8,10 +8,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isEqual } from "es-toolkit";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
-import { exitApp } from "@/commands";
 import {
 	createFixedContentWindow,
 	createFullScreenDrawWindow,
+	exitApp,
 } from "@/commands/core";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {

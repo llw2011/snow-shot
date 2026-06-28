@@ -16,7 +16,7 @@ import React, {
 	useState,
 } from "react";
 import { IntlProvider } from "react-intl";
-import { createDrawWindow } from "@/commands";
+import { createDrawWindow } from "@/commands/core";
 import { createDir, textFileRead, textFileWrite } from "@/commands/file";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
 import {

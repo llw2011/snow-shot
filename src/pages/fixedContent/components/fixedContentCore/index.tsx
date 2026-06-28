@@ -24,14 +24,15 @@ import React, {
 } from "react";
 import { isHotkeyPressed, useHotkeys } from "react-hotkeys-hook";
 import { FormattedMessage, useIntl } from "react-intl";
-import { getMousePosition, saveFile } from "@/commands";
 import {
 	getCurrentMonitorInfo,
+	getMousePosition,
 	type MonitorInfo,
 	setCurrentWindowAlwaysOnTop,
 	setWindowRect,
 	startFreeDrag,
 } from "@/commands/core";
+import { saveFile } from "@/commands/file";
 import { showMainWindow } from "@/commands/videoRecord";
 import { OcrTranslateIcon } from "@/components/icons";
 import { INIT_CONTAINER_KEY } from "@/components/imageLayer/actions";

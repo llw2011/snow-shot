@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { initUiElements } from "@/commands";
 import {
 	autoStartDisable,
 	autoStartEnable,
+	initUiElements,
 	setEnableProxy,
 	setRunLog,
 } from "@/commands/core";
