@@ -69,15 +69,29 @@ const MenuSiderCore: React.FC<{
 		>
 			<div className="menu-sider-wrap">
 				{currentPlatform === "macos" && (
-					<div className="macos-title-bar-margin app-tauri-drag-region"></div>
+					<div
+						data-tauri-drag-region
+						className="macos-title-bar-margin app-tauri-drag-region"
+					></div>
 				)}
 
 				{currentPlatform !== "macos" && (
-					<div className={`logo-wrap ${collapsed ? "collapsed" : ""}`}>
-						<div className="logo-mark" aria-hidden="true">
-							<div className="logo-mark-core" />
+					<div
+						data-tauri-drag-region
+						className={`logo-wrap app-tauri-drag-region ${collapsed ? "collapsed" : ""}`}
+					>
+						<div
+							data-tauri-drag-region
+							className="logo-mark"
+							aria-hidden="true"
+						>
+							<div data-tauri-drag-region className="logo-mark-core" />
 						</div>
-						{!collapsed && <div className="logo-text">Snow Shot</div>}
+						{!collapsed && (
+							<div data-tauri-drag-region className="logo-text">
+								Snow Shot
+							</div>
+						)}
 					</div>
 				)}
 				<RSC>
