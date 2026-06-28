@@ -3,26 +3,6 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::command;
 
 #[command]
-pub async fn save_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    snow_shot_tauri_commands_file::save_file(request).await
-}
-
-#[command]
-pub async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    snow_shot_tauri_commands_file::write_file(request).await
-}
-
-#[command]
-pub async fn remove_file(file_path: PathBuf) -> Result<(), String> {
-    snow_shot_tauri_commands_file::remove_file(file_path).await
-}
-
-#[command]
-pub async fn copy_file(from: PathBuf, to: PathBuf) -> Result<(), String> {
-    snow_shot_tauri_commands_file::copy_file(from, to).await
-}
-
-#[command]
 pub async fn text_file_read(
     text_file_cache_service: tauri::State<'_, Arc<FileCacheService>>,
     file_path: PathBuf,
