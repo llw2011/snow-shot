@@ -138,11 +138,13 @@ export const ThemeSkin = () => {
 		<div
 			className="global-skin-container"
 			style={{
-				position: "fixed",
+				position: "absolute",
 				top: 0,
 				left: 0,
 				right: 0,
 				bottom: 0,
+				zIndex: 0,
+				pointerEvents: "none",
 			}}
 		>
 			<div
@@ -169,8 +171,6 @@ export const ThemeSkin = () => {
 
                     .global-skin-container {
                         background-color: ${token.colorBgLayout};
-                        border-radius: var(--snow-shot-window-radius);
-                        clip-path: inset(0 round var(--snow-shot-window-radius));
                         overflow: hidden;
                     }
 

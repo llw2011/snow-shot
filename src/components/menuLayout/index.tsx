@@ -15,6 +15,7 @@ import { GlobalEventHandler } from "@/components/globalEventHandler";
 import { GlobalShortcut } from "@/components/globalShortcut";
 import { PersonalizationIcon } from "@/components/icons";
 import { InitService } from "@/components/initService";
+import { ThemeSkin } from "@/components/themeSkin";
 import {
 	TrayIconLoader,
 	TrayIconStatePublisher,
@@ -561,16 +562,9 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 				</Layout>
 				<style jsx>{`
                     .menu-layout-wrap {
-                        box-shadow: 0 0 12px 0 rgba(0, 0, 0, 0.21);
-                        border-radius: var(--snow-shot-window-radius);
-                        clip-path: inset(0 round var(--snow-shot-window-radius));
                         overflow: hidden;
                         height: 100%;
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
+                        position: relative;
                         z-index: 1;
                     }
 
@@ -612,7 +606,10 @@ export const MenuLayout = ({ children }: { children: React.ReactNode }) => {
 	return (
 		<>
 			<InitService />
-			<ML>{children}</ML>
+			<div className="snow-shot-window-shell">
+				<ThemeSkin />
+				<ML>{children}</ML>
+			</div>
 		</>
 	);
 };

@@ -159,16 +159,6 @@ pub fn run() {
                 .get_webview_window("main")
                 .expect("[lib::setup] no main window");
 
-            #[cfg(target_os = "windows")]
-            {
-                match main_window.set_decorations(false) {
-                    Ok(_) => (),
-                    Err(_) => {
-                        log::error!("[init_main_window] Failed to set decorations");
-                    }
-                }
-            }
-
             #[cfg(target_os = "macos")]
             {
                 // macOS 下不在 dock 显示
