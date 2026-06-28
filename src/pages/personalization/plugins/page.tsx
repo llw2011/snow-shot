@@ -199,5 +199,3 @@ export const PluginsPage = () => {
 		</div>
 	);
 };
-
-export default PluginsPage;
