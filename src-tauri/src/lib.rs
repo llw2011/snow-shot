@@ -3,7 +3,6 @@ pub mod file;
 pub mod global_state;
 pub mod hot_load_page;
 pub mod listen_key;
-pub mod ocr;
 pub mod plugin;
 pub mod screenshot;
 pub mod scroll_screenshot;
@@ -238,11 +237,11 @@ pub fn run() {
             file::get_app_config_dir,
             file::get_app_config_base_dir,
             file::create_local_config_dir,
-            ocr::ocr_detect,
+            snow_shot_tauri_commands_ocr::commands::ocr_detect,
             #[cfg(target_os = "windows")]
-            ocr::ocr_detect_with_shared_buffer,
-            ocr::ocr_init,
-            ocr::ocr_release,
+            snow_shot_tauri_commands_ocr::commands::ocr_detect_with_shared_buffer,
+            snow_shot_tauri_commands_ocr::commands::ocr_init,
+            snow_shot_tauri_commands_ocr::commands::ocr_release,
             core::exit_app,
             core::start_free_drag,
             core::start_resize_window,
