@@ -599,22 +599,6 @@ export const VideoRecordToolbarPage: React.FC = () => {
 							key="microphone"
 						/>
 
-						{/* <Button
-                        onClick={() => {
-                            setEnableSystemAudio((prev) => !prev);
-                        }}
-                        icon={
-                            <SystemAudioIcon
-                                style={{
-                                    color: getButtonIconColorByState(enableSystemAudio, token),
-                                }}
-                            />
-                        }
-                        title={intl.formatMessage({ id: 'videoRecord.systemAudio' })}
-                        type={'text'}
-                        key="system-audio"
-                    /> */}
-
 						<div className="video-record-toolbar-splitter" />
 
 						<Button
