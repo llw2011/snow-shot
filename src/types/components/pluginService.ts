@@ -5,6 +5,13 @@ import type { PluginStatusResult } from "../commands/plugin";
 export type PluginItem = {
 	id: string;
 	file_list: string[];
+	file_source_list?: PluginFileSource[];
+};
+
+export type PluginFileSource = {
+	path: string;
+	url: string;
+	sha256?: string;
 };
 
 export class PluginConfig {

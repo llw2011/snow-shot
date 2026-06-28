@@ -66,10 +66,18 @@ pub struct Plugin {
      * 插件下载目录
      */
     plugin_download_dir: PathBuf,
+    file_source_list: Vec<PluginFileSource>,
     /**
      * 应用句柄
      */
     app_handle: Arc<RwLock<Option<AppHandle>>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct PluginFileSource {
+    pub path: PathBuf,
+    pub url: String,
+    pub sha256: Option<String>,
 }
 
 impl Plugin {
@@ -90,23 +98,36 @@ impl Plugin {
             .with_extension("zip")
     }
 
+    fn get_plugin_file_download_dir(&self) -> PathBuf {
+        self.get_plugin_download_dir().join(&self.name)
+    }
+
     async fn set_status(&self, status: PluginStatus) {
-        let current_status = self.get_status().await;
-        if current_status != status {
-            if let Some(app_handle) = &*self.app_handle.read().await {
-                match app_handle.emit("plugin-status-change", ()) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        log::error!(
-                            "[Plugin::set_status] Failed to emit plugin status change: {}",
-                            e
-                        );
-                    }
+        let should_emit = {
+            let mut current_status = self.status.write().await;
+            if *current_status == status {
+                false
+            } else {
+                *current_status = status;
+                true
+            }
+        };
+
+        if !should_emit {
+            return;
+        }
+
+        if let Some(app_handle) = &*self.app_handle.read().await {
+            match app_handle.emit("plugin-status-change", ()) {
+                Ok(_) => (),
+                Err(e) => {
+                    log::error!(
+                        "[Plugin::set_status] Failed to emit plugin status change: {}",
+                        e
+                    );
                 }
             }
         }
-
-        *self.status.write().await = status;
     }
 
     /**
@@ -114,10 +135,17 @@ impl Plugin {
      */
     pub async fn refresh_status(&self) {
         let current_status = self.get_status().await;
-        if current_status != PluginStatus::NotInstalled {
+        if matches!(
+            current_status,
+            PluginStatus::Downloading | PluginStatus::Unzipping | PluginStatus::Uninstalling
+        ) {
             return;
         }
 
+        self.refresh_status_from_disk().await;
+    }
+
+    async fn refresh_status_from_disk(&self) {
         let plugin_dir = self.get_plugin_dir();
 
         let status = if plugin_dir.exists()
@@ -140,6 +168,7 @@ impl Plugin {
         plugin_download_dir: &Path,
         name: String,
         file_list: Vec<PathBuf>,
+        file_source_list: Vec<PluginFileSource>,
         version: String,
         app_handle: Arc<RwLock<Option<AppHandle>>>,
     ) -> Self {
@@ -150,6 +179,7 @@ impl Plugin {
             version,
             name,
             file_list,
+            file_source_list,
             relative_path,
             plugin_install_dir: plugin_install_dir.to_path_buf(),
             plugin_download_dir: plugin_download_dir.to_path_buf(),
@@ -236,6 +266,43 @@ impl Plugin {
         }
 
         Ok(normalized)
+    }
+
+    fn normalize_sha256(sha256: &str) -> Result<String, String> {
+        let normalized = sha256.trim().to_lowercase();
+        if normalized.len() != 64 || !normalized.chars().all(|ch| ch.is_ascii_hexdigit()) {
+            return Err(format!("invalid SHA256 value: {}", sha256));
+        }
+
+        Ok(normalized)
+    }
+
+    async fn calculate_file_sha256(file_path: &Path) -> Result<String, String> {
+        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
+            format!(
+                "[Plugin::calculate_file_sha256] Failed to read file for hash: {}",
+                e
+            )
+        })?;
+        let mut hasher = Sha256::new();
+        hasher.update(&file_bytes);
+        Ok(hex::encode(hasher.finalize()))
+    }
+
+    async fn verify_path_sha256(file_path: &Path, expected: &str) -> Result<(), String> {
+        let expected = Self::normalize_sha256(expected)?;
+        let actual = Self::calculate_file_sha256(file_path).await?;
+
+        if actual != expected {
+            return Err(format!(
+                "[Plugin::verify_path_sha256] SHA256 mismatch for {}. Expected: {}, Got: {}",
+                file_path.display(),
+                expected,
+                actual
+            ));
+        }
+
+        Ok(())
     }
 
     fn find_local_source_file(source_dir: &Path, required_file: &Path) -> Option<PathBuf> {
@@ -410,7 +477,7 @@ impl Plugin {
         Ok(())
     }
 
-    pub async fn install_from_dir(&self, source_dir: &Path, force: bool) -> Result<(), String> {
+    async fn install_from_dir_inner(&self, source_dir: &Path, force: bool) -> Result<(), String> {
         log::info!(
             "[Plugin::install_from_dir] Installing local plugin: {}, source: {}",
             self.name,
@@ -521,6 +588,15 @@ impl Plugin {
         Ok(())
     }
 
+    pub async fn install_from_dir(&self, source_dir: &Path, force: bool) -> Result<(), String> {
+        let result = self.install_from_dir_inner(source_dir, force).await;
+        if result.is_err() {
+            self.refresh_status_from_disk().await;
+        }
+
+        result
+    }
+
     /**
      * 解压插件源文件到插件目录
      */
@@ -564,23 +640,7 @@ impl Plugin {
             ));
         }
 
-        let file_bytes = tokio::fs::read(download_file_path)
-            .await
-            .map_err(|e| format!("[Plugin::verify_sha256] Failed to read zip for hash: {}", e))?;
-        let mut hasher = Sha256::new();
-        hasher.update(&file_bytes);
-        let actual = hex::encode(hasher.finalize());
-
-        if actual != expected {
-            return Err(format!(
-                "[Plugin::verify_sha256] SHA256 mismatch for {}. Expected: {}, Got: {}",
-                download_file_path.display(),
-                expected,
-                actual
-            ));
-        }
-
-        Ok(())
+        Self::verify_path_sha256(download_file_path, &expected).await
     }
 
     async fn download(&self) -> Result<(), String> {
@@ -598,11 +658,212 @@ impl Plugin {
         Ok(())
     }
 
+    async fn download_file_source(
+        &self,
+        source: &PluginFileSource,
+        download_dir: &Path,
+    ) -> Result<PathBuf, String> {
+        let normalized_file = Self::normalize_plugin_file_path(&source.path)?;
+        let download_file_path = download_dir.join(&normalized_file);
+
+        if let Some(expected_sha256) = &source.sha256 {
+            if download_file_path.is_file()
+                && Self::verify_path_sha256(&download_file_path, expected_sha256)
+                    .await
+                    .is_ok()
+            {
+                log::info!(
+                    "[Plugin::download_file_source] Cached file is valid: {}",
+                    download_file_path.display()
+                );
+                return Ok(normalized_file);
+            }
+        } else if download_file_path.is_file() {
+            return Ok(normalized_file);
+        }
+
+        let parent = download_file_path.parent().ok_or_else(|| {
+            format!(
+                "[Plugin::download_file_source] Failed to get download parent directory: {}",
+                download_file_path.display()
+            )
+        })?;
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            format!(
+                "[Plugin::download_file_source] Failed to create download directory: {}",
+                e
+            )
+        })?;
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to create http client: {}",
+                    e
+                )
+            })?;
+        let response = client
+            .get(&source.url)
+            .header(reqwest::header::USER_AGENT, "Snow Shot Rapid OCR Installer")
+            .send()
+            .await
+            .map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to download {}: {}",
+                    source.url, e
+                )
+            })?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "[Plugin::download_file_source] Failed to download {}: HTTP {}",
+                source.url,
+                response.status()
+            ));
+        }
+
+        let bytes = response.bytes().await.map_err(|e| {
+            format!(
+                "[Plugin::download_file_source] Failed to read response from {}: {}",
+                source.url, e
+            )
+        })?;
+        let file_name = download_file_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| {
+                format!(
+                    "[Plugin::download_file_source] Invalid file name: {}",
+                    download_file_path.display()
+                )
+            })?;
+        let temp_file_path = download_file_path.with_file_name(format!("{}.download", file_name));
+
+        if temp_file_path.exists() {
+            tokio::fs::remove_file(&temp_file_path).await.map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to remove stale temp file: {}",
+                    e
+                )
+            })?;
+        }
+
+        tokio::fs::write(&temp_file_path, &bytes).await.map_err(|e| {
+            format!(
+                "[Plugin::download_file_source] Failed to write downloaded file: {}",
+                e
+            )
+        })?;
+
+        if let Some(expected_sha256) = &source.sha256 {
+            Self::verify_path_sha256(&temp_file_path, expected_sha256).await?;
+        }
+
+        if download_file_path.exists() {
+            tokio::fs::remove_file(&download_file_path)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::download_file_source] Failed to replace cached file: {}",
+                        e
+                    )
+                })?;
+        }
+        tokio::fs::rename(&temp_file_path, &download_file_path)
+            .await
+            .map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to move downloaded file into cache: {}",
+                    e
+                )
+            })?;
+
+        Ok(normalized_file)
+    }
+
+    async fn install_from_file_sources(&self, force: bool) -> Result<(), String> {
+        self.refresh_status().await;
+
+        let status = self.get_status().await;
+        if !(status == PluginStatus::NotInstalled || (force && status == PluginStatus::Installed)) {
+            return Ok(());
+        }
+
+        let download_dir = self.get_plugin_file_download_dir();
+        self.set_status(PluginStatus::Downloading).await;
+
+        let mut downloaded_files = Vec::new();
+        for source in &self.file_source_list {
+            downloaded_files.push(self.download_file_source(source, &download_dir).await?);
+        }
+
+        self.set_status(PluginStatus::Unzipping).await;
+
+        if self.get_plugin_dir().exists() {
+            tokio::fs::remove_dir_all(&self.get_plugin_dir())
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::install_from_file_sources] Failed to clear plugin directory: {}",
+                        e
+                    )
+                })?;
+        }
+
+        tokio::fs::create_dir_all(&self.get_plugin_dir())
+            .await
+            .map_err(|e| {
+                format!(
+                    "[Plugin::install_from_file_sources] Failed to create plugin directory: {}",
+                    e
+                )
+            })?;
+
+        for relative_file in downloaded_files {
+            let source_file = download_dir.join(&relative_file);
+            let target_file = self.get_plugin_dir().join(&relative_file);
+            let target_parent = target_file.parent().ok_or_else(|| {
+                format!(
+                    "[Plugin::install_from_file_sources] Failed to get target parent directory: {}",
+                    target_file.display()
+                )
+            })?;
+
+            tokio::fs::create_dir_all(target_parent)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::install_from_file_sources] Failed to create target directory: {}",
+                        e
+                    )
+                })?;
+            tokio::fs::copy(&source_file, &target_file)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "[Plugin::install_from_file_sources] Failed to copy {} to {}: {}",
+                        source_file.display(),
+                        target_file.display(),
+                        e
+                    )
+                })?;
+        }
+
+        self.set_status(PluginStatus::Installed).await;
+
+        Ok(())
+    }
+
     /**
      * 安装插件
      */
-    pub async fn install(&self, force: bool) -> Result<(), String> {
+    async fn install_inner(&self, force: bool) -> Result<(), String> {
         log::info!("[Plugin::install] Installing plugin: {}", self.name);
+
+        if !self.file_source_list.is_empty() {
+            return self.install_from_file_sources(force).await;
+        }
 
         self.refresh_status().await;
 
@@ -665,6 +926,15 @@ impl Plugin {
         Ok(())
     }
 
+    pub async fn install(&self, force: bool) -> Result<(), String> {
+        let result = self.install_inner(force).await;
+        if result.is_err() {
+            self.refresh_status_from_disk().await;
+        }
+
+        result
+    }
+
     pub async fn uninstall(&self) -> Result<(), String> {
         self.set_status(PluginStatus::Uninstalling).await;
 
@@ -683,5 +953,35 @@ impl Plugin {
         self.set_status(PluginStatus::NotInstalled).await;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Plugin;
+
+    #[test]
+    fn normalize_plugin_file_path_rejects_path_escape() {
+        assert!(Plugin::normalize_plugin_file_path("../model.onnx".as_ref()).is_err());
+        assert!(Plugin::normalize_plugin_file_path("C:/model.onnx".as_ref()).is_err());
+    }
+
+    #[test]
+    fn normalize_plugin_file_path_accepts_nested_relative_path() {
+        assert_eq!(
+            Plugin::normalize_plugin_file_path("models/model.onnx".as_ref()).unwrap(),
+            std::path::PathBuf::from("models").join("model.onnx")
+        );
+    }
+
+    #[test]
+    fn normalize_sha256_validates_hash_format() {
+        assert!(
+            Plugin::normalize_sha256(
+                "D2A7720D45A54257208B1E13E36A8479894CB74155A5EFE29462512D42F49DA9",
+            )
+            .is_ok()
+        );
+        assert!(Plugin::normalize_sha256("not-a-sha").is_err());
     }
 }

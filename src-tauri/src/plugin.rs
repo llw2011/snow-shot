@@ -1,3 +1,4 @@
+use snow_shot_plugin_service::plugin::PluginFileSource;
 use snow_shot_plugin_service::plugin_service::PluginService;
 use snow_shot_plugin_service::plugin_service::PluginStatusResult;
 use std::path::{Path, PathBuf};
@@ -44,9 +45,14 @@ pub async fn plugin_register_plugin(
     plugin_service: tauri::State<'_, Arc<PluginService>>,
     name: String,
     file_list: Vec<PathBuf>,
+    file_source_list: Option<Vec<PluginFileSource>>,
 ) -> Result<(), String> {
     plugin_service
-        .register_plugin(name.clone(), file_list)
+        .register_plugin(
+            name.clone(),
+            file_list,
+            file_source_list.unwrap_or_default(),
+        )
         .await;
 
     Ok(())

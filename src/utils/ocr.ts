@@ -16,11 +16,13 @@ export const canUseOcr = (
 	rapidOcrReady: boolean | undefined,
 ) => {
 	const ocrModel = appSettings[AppSettingsGroup.FunctionOcr].ocrModel;
-	if (!glmOcrReady) {
-		return false;
+	if (isGlmOcrModel(ocrModel)) {
+		return !!glmOcrReady;
 	}
 
-	return (
-		isGlmOcrModel(ocrModel) || (isRapidOcrModel(ocrModel) && !!rapidOcrReady)
-	);
+	if (isRapidOcrModel(ocrModel)) {
+		return !!rapidOcrReady;
+	}
+
+	return false;
 };

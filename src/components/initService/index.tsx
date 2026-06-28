@@ -18,6 +18,7 @@ import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 import { CaptureHistory } from "@/utils/captureHistory";
 import { appWarn } from "@/utils/log";
+import { isRapidOcrModel } from "@/utils/ocr";
 
 export const InitService = () => {
 	// 清除无效的截图历史
@@ -51,10 +52,12 @@ export const InitService = () => {
 			return;
 		}
 
+		const ocrModel = appSettings[AppSettingsGroup.FunctionOcr].ocrModel;
 		if (
+			isRapidOcrModel(ocrModel) &&
 			(!hasInitOcr.current ||
 				(prevAppSettings &&
-					(appSettings[AppSettingsGroup.FunctionOcr].ocrModel !==
+					(ocrModel !==
 						prevAppSettings[AppSettingsGroup.FunctionOcr].ocrModel ||
 						appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart !==
 							prevAppSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart ||
@@ -64,15 +67,19 @@ export const InitService = () => {
 								.ocrModelWriteToMemory))) &&
 			isReadyStatus(PLUGIN_ID_RAPID_OCR)
 		) {
-			hasInitOcr.current = true;
-
 			if (pluginConfigRef.current) {
-				ocrInit(
-					await pluginConfigRef.current.getPluginDirPath(PLUGIN_ID_RAPID_OCR),
-					appSettings[AppSettingsGroup.FunctionOcr].ocrModel,
-					appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart,
-					appSettings[AppSettingsGroup.SystemScreenshot].ocrModelWriteToMemory,
-				);
+				try {
+					await ocrInit(
+						await pluginConfigRef.current.getPluginDirPath(PLUGIN_ID_RAPID_OCR),
+						ocrModel,
+						appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart,
+						appSettings[AppSettingsGroup.SystemScreenshot]
+							.ocrModelWriteToMemory,
+					);
+					hasInitOcr.current = true;
+				} catch (error) {
+					appWarn("[InitService] init ocr failed", error);
+				}
 			} else {
 				appWarn("[InitService] pluginConfigRef.current is not set");
 			}

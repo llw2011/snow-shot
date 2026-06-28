@@ -1145,7 +1145,8 @@ export const FunctionSettingsPage = () => {
 				</ProForm>
 			</Spin>
 
-			{isReadyStatus?.(PLUGIN_ID_GLM_OCR) && (
+			{(isReadyStatus?.(PLUGIN_ID_GLM_OCR) ||
+				isReadyStatus?.(PLUGIN_ID_RAPID_OCR)) && (
 				<>
 					<Divider />
 
