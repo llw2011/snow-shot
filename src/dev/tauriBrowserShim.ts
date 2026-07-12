@@ -301,17 +301,28 @@ const installTauriBrowserShim = () => {
 				return undefined as T;
 			}
 
-			case "plugin:global-shortcut|is_registered":
-				return false as T;
-			case "plugin:global-shortcut|register":
-			case "plugin:global-shortcut|unregister":
-			case "plugin:global-shortcut|unregister_all":
+			case "native_action_ack":
+			case "draw_window_ready":
+				return true as T;
+			case "create_draw_window":
+				return "draw-dev" as T;
 			case "init_ui_elements":
 			case "init_ui_elements_cache":
 			case "set_enable_proxy":
 			case "set_run_log":
+			case "native_shortcut_register_action":
+				return true as T;
+			case "native_shortcut_reset_actions":
+			case "native_shortcut_set_disabled":
+			case "native_shortcut_set_input_active":
+			case "native_shortcut_set_full_screen_policy":
+			case "native_tray_set_click_action":
+			case "native_runtime_start":
+			case "native_runtime_heartbeat":
+			case "native_runtime_ready":
+			case "native_draw_runtime_ready":
+			case "native_runtime_bind_draw":
 			case "hot_load_page_init":
-			case "create_draw_window":
 			case "create_webview_shared_buffer":
 			case "set_support_webview_shared_buffer":
 			case "video_record_init":

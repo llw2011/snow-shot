@@ -18,6 +18,10 @@ import React, {
 import { IntlProvider } from "react-intl";
 import { createDrawWindow } from "@/commands/core";
 import { createDir, textFileRead, textFileWrite } from "@/commands/file";
+import {
+	nativeRuntimeBindDraw,
+	nativeRuntimeSettingsReady,
+} from "@/commands/nativeAction";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
 import {
 	defaultAppSettingsData,
@@ -1715,7 +1719,7 @@ const AppSettingsContextProviderCore: React.FC<{
 				`[reloadAppSettings] create dir ${await getConfigDirPath()} failed`,
 				error,
 			);
-			return;
+			return false;
 		}
 
 		const loadAppSettingsGroup = async (group: AppSettingsGroup) => {
@@ -1773,22 +1777,49 @@ const AppSettingsContextProviderCore: React.FC<{
 		}
 
 		setAppSettingsLoadingPublisher(false);
+		return true;
 	}, [setAppSettingsLoadingPublisher, updateAppSettings, setAppSettings]);
 
 	const initedAppSettings = useRef(false);
+	const appSettingsBootstrapActiveRef = useRef(false);
 	useEffect(() => {
-		if (initedAppSettings.current) {
-			return;
-		}
-		initedAppSettings.current = true;
+		appSettingsBootstrapActiveRef.current = true;
+		if (!initedAppSettings.current) {
+			initedAppSettings.current = true;
 
-		reloadAppSettings().then(() => {
-			if (appWindowRef.current?.label === "main") {
-				releaseDrawPage(true).then(() => {
-					createDrawWindow();
-				});
-			}
-		});
+			void (async () => {
+				const settingsLoaded = await reloadAppSettings();
+				if (
+					!appSettingsBootstrapActiveRef.current ||
+					!settingsLoaded ||
+					appWindowRef.current?.label !== "main"
+				) {
+					return;
+				}
+
+				await nativeRuntimeSettingsReady();
+				if (!appSettingsBootstrapActiveRef.current) {
+					return;
+				}
+				await releaseDrawPage(true);
+				if (!appSettingsBootstrapActiveRef.current) {
+					return;
+				}
+				const drawWindowLabel = await createDrawWindow();
+				if (appSettingsBootstrapActiveRef.current) {
+					await nativeRuntimeBindDraw(drawWindowLabel);
+				}
+			})().catch((error) => {
+				appError(
+					"[AppSettingsContextProvider] runtime bootstrap failed",
+					error,
+				);
+			});
+		}
+
+		return () => {
+			appSettingsBootstrapActiveRef.current = false;
+		};
 	}, [reloadAppSettings]);
 
 	const [, antdLocale] = useMemo(() => {

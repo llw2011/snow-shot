@@ -7,12 +7,66 @@ use snow_shot_app_utils::monitor_info::{
     CaptureOption, ColorFormat, CorrectHdrColorAlgorithm, MonitorList,
 };
 use snow_shot_global_state::WebViewSharedBufferState;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{
+        Arc, Mutex as StdMutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 use tauri::command;
 use tauri::ipc::Response;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, oneshot};
+
+const DRAW_WINDOW_LABEL_PREFIX: &str = "draw-";
+const DRAW_WINDOW_READY_TIMEOUT: Duration = Duration::from_secs(12);
+
+pub struct DrawWindowReadyState {
+    next_window_id: AtomicU64,
+    pending: StdMutex<HashMap<String, oneshot::Sender<()>>>,
+}
+
+impl Default for DrawWindowReadyState {
+    fn default() -> Self {
+        Self {
+            next_window_id: AtomicU64::new(1),
+            pending: StdMutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl DrawWindowReadyState {
+    fn next_window_label(&self) -> String {
+        format!(
+            "{DRAW_WINDOW_LABEL_PREFIX}{}",
+            self.next_window_id.fetch_add(1, Ordering::Relaxed)
+        )
+    }
+
+    fn insert(&self, window_label: String, sender: oneshot::Sender<()>) {
+        self.pending
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert(window_label, sender);
+    }
+
+    fn cancel(&self, window_label: &str) {
+        self.pending
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(window_label);
+    }
+
+    fn acknowledge(&self, window_label: &str) -> bool {
+        self.pending
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(window_label)
+            .is_some_and(|sender| sender.send(()).is_ok())
+    }
+}
 
 #[command]
 pub async fn capture_current_monitor(
@@ -615,16 +669,17 @@ pub async fn get_mouse_position(app: tauri::AppHandle) -> Result<(i32, i32), Str
 }
 
 #[command]
-pub async fn create_draw_window(app: tauri::AppHandle) {
+pub async fn create_draw_window(
+    app: tauri::AppHandle,
+    ready_state: tauri::State<'_, DrawWindowReadyState>,
+) -> Result<String, String> {
+    let window_label = ready_state.next_window_label();
+    let (ready_sender, ready_receiver) = oneshot::channel();
+    ready_state.insert(window_label.clone(), ready_sender);
+
     let window = tauri::WebviewWindowBuilder::new(
         &app,
-        format!(
-            "draw-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        ),
+        &window_label,
         tauri::WebviewUrl::App(format!("/draw").into()),
     )
     .resizable(false)
@@ -640,7 +695,10 @@ pub async fn create_draw_window(app: tauri::AppHandle) {
     .visible(false)
     .focused(false)
     .build()
-    .unwrap();
+    .map_err(|error| {
+        ready_state.cancel(&window_label);
+        format!("failed to create draw window {window_label}: {error}")
+    })?;
 
     #[cfg(target_os = "windows")]
     {
@@ -649,26 +707,56 @@ pub async fn create_draw_window(app: tauri::AppHandle) {
             DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindowAttribute,
         };
 
-        let window_hwnd = window.hwnd().unwrap();
-
-        // 禁用窗口动画
-        unsafe {
-            let disable_transitions: i32 = 1;
-            match DwmSetWindowAttribute(
-                HWND(window_hwnd.0),
-                DWMWA_TRANSITIONS_FORCEDISABLED,
-                &disable_transitions as *const _ as *const _,
-                std::mem::size_of::<i32>() as u32,
-            ) {
-                Ok(_) => (),
-                Err(_) => {
-                    log::error!("[create_draw_window] Failed to disable window transitions");
+        match window.hwnd() {
+            Ok(window_hwnd) => {
+                // 禁用窗口动画
+                unsafe {
+                    let disable_transitions: i32 = 1;
+                    if let Err(error) = DwmSetWindowAttribute(
+                        HWND(window_hwnd.0),
+                        DWMWA_TRANSITIONS_FORCEDISABLED,
+                        &disable_transitions as *const _ as *const _,
+                        std::mem::size_of::<i32>() as u32,
+                    ) {
+                        log::error!(
+                            "[create_draw_window] failed to disable window transitions: {error}"
+                        );
+                    }
                 }
+            }
+            Err(error) => {
+                log::error!("[create_draw_window] failed to get window handle: {error}");
             }
         }
     }
 
-    window.hide().unwrap();
+    if let Err(error) = window.hide() {
+        ready_state.cancel(&window_label);
+        let _ = window.destroy();
+        return Err(format!("failed to hide draw window {window_label}: {error}"));
+    }
+
+    if !matches!(
+        tokio::time::timeout(DRAW_WINDOW_READY_TIMEOUT, ready_receiver).await,
+        Ok(Ok(()))
+    ) {
+        ready_state.cancel(&window_label);
+        let _ = window.destroy();
+        return Err(format!(
+            "draw window {window_label} did not become ready in time"
+        ));
+    }
+
+    Ok(window_label)
+}
+
+#[command]
+pub fn draw_window_ready(
+    window: tauri::WebviewWindow,
+    ready_state: tauri::State<'_, DrawWindowReadyState>,
+) -> bool {
+    window.label().starts_with(DRAW_WINDOW_LABEL_PREFIX)
+        && ready_state.acknowledge(window.label())
 }
 
 #[command]
@@ -810,4 +898,30 @@ where
     Ok(CaptureFullScreenResult {
         monitor_rect: active_monitor_crop_region,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draw_window_labels_are_unique_within_the_process() {
+        let state = DrawWindowReadyState::default();
+        let first = state.next_window_label();
+        let second = state.next_window_label();
+        assert_ne!(first, second);
+        assert!(first.starts_with(DRAW_WINDOW_LABEL_PREFIX));
+        assert!(second.starts_with(DRAW_WINDOW_LABEL_PREFIX));
+    }
+
+    #[test]
+    fn draw_window_readiness_only_consumes_the_matching_request_once() {
+        let state = DrawWindowReadyState::default();
+        let (sender, _receiver) = oneshot::channel();
+        state.insert("draw-1".to_owned(), sender);
+
+        assert!(!state.acknowledge("draw-2"));
+        assert!(state.acknowledge("draw-1"));
+        assert!(!state.acknowledge("draw-1"));
+    }
 }

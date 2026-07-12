@@ -2,6 +2,7 @@ import { AntdContextProvider } from "../antdContextProvider";
 import { AppSettingsContextProvider } from "../appSettingsContextProvider";
 import { EventListener } from "../eventListener";
 import { FetchErrorHandler } from "../fetchErrorHandler";
+import { NativeRuntimeGuard } from "../nativeRuntimeGuard";
 import { PluginServiceContextProvider } from "../pluginServiceContextProvider";
 
 export const RouterContainer: React.FC<{
@@ -13,7 +14,10 @@ export const RouterContainer: React.FC<{
 			<AppSettingsContextProvider>
 				<AntdContextProvider>
 					<FetchErrorHandler>
-						<EventListener>{children}</EventListener>
+						<EventListener>
+							<NativeRuntimeGuard />
+							{children}
+						</EventListener>
 					</FetchErrorHandler>
 				</AntdContextProvider>
 			</AppSettingsContextProvider>

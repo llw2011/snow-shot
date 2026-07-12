@@ -1,6 +1,6 @@
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { Spin, Tooltip, theme } from "antd";
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { CheckPermissions } from "@/components/checkPermissions";
 import { ContentWrap } from "@/components/contentWrap";
@@ -70,8 +70,13 @@ export const HomePage = () => {
 		appSettingsLoading,
 		appFunctionSettings,
 		shortcutKeyStatus,
-		disableShortcutKeyRef,
+		setShortcutInputActive,
 	} = useContext(GlobalShortcutContext);
+	useEffect(() => {
+		return () => {
+			setShortcutInputActive(false);
+		};
+	}, [setShortcutInputActive]);
 
 	const { isReadyStatus } = usePluginServiceContext();
 	const [currentAppSettings, setCurrentAppSettings] =
@@ -307,14 +312,14 @@ export const HomePage = () => {
 																color: statusColor,
 																children,
 																onClick: () => {
-																	disableShortcutKeyRef.current = true;
+																	setShortcutInputActive(true);
 																},
 															}}
 															onCancel={() => {
-																disableShortcutKeyRef.current = false;
+																setShortcutInputActive(false);
 															}}
 															onKeyChange={async (value) => {
-																disableShortcutKeyRef.current = false;
+																setShortcutInputActive(false);
 																updateAppSettings(
 																	AppSettingsGroup.AppFunction,
 																	{

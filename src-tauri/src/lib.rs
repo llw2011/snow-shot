@@ -3,6 +3,7 @@ pub mod file;
 pub mod global_state;
 pub mod hot_load_page;
 pub mod listen_key;
+pub mod native_action;
 pub mod plugin;
 pub mod screenshot;
 pub mod scroll_screenshot;
@@ -31,6 +32,24 @@ use snow_shot_app_services::video_record_service;
 use snow_shot_app_shared::EnigoManager;
 use snow_shot_global_state::{CaptureState, ReadClipboardState, WebViewSharedBufferState};
 use snow_shot_plugin_service::plugin_service;
+
+pub(crate) fn configure_main_window(main_window: &tauri::WebviewWindow) {
+    let window_clone = main_window.clone();
+    main_window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            if let Err(error) = window_clone.hide() {
+                log::error!("[configure_main_window] hide window error: {error:?}");
+            }
+
+            if let Err(error) = window_clone.emit("on-hide-main-window", ()) {
+                log::error!("[configure_main_window] emit hide event error: {error}");
+            }
+        }
+    });
+}
 
 #[cfg(feature = "dhat-heap")]
 pub static PROFILER: std::sync::LazyLock<Mutex<Option<dhat::Profiler>>> =
@@ -76,6 +95,8 @@ pub fn run() {
     let webview_shared_buffer_state = WebViewSharedBufferState::new(false);
 
     let read_clipboard_state = Mutex::new(ReadClipboardState { reading: false });
+    let draw_window_ready_state =
+        snow_shot_tauri_commands_screenshot::commands::DrawWindowReadyState::default();
 
     use tauri_plugin_log::{Target, TargetKind};
 
@@ -113,10 +134,19 @@ pub fn run() {
         )
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            let app_window = app.get_webview_window("main").expect("no main window");
-            app_window.show().unwrap();
-            app_window.unminimize().unwrap();
-            app_window.set_focus().unwrap();
+            let Some(app_window) = app.get_webview_window("main") else {
+                log::error!("[single_instance] main window not found");
+                return;
+            };
+            if let Err(error) = app_window.show() {
+                log::error!("[single_instance] show main window failed: {error}");
+            }
+            if let Err(error) = app_window.unminimize() {
+                log::error!("[single_instance] unminimize main window failed: {error}");
+            }
+            if let Err(error) = app_window.set_focus() {
+                log::error!("[single_instance] focus main window failed: {error}");
+            }
         }))
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
@@ -129,7 +159,11 @@ pub fn run() {
             Some(vec!["--auto_start"]),
         ))
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(native_action::handle_shortcut_event)
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
@@ -163,29 +197,7 @@ pub fn run() {
                 app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
             }
 
-            // 监听窗口关闭事件，拦截关闭按钮
-            let window_clone = main_window.clone();
-            main_window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-
-                    #[cfg(target_os = "windows")]
-                    {
-                        if let Err(e) = window_clone.hide() {
-                            log::error!("[setup] hide window error: {:?}", e);
-                        }
-                    }
-
-                    #[cfg(target_os = "macos")]
-                    {
-                        if let Err(e) = window_clone.hide() {
-                            log::error!("[setup] hide window error: {:?}", e);
-                        }
-                    }
-
-                    window_clone.emit("on-hide-main-window", ()).unwrap();
-                }
-            });
+            configure_main_window(&main_window);
 
             // 如果是调试模式，则显示窗口
             #[cfg(debug_assertions)]
@@ -215,6 +227,8 @@ pub fn run() {
         .manage(video_record_window_label)
         .manage(capture_state)
         .manage(read_clipboard_state)
+        .manage(draw_window_ready_state)
+        .manage(native_action::NativeActionState::default())
         .invoke_handler(tauri::generate_handler![
             snow_shot_tauri_commands_screenshot::commands::capture_current_monitor,
             snow_shot_tauri_commands_screenshot::commands::capture_all_monitors,
@@ -225,6 +239,7 @@ pub fn run() {
             snow_shot_tauri_commands_screenshot::commands::init_ui_elements_cache,
             snow_shot_tauri_commands_screenshot::commands::get_mouse_position,
             snow_shot_tauri_commands_screenshot::commands::create_draw_window,
+            snow_shot_tauri_commands_screenshot::commands::draw_window_ready,
             snow_shot_tauri_commands_screenshot::commands::switch_always_on_top,
             snow_shot_tauri_commands_screenshot::commands::set_draw_window_style,
             screenshot::capture_full_screen,
@@ -318,8 +333,25 @@ pub fn run() {
             global_state::get_capture_state,
             global_state::set_read_clipboard_state,
             global_state::get_read_clipboard_state,
+            native_action::native_shortcut_register_action,
+            native_action::native_shortcut_reset_actions,
+            native_action::native_shortcut_set_disabled,
+            native_action::native_shortcut_set_input_active,
+            native_action::native_shortcut_set_full_screen_policy,
+            native_action::native_tray_set_click_action,
+            native_action::native_runtime_start,
+            native_action::native_runtime_heartbeat,
+            native_action::native_runtime_ready,
+            native_action::native_draw_runtime_ready,
+            native_action::native_runtime_bind_draw,
+            native_action::native_action_ack,
         ])
+        .on_menu_event(native_action::handle_menu_event)
+        .on_tray_icon_event(native_action::handle_tray_icon_event)
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                native_action::handle_window_destroyed(window.app_handle(), window.label());
+            }
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let window_label = window.label().to_owned();
 
@@ -350,7 +382,18 @@ pub fn run() {
         app_builder = app_builder.manage(shared_buffer_service);
     }
 
-    app_builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    let app = app_builder
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+    app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = event
+            && code.is_none()
+            && app
+                .state::<native_action::NativeActionState>()
+                .main_rebuild_active()
+        {
+            log::warn!("[native_action] prevented exit while rebuilding the main window");
+            api.prevent_exit();
+        }
+    });
 }

@@ -82,6 +82,26 @@ export const KeyButton: React.FC<{
 	const { token } = theme.useToken();
 
 	const [open, setOpen] = useState(false);
+	const openRef = useRef(open);
+	openRef.current = open;
+	const onCancelRef = useRef(onCancel);
+	onCancelRef.current = onCancel;
+
+	useEffect(() => {
+		return () => {
+			if (!openRef.current) {
+				return;
+			}
+
+			// A conditional render can remove an open recorder without firing the
+			// modal's cancel callback. Release both native input capture and the
+			// global-shortcut suppression flag in that case.
+			listenKeyStop().catch((error) => {
+				appError("[KeyButton] listenKeyStop on unmount error", error);
+			});
+			onCancelRef.current?.();
+		};
+	}, []);
 
 	const keyConfigListRef = useRef<KeyConfig[]>([]);
 	const [keyConfigList, _setKeyConfigList] = useState<KeyConfig[]>([]);

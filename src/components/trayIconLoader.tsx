@@ -9,10 +9,9 @@ import { isEqual } from "es-toolkit";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import {
-	createFixedContentWindow,
-	createFullScreenDrawWindow,
-	exitApp,
-} from "@/commands/core";
+	nativeShortcutSetDisabled,
+	nativeTraySetClickAction,
+} from "@/commands/nativeAction";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
 	PLUGIN_ID_AI_CHAT,
@@ -23,21 +22,7 @@ import {
 } from "@/constants/pluginService";
 import { AntdContext } from "@/contexts/antdContext";
 import { AppContext } from "@/contexts/appContext";
-import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
-import {
-	executeScreenshot,
-	executeScreenshotFocusedWindow,
-} from "@/functions/screenshot";
-import {
-	executeChat,
-	executeChatSelectedText,
-	executeTranslate,
-	executeTranslateSelectedText,
-	openCaptureHistory,
-	openImageSaveFolder,
-} from "@/functions/tools";
-import { startOrCopyVideo } from "@/functions/videoRecord";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { createPublisher } from "@/hooks/useStatePublisher";
 import { useStateRef } from "@/hooks/useStateRef";
@@ -46,7 +31,6 @@ import {
 	type AppSettingsData,
 	AppSettingsGroup,
 	AppSettingsTheme,
-	TrayIconClickAction,
 	TrayIconDefaultIcon,
 } from "@/types/appSettings";
 import {
@@ -57,14 +41,43 @@ import { formatKey } from "@/utils/format";
 import { appError } from "@/utils/log";
 import { canUseOcr } from "@/utils/ocr";
 import { getPlatformValue } from "@/utils/platform";
-import { ScreenshotType } from "@/utils/types";
-import { showWindow } from "@/utils/window";
 
 export const TrayIconStatePublisher = createPublisher<{
 	disableShortcut: boolean;
 }>({
 	disableShortcut: false,
 });
+
+type TrayResources = {
+	trayIcon: TrayIcon | undefined;
+	trayIconMenu: Menu | undefined;
+};
+
+let trayMutationTail: Promise<void> = Promise.resolve();
+
+const runTrayMutation = <T,>(mutation: () => Promise<T>) => {
+	const result = trayMutationTail.then(mutation, mutation);
+	trayMutationTail = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	return result;
+};
+
+const replaceTrayIcon = async (id: string, options: TrayIconOptions) => {
+	if (await TrayIcon.getById(id)) {
+		await TrayIcon.removeById(id);
+	}
+	return await TrayIcon.new(options);
+};
+
+const closeTrayResources = async ({
+	trayIcon,
+	trayIconMenu,
+}: TrayResources) => {
+	await trayIconMenu?.close();
+	await trayIcon?.close();
+};
 
 export const getDefaultIconPath = async (
 	defaultIcon: TrayIconDefaultIcon,
@@ -117,7 +130,6 @@ const TrayIconLoaderComponent = () => {
 	const [currentAppSettings, setCurrentAppSettings] = useState<AppSettingsData>(
 		defaultAppSettingsData,
 	);
-	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	useAppSettingsLoad(
 		useCallback(
 			(settings: AppSettingsData, previous: AppSettingsData | undefined) => {
@@ -150,13 +162,23 @@ const TrayIconLoaderComponent = () => {
 		true,
 	);
 
+	useEffect(() => {
+		void nativeShortcutSetDisabled(disableShortcut).catch((error) => {
+			appError("[TrayIconLoader] sync shortcut disabled state failed", error);
+		});
+	}, [disableShortcut]);
+
+	useEffect(() => {
+		void nativeTraySetClickAction(
+			currentAppSettings[AppSettingsGroup.FunctionTrayIcon].iconClickAction,
+		).catch((error) => {
+			appError("[TrayIconLoader] sync tray click action failed", error);
+		});
+	}, [currentAppSettings]);
+
 	const { isReadyStatus } = usePluginServiceContext();
 	const initTrayIcon = useCallback(async (): Promise<
-		| {
-				trayIcon: TrayIcon | undefined;
-				trayIconMenu: Menu | undefined;
-		  }
-		| undefined
+		TrayResources | undefined
 	> => {
 		if (!isReadyStatus) {
 			return;
@@ -204,9 +226,6 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.Screenshot].shortcutKey),
-					action: async () => {
-						executeScreenshot();
-					},
 				},
 				{
 					id: `${appWindow.label}-screenshot-delay`,
@@ -228,9 +247,6 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.ScreenshotDelay].shortcutKey),
-					action: async () => {
-						executeScreenshot(ScreenshotType.Delay);
-					},
 				},
 				{
 					id: `${appWindow.label}-screenshot-fixedTool`,
@@ -238,9 +254,6 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.ScreenshotFixed].shortcutKey),
-					action: async () => {
-						executeScreenshot(ScreenshotType.Fixed);
-					},
 				},
 				...(canUseOcr(
 					currentAppSettings,
@@ -256,9 +269,6 @@ const TrayIconLoaderComponent = () => {
 									: formatKey(
 											shortcutKeys[AppFunction.ScreenshotOcr].shortcutKey,
 										),
-								action: async () => {
-									executeScreenshot(ScreenshotType.OcrDetect);
-								},
 							},
 							{
 								id: `${appWindow.label}-screenshot-ocr-translate`,
@@ -269,9 +279,6 @@ const TrayIconLoaderComponent = () => {
 											shortcutKeys[AppFunction.ScreenshotOcrTranslate]
 												.shortcutKey,
 										),
-								action: async () => {
-									executeScreenshot(ScreenshotType.OcrTranslate);
-								},
 							},
 						]
 					: []),
@@ -283,9 +290,6 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.ScreenshotCopy].shortcutKey),
-					action: async () => {
-						executeScreenshot(ScreenshotType.Copy);
-					},
 				},
 				...(shortcutKeys[AppFunction.ScreenshotFocusedWindow].shortcutKey
 					? [
@@ -300,9 +304,6 @@ const TrayIconLoaderComponent = () => {
 											shortcutKeys[AppFunction.ScreenshotFocusedWindow]
 												.shortcutKey,
 										),
-								action: async () => {
-									executeScreenshotFocusedWindow(getAppSettings());
-								},
 							},
 						]
 					: []),
@@ -316,9 +317,6 @@ const TrayIconLoaderComponent = () => {
 						: formatKey(
 								shortcutKeys[AppFunction.ScreenshotFullScreen].shortcutKey,
 							),
-					action: async () => {
-						executeScreenshot(ScreenshotType.CaptureFullScreen);
-					},
 				},
 				...(isReadyStatus(PLUGIN_ID_AI_CHAT)
 					? [
@@ -331,9 +329,6 @@ const TrayIconLoaderComponent = () => {
 								accelerator: disableShortcut
 									? undefined
 									: formatKey(shortcutKeys[AppFunction.Chat].shortcutKey),
-								action: async () => {
-									executeChat();
-								},
 							},
 							...(shortcutKeys[AppFunction.ChatSelectText].shortcutKey
 								? [
@@ -346,9 +341,6 @@ const TrayIconLoaderComponent = () => {
 														shortcutKeys[AppFunction.ChatSelectText]
 															.shortcutKey,
 													),
-											action: async () => {
-												executeChatSelectedText();
-											},
 										},
 									]
 								: []),
@@ -367,9 +359,6 @@ const TrayIconLoaderComponent = () => {
 									: formatKey(
 											shortcutKeys[AppFunction.Translation].shortcutKey,
 										),
-								action: async () => {
-									executeTranslate();
-								},
 							},
 							...(shortcutKeys[AppFunction.TranslationSelectText].shortcutKey
 								? [
@@ -384,9 +373,6 @@ const TrayIconLoaderComponent = () => {
 														shortcutKeys[AppFunction.TranslationSelectText]
 															.shortcutKey,
 													),
-											action: async () => {
-												executeTranslateSelectedText();
-											},
 										},
 									]
 								: []),
@@ -411,18 +397,12 @@ const TrayIconLoaderComponent = () => {
 									: formatKey(
 											shortcutKeys[AppFunction.VideoRecord].shortcutKey,
 										),
-								action: async () => {
-									executeScreenshot(ScreenshotType.VideoRecord);
-								},
 							},
 							{
 								id: `${appWindow.label}-screenshot-videoRecord-copy`,
 								text: intl.formatMessage({
 									id: "home.videoRecordFunction.copyVideo",
 								}),
-								action: async () => {
-									startOrCopyVideo();
-								},
 							},
 						]
 					: []),
@@ -435,9 +415,6 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.FixedContent].shortcutKey),
-					action: async () => {
-						createFixedContentWindow();
-					},
 				},
 				...getPlatformValue(
 					[
@@ -447,9 +424,6 @@ const TrayIconLoaderComponent = () => {
 							accelerator: disableShortcut
 								? undefined
 								: formatKey(shortcutKeys[AppFunction.TopWindow].shortcutKey),
-							action: async () => {
-								executeScreenshot(ScreenshotType.TopWindow);
-							},
 						},
 					],
 					[],
@@ -460,23 +434,14 @@ const TrayIconLoaderComponent = () => {
 					accelerator: disableShortcut
 						? undefined
 						: formatKey(shortcutKeys[AppFunction.FullScreenDraw].shortcutKey),
-					action: async () => {
-						createFullScreenDrawWindow();
-					},
 				},
 				{
 					id: `${appWindow.label}-open-image-save-folder`,
 					text: intl.formatMessage({ id: "home.openImageSaveFolder" }),
-					action: async () => {
-						openImageSaveFolder();
-					},
 				},
 				{
 					id: `${appWindow.label}-open-capture-history`,
 					text: intl.formatMessage({ id: "home.openCaptureHistory" }),
-					action: async () => {
-						openCaptureHistory();
-					},
 				},
 				{
 					item: "Separator",
@@ -494,9 +459,6 @@ const TrayIconLoaderComponent = () => {
 				{
 					id: `${appWindow.label}-show-main-window`,
 					text: intl.formatMessage({ id: "home.showMainWindow" }),
-					action: async () => {
-						showWindow();
-					},
 				},
 				{
 					item: "Separator",
@@ -504,14 +466,13 @@ const TrayIconLoaderComponent = () => {
 				{
 					id: `${appWindow.label}-exit`,
 					text: intl.formatMessage({ id: "home.exit" }),
-					action: async () => {
-						exitApp();
-					},
 				},
 			],
 		});
 
+		const trayIconId = `${appWindow.label}-trayIcon`;
 		const options: TrayIconOptions = {
+			id: trayIconId,
 			icon: iconImage
 				? iconImage
 				: ((await (async () => {
@@ -530,30 +491,11 @@ const TrayIconLoaderComponent = () => {
 					""),
 			showMenuOnLeftClick: false,
 			tooltip: "Snow Shot",
-			action: (event) => {
-				switch (event.type) {
-					case "Click":
-						if (event.button === "Left") {
-							if (
-								getAppSettings()[AppSettingsGroup.FunctionTrayIcon]
-									.iconClickAction === TrayIconClickAction.Screenshot
-							) {
-								executeScreenshot();
-							} else if (
-								getAppSettings()[AppSettingsGroup.FunctionTrayIcon]
-									.iconClickAction === TrayIconClickAction.ShowMainWindow
-							) {
-								showWindow();
-							}
-						}
-						break;
-				}
-			},
 			menu,
 		};
 
 		return {
-			trayIcon: await TrayIcon.new(options),
+			trayIcon: await replaceTrayIcon(trayIconId, options),
 			trayIconMenu: menu,
 		};
 	}, [
@@ -566,7 +508,6 @@ const TrayIconLoaderComponent = () => {
 		message,
 		currentAppSettings,
 		defaultIcon,
-		getAppSettings,
 		setTrayIconState,
 		isReadyStatus,
 		currentTheme,
@@ -583,35 +524,31 @@ const TrayIconLoaderComponent = () => {
 			return;
 		}
 
-		const trayIconPromise = initTrayIcon();
+		const trayIconPromise = runTrayMutation(initTrayIcon);
+		let trayResourcesClosed = false;
 
-		const handleBeforeUnload = async () => {
-			trayIconPromise
-				.then((trayIcon) => {
-					if (trayIcon) {
-						trayIcon.trayIconMenu?.close();
-						trayIcon.trayIcon?.close();
-					}
-				})
-				.catch((error) => {
-					appError(`[TrayIconLoader] beforeunload event failed`, error);
-				});
+		const closeTrayIcon = (errorContext: string) => {
+			if (trayResourcesClosed) {
+				return;
+			}
+			trayResourcesClosed = true;
+			void runTrayMutation(async () => {
+				const trayIcon = await trayIconPromise;
+				if (trayIcon) {
+					await closeTrayResources(trayIcon);
+				}
+			}).catch((error) => {
+				appError(`[TrayIconLoader] ${errorContext}`, error);
+			});
+		};
+		const handleBeforeUnload = () => {
+			closeTrayIcon("beforeunload event failed");
 		};
 
 		window.addEventListener("beforeunload", handleBeforeUnload);
 
 		return () => {
-			trayIconPromise
-				.then((trayIcon) => {
-					if (trayIcon) {
-						trayIcon.trayIconMenu?.close();
-						trayIcon.trayIcon?.close();
-					}
-				})
-				.catch((error) => {
-					appError(`[TrayIconLoader] close tray icon failed`, error);
-				});
-
+			closeTrayIcon("close tray icon failed");
 			window.removeEventListener("beforeunload", handleBeforeUnload);
 		};
 	}, [initTrayIcon, isReadyStatus, shortcutKeys]);

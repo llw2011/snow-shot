@@ -12,12 +12,14 @@ import React, {
 	useEffect,
 	useMemo,
 	useRef,
+	useState,
 } from "react";
 import {
 	listenKeyStop,
 	listenKeyStopByWindowLabel,
 	listenMouseStopByWindowLabel,
 } from "@/commands/listenKey";
+import { nativeRuntimeListenersReady } from "@/commands/nativeAction";
 import { ocrRelease } from "@/commands/ocr";
 import {
 	LISTEN_KEY_SERVICE_KEY_DOWN_EMIT_KEY,
@@ -56,11 +58,13 @@ type Listener = {
 export type EventListenerContextType = {
 	addListener: (event: string, listener: (payload: unknown) => void) => number;
 	removeListener: (id: number) => boolean;
+	listenersReady: boolean;
 };
 
 export const EventListenerContext = createContext<EventListenerContextType>({
 	addListener: () => 0,
 	removeListener: () => false,
+	listenersReady: false,
 });
 /**
  * 监听 tauri 的消息
@@ -75,6 +79,7 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 	}, []);
 
 	const listenerCount = useRef<number>(0);
+	const [listenersReady, setListenersReady] = useState(false);
 	const listenerMapRef = useRef<Map<number, Listener>>(new Map());
 	const listenerEventMapRef = useRef<Map<string, Set<number>>>(new Map());
 	const addListener = useCallback(
@@ -174,6 +179,8 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 	const { refreshPluginStatusThrottle } = usePluginServiceContext();
 
 	useEffect(() => {
+		setListenersReady(false);
+		let disposed = false;
 		let detach: UnlistenFn;
 		attachConsole().then((d) => {
 			detach = d;
@@ -265,6 +272,10 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 		});
 
 		if (hasLayout) {
+			defaultListener.push({
+				event: "execute-native-action",
+				callback: async () => {},
+			});
 			defaultListener.push({
 				event: "release-ocr-session",
 				callback: async () => {
@@ -452,7 +463,22 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 				);
 			});
 
+		void Promise.all(unlistenList)
+			.then(async () => {
+				if (disposed) {
+					return;
+				}
+				setListenersReady(true);
+				if (hasLayout) {
+					await nativeRuntimeListenersReady();
+				}
+			})
+			.catch((error) => {
+				appError("[EventListenerCore] runtime listeners not ready", error);
+			});
+
 		return () => {
+			disposed = true;
 			listenerEventMapRef.current = new Map();
 			listenerMapRef.current = new Map();
 			listenerCount.current = 0;
@@ -488,8 +514,9 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 		return {
 			addListener,
 			removeListener,
+			listenersReady,
 		};
-	}, [addListener, removeListener]);
+	}, [addListener, removeListener, listenersReady]);
 	return (
 		<EventListenerContext.Provider value={eventListenerContextValue}>
 			{children}

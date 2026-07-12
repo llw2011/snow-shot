@@ -5,12 +5,6 @@ import {
 	HistoryOutlined,
 } from "@ant-design/icons";
 import { useDeepCompareEffect } from "@ant-design/pro-components";
-import {
-	isRegistered,
-	register,
-	unregister,
-	unregisterAll,
-} from "@tauri-apps/plugin-global-shortcut";
 import { Tooltip } from "antd";
 import React, {
 	createContext,
@@ -23,9 +17,14 @@ import { FormattedMessage } from "react-intl";
 import {
 	createFixedContentWindow,
 	createFullScreenDrawWindow,
-	hasFocusedFullScreenWindow,
 } from "@/commands/core";
 import { getCaptureState } from "@/commands/globalSate";
+import {
+	nativeShortcutRegisterAction,
+	nativeShortcutResetActions,
+	nativeShortcutSetFullScreenPolicy,
+	nativeShortcutSetInputActive,
+} from "@/commands/nativeAction";
 import { IconLabel } from "@/components/iconLable";
 import {
 	ChatIcon,
@@ -42,7 +41,6 @@ import {
 	TranslationIcon,
 	VideoRecordIcon,
 } from "@/components/icons";
-import { TrayIconStatePublisher } from "@/components/trayIconLoader";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
@@ -86,8 +84,15 @@ import { canUseOcr } from "@/utils/ocr";
 import { ScreenshotType } from "@/utils/types";
 import { ChangeDelaySeconds } from "./components/changeDelaySeconds";
 
+const getShortcutConflictKey = (shortcut: string) =>
+	shortcut
+		.split("+")
+		.map((part) => part.trim().toLowerCase())
+		.sort()
+		.join("+");
+
 export type GlobalShortcutContextType = {
-	disableShortcutKeyRef: React.RefObject<boolean>;
+	setShortcutInputActive: (active: boolean) => void;
 	defaultAppFunctionComponentGroupConfigs: Record<
 		AppFunctionGroup,
 		AppFunctionComponentConfig[]
@@ -101,7 +106,7 @@ export type GlobalShortcutContextType = {
 };
 
 export const GlobalShortcutContext = createContext<GlobalShortcutContextType>({
-	disableShortcutKeyRef: { current: false },
+	setShortcutInputActive: () => {},
 	defaultAppFunctionComponentGroupConfigs: {} as Record<
 		AppFunctionGroup,
 		AppFunctionComponentConfig[]
@@ -114,10 +119,12 @@ export const GlobalShortcutContext = createContext<GlobalShortcutContextType>({
 
 const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 	const disableShortcutKeyRef = useRef(false);
-	const [getTrayIconState] = useStateSubscriber(
-		TrayIconStatePublisher,
-		undefined,
-	);
+	const setShortcutInputActive = useCallback((active: boolean) => {
+		disableShortcutKeyRef.current = active;
+		void nativeShortcutSetInputActive(active).catch((error) => {
+			appError("[GlobalShortcut] sync shortcut input state failed", error);
+		});
+	}, []);
 
 	const [getAppSettings] = useStateSubscriber(
 		AppSettingsPublisher,
@@ -349,53 +356,17 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 						title: buttonTitle,
 						icon: buttonIcon,
 						onClick,
-						onKeyChange: async (value: string, prevValue: string) => {
-							if (prevValue) {
-								try {
-									if (await isRegistered(prevValue)) {
-										await unregister(prevValue);
-									}
-								} catch (error) {
-									appError(
-										"[GlobalShortcut] unregister prevValue failed",
-										error,
-									);
-								}
-							}
-
+						onKeyChange: async (value: string) => {
 							if (!value) {
 								return false;
 							}
 
-							try {
-								if (await isRegistered(value)) {
-									await unregister(value);
-								}
-							} catch (error) {
-								appError("[GlobalShortcut] unregister value failed", error);
-							}
-
-							await register(value, async (event) => {
-								if (event.state !== "Released") {
-									return;
-								}
-
-								if (
-									getAppSettings()[AppSettingsGroup.FunctionGlobalShortcut]
-										.disableOnFocusedFullScreenWindow &&
-									(await hasFocusedFullScreenWindow())
-								) {
-									return;
-								}
-
-								if (getTrayIconState()?.disableShortcut) {
-									return;
-								}
-
-								onClick();
-							});
-
-							return true;
+							// Rust registers directly through GlobalShortcutExt without creating a
+							// WebView Channel. The returned false also catches parsed shortcut aliases.
+							return await nativeShortcutRegisterAction(
+								value,
+								key as AppFunction,
+							);
 						},
 					};
 
@@ -417,15 +388,13 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 		);
 
 		return { configs, groupConfigs };
-	}, [currentAppSettings, getAppSettings, getTrayIconState, isReadyStatus]);
+	}, [currentAppSettings, getAppSettings, isReadyStatus]);
 
 	const [shortcutKeyStatus, setShortcutKeyStatus] =
 		useState<Record<AppFunction, ShortcutKeyStatus>>();
 
 	const [updateShortcutKeyStatusLoading, setUpdateShortcutKeyStatusLoading] =
 		useState(true);
-	const previousAppFunctionSettingsRef =
-		useRef<AppSettingsData[AppSettingsGroup.AppFunction]>(undefined);
 
 	const appFunctionComponentConfigsKeys = useMemo(
 		() => Object.keys(defaultAppFunctionComponentConfigs),
@@ -440,42 +409,70 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 				ShortcutKeyStatus
 			>;
 
-			await Promise.all(
-				appFunctionComponentConfigsKeys.map(async (key) => {
-					const config = defaultAppFunctionComponentConfigs[key as AppFunction];
-					const currentShortcutKey = settings[key as AppFunction].shortcutKey;
+			try {
+				// Reconcile the complete desired state in a stable order. Registration is
+				// native-only, so a stale WebView Channel cannot delay the Rust handler.
+				await nativeShortcutResetActions();
+
+				const shortcutOwners = new Map<string, AppFunction[]>();
+				for (const key of appFunctionComponentConfigsKeys) {
+					const appFunction = key as AppFunction;
+					const shortcut = settings[appFunction].shortcutKey;
+					if (!shortcut) {
+						continue;
+					}
+
+					const conflictKey = getShortcutConflictKey(shortcut);
+					const owners = shortcutOwners.get(conflictKey) ?? [];
+					owners.push(appFunction);
+					shortcutOwners.set(conflictKey, owners);
+				}
+				const duplicateShortcuts = new Set(
+					Array.from(shortcutOwners.entries())
+						.filter(([, owners]) => owners.length > 1)
+						.map(([shortcut]) => shortcut),
+				);
+
+				for (const key of appFunctionComponentConfigsKeys) {
+					const appFunction = key as AppFunction;
+					const config = defaultAppFunctionComponentConfigs[appFunction];
+					const currentShortcutKey = settings[appFunction].shortcutKey;
+
+					if (!currentShortcutKey) {
+						keyStatus[appFunction] = ShortcutKeyStatus.None;
+						continue;
+					}
+					if (
+						duplicateShortcuts.has(getShortcutConflictKey(currentShortcutKey))
+					) {
+						keyStatus[appFunction] = ShortcutKeyStatus.Unregistered;
+						continue;
+					}
 
 					try {
-						const isSuccess = await config.onKeyChange(
-							currentShortcutKey,
-							(previousAppFunctionSettingsRef.current ?? settings)[
-								key as AppFunction
-							].shortcutKey,
-						);
-
-						if (!currentShortcutKey) {
-							keyStatus[key as AppFunction] = ShortcutKeyStatus.None;
-						} else {
-							keyStatus[key as AppFunction] = isSuccess
-								? ShortcutKeyStatus.Registered
-								: ShortcutKeyStatus.Unregistered;
-						}
-
-						if (
-							keyStatus[key as AppFunction] === ShortcutKeyStatus.Registered &&
-							currentShortcutKey === "PrintScreen"
-						) {
-							keyStatus[key as AppFunction] = ShortcutKeyStatus.PrintScreen;
-						}
-					} catch {
-						keyStatus[key as AppFunction] = ShortcutKeyStatus.Error;
+						const isSuccess = await config.onKeyChange(currentShortcutKey, "");
+						keyStatus[appFunction] = isSuccess
+							? currentShortcutKey === "PrintScreen"
+								? ShortcutKeyStatus.PrintScreen
+								: ShortcutKeyStatus.Registered
+							: ShortcutKeyStatus.Unregistered;
+					} catch (error) {
+						appError(`[GlobalShortcut] register ${appFunction} failed`, error);
+						keyStatus[appFunction] = ShortcutKeyStatus.Error;
 					}
-				}),
-			);
-
-			setShortcutKeyStatus(keyStatus);
-			previousAppFunctionSettingsRef.current = settings;
-			setUpdateShortcutKeyStatusLoading(false);
+				}
+			} catch (error) {
+				appError("[GlobalShortcut] reset shortcut state failed", error);
+				for (const key of appFunctionComponentConfigsKeys) {
+					const appFunction = key as AppFunction;
+					keyStatus[appFunction] = settings[appFunction].shortcutKey
+						? ShortcutKeyStatus.Error
+						: ShortcutKeyStatus.None;
+				}
+			} finally {
+				setShortcutKeyStatus(keyStatus);
+				setUpdateShortcutKeyStatusLoading(false);
+			}
 		},
 		[appFunctionComponentConfigsKeys, defaultAppFunctionComponentConfigs],
 	);
@@ -483,39 +480,54 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 	const [appFunctionSettings, setAppFunctionSettings] =
 		useState<AppSettingsData[AppSettingsGroup.AppFunction]>();
 
-	const hasUnregisteredAll = useRef(false);
+	const shortcutSettingsLoadQueueRef = useRef<Promise<void>>(Promise.resolve());
 	useAppSettingsLoad(
 		useCallback((settings: AppSettingsData) => {
 			setCurrentAppSettings(settings);
-			(hasUnregisteredAll.current ? Promise.resolve() : unregisterAll()).then(
-				() => {
-					setAppFunctionSettings(settings[AppSettingsGroup.AppFunction]);
-				},
-			);
-			hasUnregisteredAll.current = true;
+			shortcutSettingsLoadQueueRef.current =
+				shortcutSettingsLoadQueueRef.current
+					.then(async () => {
+						try {
+							await nativeShortcutSetFullScreenPolicy(
+								settings[AppSettingsGroup.FunctionGlobalShortcut]
+									.disableOnFocusedFullScreenWindow,
+							);
+						} catch (error) {
+							appError(
+								"[GlobalShortcut] sync full-screen policy failed",
+								error,
+							);
+						}
+
+						setAppFunctionSettings(settings[AppSettingsGroup.AppFunction]);
+					})
+					.catch((error) => {
+						appError("[GlobalShortcut] load shortcut settings failed", error);
+					});
 		}, []),
 		true,
 	);
 
-	const updateShortcutKeyStatusPendingRef = useRef(false);
+	const updateShortcutKeyStatusQueueRef = useRef<Promise<void>>(
+		Promise.resolve(),
+	);
 	useDeepCompareEffect(() => {
 		if (!appFunctionSettings || !isReadyStatus) {
 			return;
 		}
 
-		if (updateShortcutKeyStatusPendingRef.current) {
-			return;
-		}
-
-		updateShortcutKeyStatusPendingRef.current = true;
-		updateShortcutKeyStatus(appFunctionSettings).then(() => {
-			updateShortcutKeyStatusPendingRef.current = false;
-		});
+		const settings = appFunctionSettings;
+		updateShortcutKeyStatusQueueRef.current =
+			updateShortcutKeyStatusQueueRef.current
+				.then(() => updateShortcutKeyStatus(settings))
+				.catch((error) => {
+					appError("[GlobalShortcut] update shortcut state failed", error);
+				});
 	}, [appFunctionSettings, isReadyStatus, updateShortcutKeyStatus]);
 
 	const contextValue = useMemo((): GlobalShortcutContextType => {
 		return {
-			disableShortcutKeyRef,
+			setShortcutInputActive,
 			defaultAppFunctionComponentGroupConfigs,
 			shortcutKeyStatus,
 			updateShortcutKeyStatusLoading,
@@ -523,6 +535,7 @@ const GlobalShortcutCore = ({ children }: { children: React.ReactNode }) => {
 			appFunctionSettings,
 		};
 	}, [
+		setShortcutInputActive,
 		defaultAppFunctionComponentGroupConfigs,
 		shortcutKeyStatus,
 		updateShortcutKeyStatusLoading,

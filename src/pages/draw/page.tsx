@@ -20,12 +20,14 @@ import {
 	closeWindowAfterDelay,
 	createDrawWindow,
 	createFixedContentWindow,
+	drawWindowReady,
 	getMonitorsBoundingBox,
 	getMousePosition,
 	setCurrentWindowAlwaysOnTop,
 } from "@/commands/core";
 import { setCaptureState } from "@/commands/globalSate";
 import { listenKeyStart, listenKeyStop } from "@/commands/listenKey";
+import { nativeDrawRuntimeReady } from "@/commands/nativeAction";
 import { captureAllMonitors, switchAlwaysOnTop } from "@/commands/screenshot";
 import {
 	scrollScreenshotClear,
@@ -55,6 +57,7 @@ import {
 	releaseDrawPage,
 } from "@/functions/screenshot";
 import { sendErrorMessage } from "@/functions/sendMessage";
+import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { withStatePublisher } from "@/hooks/useStatePublisher";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { AppSettingsGroup, DoubleClickAction } from "@/types/appSettings";
@@ -187,7 +190,8 @@ const DrawPageCore: React.FC<{
 		undefined,
 	);
 	const imageBlobUrlRef = useRef<string | undefined>(undefined);
-	const { addListener, removeListener } = useContext(EventListenerContext);
+	const { addListener, removeListener, listenersReady } =
+		useContext(EventListenerContext);
 
 	// 层级
 	const drawLayerWrapRef = useRef<HTMLDivElement>(null);
@@ -212,6 +216,41 @@ const DrawPageCore: React.FC<{
 
 	// 状态
 	const drawPageStateRef = useRef<DrawPageState>(DrawPageState.Init);
+	const [canvasReady, setCanvasReady] = useState(false);
+	const [appSettingsReady, setAppSettingsReady] = useState(false);
+	const drawRuntimeReadySentRef = useRef(false);
+	const drawRuntimeReadySendingRef = useRef(false);
+	useAppSettingsLoad(
+		useCallback(() => {
+			setAppSettingsReady(true);
+		}, []),
+	);
+	useEffect(() => {
+		if (
+			!canvasReady ||
+			!appSettingsReady ||
+			!listenersReady ||
+			drawRuntimeReadySentRef.current ||
+			drawRuntimeReadySendingRef.current
+		) {
+			return;
+		}
+
+		drawRuntimeReadySendingRef.current = true;
+		void (async () => {
+			await nativeDrawRuntimeReady();
+			if (!(await drawWindowReady())) {
+				throw new Error("draw window readiness request is no longer pending");
+			}
+			drawRuntimeReadySentRef.current = true;
+		})()
+			.catch((error) => {
+				appError("[DrawPageCore] draw runtime ready failed", error);
+			})
+			.finally(() => {
+				drawRuntimeReadySendingRef.current = false;
+			});
+	}, [appSettingsReady, canvasReady, listenersReady]);
 	const mousePositionRef = useRef<MousePosition>(new MousePosition(0, 0));
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
@@ -1505,6 +1544,7 @@ const DrawPageCore: React.FC<{
 
 	const onInitCanvasReady = useCallback(async () => {
 		drawPageStateRef.current = DrawPageState.Active;
+		setCanvasReady(true);
 		await releaseDrawPage();
 	}, []);
 
