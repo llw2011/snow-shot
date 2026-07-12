@@ -39,6 +39,13 @@ import {
 	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
+import {
+	colorWithAlpha,
+	createThemeCssVariables,
+	getAppThemeRuntime,
+	isAppThemePreset,
+	resolveThemePrimaryColor,
+} from "@/constants/themePresets";
 import { AppContext } from "@/contexts/appContext";
 import {
 	AppSettingsActionContext,
@@ -93,6 +100,11 @@ const getFilePath = async (group: AppSettingsGroup) => {
 
 const isLegacyQwenFlashModel = (model: unknown) =>
 	model === "qwen-flash" || model === "snow_shot_custom_qwen-flash";
+
+const isAppSettingsTheme = (value: unknown): value is AppSettingsTheme =>
+	value === AppSettingsTheme.Light ||
+	value === AppSettingsTheme.Dark ||
+	value === AppSettingsTheme.System;
 
 type ChatApiConfig =
 	AppSettingsData[AppSettingsGroup.FunctionChat]["chatApiConfigList"][number];
@@ -481,10 +493,13 @@ const AppSettingsContextProviderCore: React.FC<{
 					| AppSettingsData[typeof group]
 					| undefined;
 				settings = {
-					theme:
-						typeof newSettings?.theme === "string"
-							? newSettings.theme
-							: (prevSettings?.theme ?? AppSettingsTheme.System),
+					theme: isAppSettingsTheme(newSettings?.theme)
+						? newSettings.theme
+						: (prevSettings?.theme ?? defaultAppSettingsData[group].theme),
+					themePreset: isAppThemePreset(newSettings?.themePreset)
+						? newSettings.themePreset
+						: (prevSettings?.themePreset ??
+							defaultAppSettingsData[group].themePreset),
 					mainColor:
 						typeof newSettings?.mainColor === "string"
 							? newSettings.mainColor
@@ -1854,6 +1869,25 @@ const AppSettingsContextProviderCore: React.FC<{
 					: appSettingsTheme,
 		};
 	}, [appSettingsTheme, currentSystemTheme]);
+	const currentThemeRuntime = useMemo(
+		() =>
+			getAppThemeRuntime(
+				appSettings[AppSettingsGroup.Common].themePreset,
+				appContextValue.currentTheme,
+			),
+		[
+			appContextValue.currentTheme,
+			appSettings[AppSettingsGroup.Common].themePreset,
+		],
+	);
+	const currentPrimaryColor = useMemo(
+		() =>
+			resolveThemePrimaryColor(
+				appSettings[AppSettingsGroup.Common].mainColor,
+				currentThemeRuntime,
+			),
+		[appSettings, currentThemeRuntime],
+	);
 
 	useEffect(() => {
 		const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -1922,50 +1956,18 @@ const AppSettingsContextProviderCore: React.FC<{
 			algorithms.push(theme.compactAlgorithm);
 		}
 
-		const snowShotToken = isDarkMode
-			? {
-					colorBgLayout: "#07080A",
-					colorBgContainer: "#0D0D0D",
-					colorBgElevated: "#101111",
-					colorBorder: "#242728",
-					colorBorderSecondary: "rgba(255, 255, 255, 0.08)",
-					colorFill: "rgba(255, 255, 255, 0.08)",
-					colorFillSecondary: "rgba(255, 255, 255, 0.06)",
-					colorFillTertiary: "rgba(255, 255, 255, 0.04)",
-					colorFillQuaternary: "rgba(255, 255, 255, 0.03)",
-					colorText: "#F4F4F6",
-					colorTextSecondary: "#CDCDCD",
-					colorTextTertiary: "#9C9C9D",
-					colorTextQuaternary: "#6A6B6C",
-					colorPrimaryBg: "rgba(255, 255, 255, 0.10)",
-					colorPrimaryBgHover: "rgba(255, 255, 255, 0.16)",
-					colorPrimaryBorder: "rgba(255, 255, 255, 0.30)",
-					colorPrimaryHover: "#F4F4F6",
-					colorPrimaryActive: "#E8E8E8",
-					colorLink: "#FFFFFF",
-					colorLinkHover: "#F4F4F6",
-					boxShadow: "none",
-					boxShadowSecondary: "none",
-				}
-			: {
-					colorBgLayout: "#F4F6FA",
-					colorBgContainer: "#FFFFFF",
-					colorBgElevated: "#FFFFFF",
-					colorBorder: "#DDE2EA",
-					colorBorderSecondary: "#E9EDF3",
-					colorText: "#15171A",
-					colorTextSecondary: "#4C5563",
-					colorTextTertiary: "#6D7583",
-					colorTextQuaternary: "#98A1AE",
-					boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-					boxShadowSecondary: "0 6px 18px rgba(15, 23, 42, 0.08)",
-				};
-
 		return {
 			algorithm: algorithms,
 			token: {
-				...snowShotToken,
-				colorPrimary: appSettings[AppSettingsGroup.Common].mainColor,
+				...currentThemeRuntime.antTokens,
+				colorPrimary: currentPrimaryColor,
+				colorPrimaryBg: colorWithAlpha(currentPrimaryColor, 0.12),
+				colorPrimaryBgHover: colorWithAlpha(currentPrimaryColor, 0.2),
+				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
+				colorPrimaryHover: currentPrimaryColor,
+				colorPrimaryActive: currentPrimaryColor,
+				colorLink: currentPrimaryColor,
+				colorLinkHover: currentPrimaryColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
 					? 32
@@ -1982,15 +1984,35 @@ const AppSettingsContextProviderCore: React.FC<{
 		appContextValue.currentTheme,
 		appSettings[AppSettingsGroup.Common].enableCompactLayout,
 		appSettings[AppSettingsGroup.Common].borderRadius,
-		appSettings[AppSettingsGroup.Common].mainColor,
+		currentPrimaryColor,
+		currentThemeRuntime,
 	]);
 
 	useEffect(() => {
-		document.body.className =
-			appContextValue.currentTheme === AppSettingsTheme.Dark
-				? "app-dark"
-				: "app-light";
-	}, [appContextValue.currentTheme]);
+		const isDarkMode = appContextValue.currentTheme === AppSettingsTheme.Dark;
+		const root = document.documentElement;
+		const cssVariables = createThemeCssVariables(
+			currentThemeRuntime,
+			currentPrimaryColor,
+			appSettings[AppSettingsGroup.Common].borderRadius,
+		);
+
+		root.dataset.snowTheme = appSettings[AppSettingsGroup.Common].themePreset;
+		root.dataset.snowThemeMode = isDarkMode ? "dark" : "light";
+		root.style.colorScheme = isDarkMode ? "dark" : "light";
+		for (const [name, value] of Object.entries(cssVariables)) {
+			root.style.setProperty(name, value);
+		}
+
+		document.body.classList.toggle("app-dark", isDarkMode);
+		document.body.classList.toggle("app-light", !isDarkMode);
+	}, [
+		appContextValue.currentTheme,
+		appSettings[AppSettingsGroup.Common].borderRadius,
+		appSettings[AppSettingsGroup.Common].themePreset,
+		currentPrimaryColor,
+		currentThemeRuntime,
+	]);
 
 	return (
 		<AppSettingsActionContext.Provider value={appSettingsContextValue}>

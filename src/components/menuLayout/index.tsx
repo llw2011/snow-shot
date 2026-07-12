@@ -590,7 +590,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 
                     .menu-layout-wrap :global(.ant-layout-header) {
                         height: 32px !important;
-                        background: ${token.colorBgContainer};
+                        background: var(--snow-shot-header-bg);
                         display: flex;
                         align-items: center;
                         justify-content: flex-end;

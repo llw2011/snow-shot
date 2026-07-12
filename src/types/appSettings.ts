@@ -185,6 +185,15 @@ export enum AppSettingsTheme {
 	System = "system",
 }
 
+export enum AppThemePreset {
+	Obsidian = "obsidian",
+	Aurora = "aurora",
+	Prism = "prism",
+	Matrix = "matrix",
+	Chromatic = "chromatic",
+	Glacier = "glacier",
+}
+
 export enum ColorPickerShowMode {
 	Always = 0,
 	BeyondSelectRect = 1,
@@ -205,6 +214,7 @@ export enum KeyDisplayDirection {
 export type AppSettingsData = {
 	[AppSettingsGroup.Common]: {
 		theme: AppSettingsTheme;
+		themePreset: AppThemePreset;
 		/** 主色 */
 		mainColor: string;
 		/** 圆角 */

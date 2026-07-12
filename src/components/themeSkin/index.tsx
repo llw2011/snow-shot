@@ -163,9 +163,6 @@ export const ThemeSkin = () => {
 				}}
 			/>
 
-			{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
-			{customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
-
 			<style jsx global>
 				{`
 
@@ -181,6 +178,10 @@ export const ThemeSkin = () => {
 
 					.ant-app .menu-layout-wrap .ant-layout {
 						background-color: transparent;
+					}
+
+					.ant-app .menu-layout-wrap .content-wrap {
+						background: transparent !important;
 					}
 
                     .ant-app .menu-layout-wrap .ant-layout-header {
@@ -233,6 +234,9 @@ export const ThemeSkin = () => {
                     }
 				`}
 			</style>
+
+			{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
+			{customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
 		</div>
 	);
 };

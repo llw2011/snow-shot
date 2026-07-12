@@ -1,0 +1,26 @@
+export const enAppearance = {
+	"appearance.title": "Appearance",
+	"appearance.themeSkinSettings": "Custom Background",
+	"appearance.themePreset.title": "Theme Style",
+	"appearance.themePreset.description":
+		"Choose a complete visual skin. Light, dark, and system modes remain independent, and you can still fine-tune the accent and corner radius.",
+	"appearance.themePreset.active": "Active",
+	"appearance.themePreset.obsidian.name": "Obsidian Core",
+	"appearance.themePreset.obsidian.description":
+		"A restrained near-black workbench focused on speed and precision.",
+	"appearance.themePreset.aurora.name": "Aurora Pulse",
+	"appearance.themePreset.aurora.description":
+		"Violet, magenta, and cyan light flowing through dark glass.",
+	"appearance.themePreset.prism.name": "Prism Bloom",
+	"appearance.themePreset.prism.description":
+		"Soft coral, lavender, and indigo woven into a luminous mesh.",
+	"appearance.themePreset.matrix.name": "Emerald Matrix",
+	"appearance.themePreset.matrix.description":
+		"An ink-green technical grid with sharp emerald highlights.",
+	"appearance.themePreset.chromatic.name": "Chromatic Studio",
+	"appearance.themePreset.chromatic.description":
+		"Bold pastel blocks on a high-contrast creative-tool frame.",
+	"appearance.themePreset.glacier.name": "Glacier Crystal",
+	"appearance.themePreset.glacier.description":
+		"Icy light, pearl surfaces, and finely layered frosted glass.",
+};

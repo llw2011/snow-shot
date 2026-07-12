@@ -353,11 +353,10 @@ export const HomePage = () => {
                 .home-command-group {
                     margin-bottom: ${token.margin}px;
                     padding: ${token.paddingSM}px;
-                    border: 1px solid ${token.colorBorderSecondary};
+                    border: 1px solid var(--snow-shot-hairline-soft);
                     border-radius: ${token.borderRadius}px;
-                    background:
-                        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
-                        ${token.colorBgContainer};
+                    background: var(--snow-shot-command-group-bg);
+                    box-shadow: var(--snow-shot-card-shadow);
                 }
 
                 .home-command-group :global(.components_group-title) {

@@ -110,7 +110,7 @@ const MenuContentCore: React.FC<{
                 .app-titlebar {
                     position: relative;
                     height: 32px !important;
-                    background: var(--snow-shot-canvas) !important;
+                    background: var(--snow-shot-header-bg) !important;
                     border-bottom: 1px solid var(--snow-shot-hairline-soft);
                 }
 
@@ -129,7 +129,7 @@ const MenuContentCore: React.FC<{
                     grid-template-columns: ${token.paddingSM}px auto ${token.paddingSM}px;
                     grid-template-rows: ${token.paddingSM}px auto ${token.paddingSM}px;
                     height: 100%;
-                    background: var(--snow-shot-canvas);
+                    background: transparent;
                 }
 
                 .content-wrap .center {
@@ -138,8 +138,10 @@ const MenuContentCore: React.FC<{
                     overflow-y: hidden;
                     overflow-x: hidden;
                     border-radius: ${token.borderRadius}px;
-                    background: ${token.colorBgContainer};
-                    border: 1px solid ${token.colorBorderSecondary};
+                    background: var(--snow-shot-panel-bg);
+                    border: 1px solid var(--snow-shot-hairline-soft);
+                    box-shadow: var(--snow-shot-shadow);
+                    backdrop-filter: var(--snow-shot-backdrop-filter);
                     padding: ${token.paddingSM}px ${token.paddingSM}px;
                     display: flex;
                     flex-direction: column;

@@ -31,3 +31,34 @@ Snow Shot uses a compact desktop-utility skin inspired by command palettes and c
 
 - Prefer short, functional transitions around 120-180ms.
 - Avoid decorative motion. Interaction feedback should clarify focus, selection, loading, or capture state.
+
+## Switchable Theme System
+
+Snow Shot separates color mode from visual skin. `Light`, `Dark`, and `System`
+control luminance, while `themePreset` selects the product skin. Every preset must
+support both light and dark modes, so changing the skin never disables the system
+theme preference.
+
+- **Obsidian Core / 黑曜核心** is the compatibility default. It preserves the
+  compact near-black command-workbench direction described above.
+- **Aurora Pulse / 极光脉冲** uses violet, magenta, and cyan atmospheric light
+  over translucent dark or light glass.
+- **Prism Bloom / 棱镜霞光** combines coral, lavender, and indigo in a softer,
+  luminous mesh with rounded floating surfaces.
+- **Emerald Matrix / 翡翠矩阵** uses an ink-green technical grid, compact radii,
+  and emerald focus signals.
+- **Chromatic Studio / 彩色工作室** uses a high-contrast frame with alternating
+  pastel accents for creative command groups.
+- **Glacier Crystal / 冰川晶体** uses ice-blue light, pearl surfaces, and deeply
+  layered frosted glass.
+
+Theme presets own the canvas atmosphere, surface ladder, borders, shadows,
+sidebar/header material, logo treatment, command rows, and keycaps. The user's
+accent color and radius remain adjustable after selecting a preset. Runtime color
+resolution must reject an accent with insufficient contrast against the active
+canvas and use the preset's readable recommendation instead.
+
+User-supplied background images and custom CSS remain the highest-priority skin
+layer. When a custom background is active, layout chrome becomes translucent and
+must not hide the image. Theme presets may still provide readable foreground,
+border, and control tokens above that custom layer.

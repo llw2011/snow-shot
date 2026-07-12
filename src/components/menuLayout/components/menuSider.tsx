@@ -130,17 +130,17 @@ const MenuSiderCore: React.FC<{
                     flex: 0 0 auto;
                     border: 1px solid var(--snow-shot-hairline-strong);
                     border-radius: 8px;
-                    background:
-                        linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 42%),
-                        var(--snow-shot-surface-card);
-                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+                    background: var(--snow-shot-logo-bg);
+                    box-shadow:
+                        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                        var(--snow-shot-glow);
                 }
 
                 .logo-mark::before,
                 .logo-mark::after {
                     content: "";
                     position: absolute;
-                    border: 1px solid rgba(255, 255, 255, 0.62);
+                    border: 1px solid var(--snow-shot-ink);
                     opacity: 0.86;
                 }
 
@@ -173,8 +173,8 @@ const MenuSiderCore: React.FC<{
                     border-radius: 999px;
                     background: var(--snow-shot-ink);
                     box-shadow:
-                        -6px -4px 0 -2px rgba(255, 255, 255, 0.58),
-                        6px 4px 0 -2px rgba(255, 255, 255, 0.38);
+                        -6px -4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 62%, transparent),
+                        6px 4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 42%, transparent);
                 }
 
                 .logo-wrap .logo-text {

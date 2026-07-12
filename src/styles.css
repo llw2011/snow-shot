@@ -176,6 +176,9 @@ body {
     --snow-shot-surface: #0d0d0d;
     --snow-shot-surface-elevated: #101111;
     --snow-shot-surface-card: #121212;
+    --snow-shot-panel-bg: #0d0d0d;
+    --snow-shot-sider-bg: #07080a;
+    --snow-shot-header-bg: #07080a;
     --snow-shot-hairline: #242728;
     --snow-shot-hairline-soft: rgba(255, 255, 255, 0.08);
     --snow-shot-hairline-strong: rgba(255, 255, 255, 0.16);
@@ -187,20 +190,25 @@ body {
     --snow-shot-red: #ff6161;
     --snow-shot-green: #59d499;
     --snow-shot-yellow: #ffc533;
-}
-
-.app-light {
-    --snow-shot-canvas: #f4f6fa;
-    --snow-shot-surface: #ffffff;
-    --snow-shot-surface-elevated: #f8fafc;
-    --snow-shot-surface-card: #ffffff;
-    --snow-shot-hairline: #dde2ea;
-    --snow-shot-hairline-soft: rgba(15, 23, 42, 0.08);
-    --snow-shot-hairline-strong: rgba(15, 23, 42, 0.16);
-    --snow-shot-ink: #15171a;
-    --snow-shot-body: #4c5563;
-    --snow-shot-muted: #6d7583;
-    --snow-shot-ash: #98a1ae;
+    --snow-shot-primary: #ffffff;
+    --snow-shot-primary-soft: rgba(255, 255, 255, 0.13);
+    --snow-shot-primary-strong: rgba(255, 255, 255, 0.38);
+    --snow-shot-atmosphere: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 34%);
+    --snow-shot-pattern: none;
+    --snow-shot-pattern-size: auto;
+    --snow-shot-shadow: none;
+    --snow-shot-card-shadow: none;
+    --snow-shot-glow: none;
+    --snow-shot-backdrop-filter: none;
+    --snow-shot-logo-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 42%), #121212;
+    --snow-shot-keycap-bg: linear-gradient(180deg, #121212, #0d0d0d);
+    --snow-shot-command-group-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent), #0d0d0d;
+    --snow-shot-accent-alt-one: #57c1ff;
+    --snow-shot-accent-alt-two: #ff6161;
+    --snow-shot-accent-alt-three: #59d499;
+    --snow-shot-radius: 8px;
+    --snow-shot-radius-sm: 6px;
+    --snow-shot-radius-lg: 12px;
 }
 
 body {
@@ -209,9 +217,10 @@ body {
 }
 
 .ant-app .menu-layout-wrap {
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 32%),
-        var(--snow-shot-canvas);
+    background-color: var(--snow-shot-canvas);
+    background-image: var(--snow-shot-pattern), var(--snow-shot-atmosphere);
+    background-position: center;
+    background-size: var(--snow-shot-pattern-size), cover;
     background-clip: padding-box;
 }
 
@@ -220,20 +229,22 @@ body {
 }
 
 .ant-app .menu-layout-wrap .ant-layout-sider {
-    background: var(--snow-shot-canvas) !important;
+    background: var(--snow-shot-sider-bg) !important;
     border-right: 1px solid var(--snow-shot-hairline);
     box-shadow: none !important;
+    backdrop-filter: var(--snow-shot-backdrop-filter);
 }
 
 .ant-app .menu-layout-wrap .ant-layout-sider-trigger {
-    background: var(--snow-shot-surface) !important;
+    background: var(--snow-shot-sider-bg) !important;
     border-top: 1px solid var(--snow-shot-hairline);
     color: var(--snow-shot-muted);
 }
 
 .ant-app .menu-layout-wrap .ant-layout-header {
-    background: var(--snow-shot-canvas) !important;
+    background: var(--snow-shot-header-bg) !important;
     border-bottom: 1px solid var(--snow-shot-hairline-soft);
+    backdrop-filter: var(--snow-shot-backdrop-filter);
 }
 
 .ant-app .menu-layout-wrap .ant-menu {
@@ -243,7 +254,7 @@ body {
 
 .ant-app .menu-layout-wrap .ant-menu-item,
 .ant-app .menu-layout-wrap .ant-menu-submenu-title {
-    border-radius: 8px !important;
+    border-radius: var(--snow-shot-radius) !important;
     color: var(--snow-shot-body);
     margin-inline: 8px !important;
     width: calc(100% - 16px) !important;
@@ -256,14 +267,14 @@ body {
 }
 
 .ant-app .menu-layout-wrap .ant-menu-item-selected {
-    background: var(--snow-shot-surface-card) !important;
+    background: var(--snow-shot-primary-soft) !important;
     color: var(--snow-shot-ink) !important;
-    box-shadow: inset 0 0 0 1px var(--snow-shot-hairline-strong);
+    box-shadow: inset 0 0 0 1px var(--snow-shot-primary-strong);
 }
 
 .ant-app .menu-layout-wrap .ant-menu-sub {
-    background: rgba(255, 255, 255, 0.02) !important;
-    border-radius: 8px;
+    background: color-mix(in srgb, var(--snow-shot-surface-elevated) 62%, transparent) !important;
+    border-radius: var(--snow-shot-radius);
     margin: 0 8px 8px;
 }
 
@@ -272,12 +283,12 @@ body {
 }
 
 .ant-app .menu-layout-wrap .ant-tabs-tab {
-    border-radius: 999px;
+    border-radius: var(--snow-shot-radius-lg);
     padding: 4px 10px !important;
 }
 
 .ant-app .menu-layout-wrap .ant-tabs-tab-active {
-    background: var(--snow-shot-surface-elevated);
+    background: var(--snow-shot-primary-soft);
 }
 
 .ant-app .menu-layout-wrap .ant-tabs-ink-bar {
@@ -289,7 +300,7 @@ body {
 }
 
 .ant-app .menu-layout-wrap .ant-btn-primary {
-    box-shadow: none;
+    box-shadow: var(--snow-shot-glow);
 }
 
 .ant-app .menu-layout-wrap .ant-input,
@@ -304,7 +315,14 @@ body {
 .ant-app .menu-layout-wrap .ant-card,
 .ant-app .menu-layout-wrap .ant-pro-card {
     border-color: var(--snow-shot-hairline-soft);
-    box-shadow: none;
+    box-shadow: var(--snow-shot-card-shadow);
+}
+
+.ant-app .menu-layout-wrap .content-wrap>.center {
+    background: var(--snow-shot-panel-bg);
+    border-color: var(--snow-shot-hairline-soft);
+    box-shadow: var(--snow-shot-shadow);
+    backdrop-filter: var(--snow-shot-backdrop-filter);
 }
 
 .snow-command-button.ant-btn {
@@ -312,7 +330,7 @@ body {
     border-color: var(--snow-shot-hairline) !important;
     background: var(--snow-shot-surface) !important;
     color: var(--snow-shot-ink) !important;
-    box-shadow: none !important;
+    box-shadow: var(--snow-shot-card-shadow) !important;
     transition:
         background-color 0.16s ease,
         border-color 0.16s ease,
@@ -322,7 +340,7 @@ body {
 .snow-command-button.ant-btn:hover,
 .snow-command-button.ant-btn:focus-visible {
     background: var(--snow-shot-surface-elevated) !important;
-    border-color: var(--snow-shot-hairline-strong) !important;
+    border-color: var(--snow-shot-primary-strong) !important;
 }
 
 .snow-command-button.ant-btn:active {
@@ -338,8 +356,7 @@ body {
     min-width: 72px;
     padding-inline: 8px;
     border-color: var(--snow-shot-hairline-strong) !important;
-    background:
-        linear-gradient(180deg, var(--snow-shot-surface-card), var(--snow-shot-surface)) !important;
+    background: var(--snow-shot-keycap-bg) !important;
     color: var(--snow-shot-body) !important;
     font-size: 12px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
@@ -355,4 +372,93 @@ body {
     font-size: 14px !important;
     font-weight: 600 !important;
     letter-spacing: 0 !important;
+}
+
+.ant-app .home-command-group {
+    border-color: var(--snow-shot-hairline-soft) !important;
+    background: var(--snow-shot-command-group-bg) !important;
+    box-shadow: var(--snow-shot-card-shadow);
+}
+
+.ant-app .menu-layout-wrap :where(button, [role="button"], input, textarea, .ant-select-selector):focus-visible {
+    outline-color: var(--snow-shot-primary);
+}
+
+html[data-snow-theme="aurora"] .ant-app .ant-menu-item-selected,
+html[data-snow-theme="aurora"] .ant-app .snow-command-button:hover {
+    box-shadow:
+        inset 0 0 0 1px var(--snow-shot-primary-strong),
+        var(--snow-shot-glow) !important;
+}
+
+html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n + 1) {
+    border-top-color: var(--snow-shot-accent-alt-one) !important;
+}
+
+html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n + 2) {
+    border-top-color: var(--snow-shot-accent-alt-two) !important;
+}
+
+html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n) {
+    border-top-color: var(--snow-shot-accent-alt-three) !important;
+}
+
+html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n + 1) {
+    box-shadow:
+        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-one) 72%, transparent),
+        var(--snow-shot-card-shadow);
+}
+
+html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n + 2) {
+    box-shadow:
+        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-two) 72%, transparent),
+        var(--snow-shot-card-shadow);
+}
+
+html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n) {
+    box-shadow:
+        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-three) 72%, transparent),
+        var(--snow-shot-card-shadow);
+}
+
+html[data-snow-theme="matrix"] .ant-app .components_group-title,
+html[data-snow-theme="matrix"] .ant-app .snow-keycap-button,
+html[data-snow-theme="matrix"] .ant-app .logo-wrap .logo-text {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace !important;
+    letter-spacing: 0.035em !important;
+}
+
+html[data-snow-theme="matrix"] .ant-app .ant-menu-item-selected {
+    box-shadow:
+        inset 3px 0 0 var(--snow-shot-primary),
+        inset 0 0 0 1px var(--snow-shot-primary-strong);
+}
+
+html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n + 1) {
+    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-one);
+}
+
+html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n + 2) {
+    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-two);
+}
+
+html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n) {
+    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-three);
+}
+
+html[data-snow-theme="chromatic"] .ant-app .ant-menu-item-selected {
+    box-shadow:
+        inset 4px 0 0 var(--snow-shot-primary),
+        inset 0 0 0 1px var(--snow-shot-primary-strong);
+}
+
+html[data-snow-theme="glacier"] .ant-app .menu-layout-wrap .content-wrap>.center,
+html[data-snow-theme="glacier"] .ant-app .home-command-group {
+    box-shadow:
+        var(--snow-shot-card-shadow),
+        inset 0 1px 0 color-mix(in srgb, var(--snow-shot-ink) 10%, transparent);
+}
+
+html[data-snow-theme="glacier"] .ant-app .snow-command-button:hover {
+    box-shadow: var(--snow-shot-glow) !important;
 }

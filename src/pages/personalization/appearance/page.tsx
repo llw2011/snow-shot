@@ -23,6 +23,12 @@ import { IconLabel } from "@/components/iconLable";
 import { DarkModeIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import {
+	getAppThemePreset,
+	getAppThemeRuntime,
+	isAppThemePreset,
+} from "@/constants/themePresets";
+import { AppContext } from "@/contexts/appContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { useStateRef } from "@/hooks/useStateRef";
@@ -31,10 +37,12 @@ import {
 	AppSettingsGroup,
 	AppSettingsTheme,
 } from "@/types/appSettings";
+import { ThemePresetSelector } from "./components/themePresetSelector";
 
 export const AppearancePage = () => {
 	const intl = useIntl();
 	const { token } = theme.useToken();
+	const { currentTheme } = useContext(AppContext);
 
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
 	const [commonForm] = Form.useForm<AppSettingsData[AppSettingsGroup.Common]>();
@@ -157,14 +165,34 @@ export const AppearancePage = () => {
 			<Form
 				className="settings-form common-settings-form"
 				form={commonForm}
-				onValuesChange={(_, values) => {
+				onValuesChange={(changedValues, values) => {
+					const themePresetChanged = isAppThemePreset(
+						changedValues.themePreset,
+					);
+					if (themePresetChanged) {
+						const preset = getAppThemePreset(changedValues.themePreset);
+						const runtime = getAppThemeRuntime(
+							changedValues.themePreset,
+							currentTheme,
+						);
+						values.mainColor = runtime.recommendedAccent;
+						values.borderRadius = preset.recommendedRadius;
+						commonForm.setFieldsValue({
+							mainColor: runtime.recommendedAccent,
+							borderRadius: preset.recommendedRadius,
+						});
+					}
+
 					if (typeof values.mainColor === "object") {
 						values.mainColor = (
 							values.mainColor as AggregationColor
 						).toHexString();
 					}
 
-					updateAppSettingsDebounce(
+					const updateCommonSettings = themePresetChanged
+						? updateAppSettings
+						: updateAppSettingsDebounce;
+					updateCommonSettings(
 						AppSettingsGroup.Common,
 						values,
 						true,
@@ -178,6 +206,23 @@ export const AppearancePage = () => {
 			>
 				<Spin spinning={appSettingsLoading}>
 					<Row gutter={token.marginLG}>
+						<Col span={24}>
+							<Form.Item
+								name="themePreset"
+								label={
+									<IconLabel
+										label={
+											<FormattedMessage id="appearance.themePreset.title" />
+										}
+									/>
+								}
+								extra={
+									<FormattedMessage id="appearance.themePreset.description" />
+								}
+							>
+								<ThemePresetSelector mode={currentTheme} />
+							</Form.Item>
+						</Col>
 						<Col span={12}>
 							<Form.Item
 								label={
