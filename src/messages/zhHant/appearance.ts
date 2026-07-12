@@ -1,6 +1,15 @@
 export const zhHantAppearance = {
 	"appearance.title": "外觀",
 	"appearance.themeSkinSettings": "自訂背景",
+	"appearance.customBackground.path.label": "背景圖片（選填）",
+	"appearance.customBackground.path.tip":
+		"內建主題由程式產生，不需要圖片路徑；此欄位只用於選擇自訂背景圖片。",
+	"appearance.customBackground.path.placeholder":
+		"尚未選擇背景圖片（內建主題無需填寫）",
+	"appearance.customBackground.path.description":
+		"選擇本機圖片後，圖片位置、透明度與模糊參數才會啟用。",
+	"appearance.customBackground.customCss.description":
+		"自訂 CSS 可獨立使用，不需要先選擇背景圖片。",
 	"appearance.themePreset.title": "主題風格",
 	"appearance.themePreset.description":
 		"選擇一套完整視覺皮膚；淺色、深色與跟隨系統仍可獨立切換。選擇後仍可微調主色與圓角。",

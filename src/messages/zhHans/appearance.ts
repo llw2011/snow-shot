@@ -1,6 +1,15 @@
 export const appearance = {
 	"appearance.title": "主题",
 	"appearance.themeSkinSettings": "自定义背景",
+	"appearance.customBackground.path.label": "背景图片（可选）",
+	"appearance.customBackground.path.tip":
+		"内置主题由程序生成，不需要图片路径；这里只用于选择自定义背景图片。",
+	"appearance.customBackground.path.placeholder":
+		"未选择背景图片（内置主题无需填写）",
+	"appearance.customBackground.path.description":
+		"选择本地图片后，图片位置、透明度和模糊参数才会启用。",
+	"appearance.customBackground.customCss.description":
+		"自定义 CSS 可独立使用，不需要先选择背景图片。",
 	"appearance.themePreset.title": "主题风格",
 	"appearance.themePreset.description":
 		"选择一套完整视觉皮肤；浅色、深色和跟随系统仍可独立切换。选择主题后可继续微调主色与圆角。",

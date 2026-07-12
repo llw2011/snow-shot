@@ -61,4 +61,6 @@ canvas and use the preset's readable recommendation instead.
 User-supplied background images and custom CSS remain the highest-priority skin
 layer. When a custom background is active, layout chrome becomes translucent and
 must not hide the image. Theme presets may still provide readable foreground,
-border, and control tokens above that custom layer.
+border, and control tokens above that custom layer. Custom CSS may be used without
+selecting a background image; image position, opacity, blur, and mask controls are
+inactive until an image path is present.

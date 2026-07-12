@@ -129,9 +129,18 @@ export const ThemeSkin = () => {
 			.toString();
 	}, [themeSkinSettings, token.colorPrimaryBg, maskOpacity]);
 
-	// 如果没有设置皮肤路径，不显示任何内容
+	// 自定义 CSS 可以脱离背景图片单独生效。
 	if (!backgroundImageUrl) {
-		return null;
+		if (!customCss.trim()) {
+			return null;
+		}
+
+		return (
+			<>
+				{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
+				<style dangerouslySetInnerHTML={{ __html: customCss }} />
+			</>
+		);
 	}
 
 	return (
