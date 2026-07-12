@@ -151,6 +151,7 @@ export const ThemePresetSelector = ({
                     border-radius: var(--snow-shot-radius-lg);
                     background: var(--snow-shot-surface-elevated);
                     color: var(--snow-shot-ink);
+                    font: inherit;
                     text-align: left;
                     cursor: pointer;
                     box-shadow: none;
@@ -182,6 +183,10 @@ export const ThemePresetSelector = ({
 
                 .theme-preset-card:disabled {
                     cursor: wait;
+                }
+
+                .theme-preset-card:disabled .theme-preview-window,
+                .theme-preset-card:disabled .theme-preset-swatches {
                     opacity: 0.62;
                 }
 
@@ -352,9 +357,9 @@ export const ThemePresetSelector = ({
                 .theme-preset-name {
                     overflow: hidden;
                     color: var(--snow-shot-ink);
-                    font-size: 13px;
-                    font-weight: 650;
-                    line-height: 18px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    line-height: 20px;
                     text-overflow: ellipsis;
                     white-space: nowrap;
                 }
@@ -364,19 +369,23 @@ export const ThemePresetSelector = ({
                     align-items: center;
                     gap: 3px;
                     flex: 0 0 auto;
-                    color: var(--preview-accent);
-                    font-size: 10px;
-                    font-weight: 650;
+                    color: var(--snow-shot-ink);
+                    font-size: 11px;
+                    font-weight: 600;
                     line-height: 16px;
+                }
+
+                .theme-preset-active :global(.anticon) {
+                    color: var(--preview-accent);
                 }
 
                 .theme-preset-description {
                     display: -webkit-box;
-                    min-height: 34px;
+                    min-height: 36px;
                     overflow: hidden;
                     color: var(--snow-shot-muted);
-                    font-size: 11px;
-                    line-height: 17px;
+                    font-size: 12px;
+                    line-height: 18px;
                     -webkit-box-orient: vertical;
                     -webkit-line-clamp: 2;
                 }

@@ -167,8 +167,8 @@ const MenuContentCore: React.FC<{
                     gap: 8px;
                     align-items: center;
                     justify-content: center;
-                    color: var(--snow-shot-text-color);
-                    font-weight: 650;
+                    color: var(--snow-shot-ink);
+                    font-weight: 600;
                     user-select: none;
                     /* 对齐系统里的 title 位置 */
                     position: absolute;

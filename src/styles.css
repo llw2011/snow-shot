@@ -1,6 +1,7 @@
 :root {
     --background: #ffffff;
     --snow-shot-window-radius: 14px;
+    --snow-shot-font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +44,7 @@ body {
     width: 100%;
     background: transparent;
     overflow: hidden;
+    font-family: var(--snow-shot-font-ui);
 }
 
 .snow-shot-window-shell {
@@ -212,8 +214,10 @@ body {
 }
 
 body {
-    font-feature-settings: "calt", "kern", "liga", "ss03";
-    text-rendering: geometricPrecision;
+    font-family: var(--snow-shot-font-ui);
+    font-feature-settings: "calt", "kern", "liga";
+    font-kerning: normal;
+    text-rendering: optimizeLegibility;
 }
 
 .ant-app .menu-layout-wrap {
@@ -384,7 +388,7 @@ body {
     outline-color: var(--snow-shot-primary);
 }
 
-html[data-snow-theme="aurora"] .ant-app .ant-menu-item-selected,
+html[data-snow-theme="aurora"] .ant-app .menu-layout-wrap .ant-menu-item-selected,
 html[data-snow-theme="aurora"] .ant-app .snow-command-button:hover {
     box-shadow:
         inset 0 0 0 1px var(--snow-shot-primary-strong),
@@ -421,14 +425,12 @@ html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n) {
         var(--snow-shot-card-shadow);
 }
 
-html[data-snow-theme="matrix"] .ant-app .components_group-title,
-html[data-snow-theme="matrix"] .ant-app .snow-keycap-button,
-html[data-snow-theme="matrix"] .ant-app .logo-wrap .logo-text {
+html[data-snow-theme="matrix"] .ant-app .snow-keycap-button {
     font-family: ui-monospace, "Cascadia Code", Consolas, monospace !important;
     letter-spacing: 0.035em !important;
 }
 
-html[data-snow-theme="matrix"] .ant-app .ant-menu-item-selected {
+html[data-snow-theme="matrix"] .ant-app .menu-layout-wrap .ant-menu-item-selected {
     box-shadow:
         inset 3px 0 0 var(--snow-shot-primary),
         inset 0 0 0 1px var(--snow-shot-primary-strong);
@@ -446,7 +448,7 @@ html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n) {
     box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-three);
 }
 
-html[data-snow-theme="chromatic"] .ant-app .ant-menu-item-selected {
+html[data-snow-theme="chromatic"] .ant-app .menu-layout-wrap .ant-menu-item-selected {
     box-shadow:
         inset 4px 0 0 var(--snow-shot-primary),
         inset 0 0 0 1px var(--snow-shot-primary-strong);

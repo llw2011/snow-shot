@@ -1972,12 +1972,21 @@ const AppSettingsContextProviderCore: React.FC<{
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
 					? 32
 					: 36,
-				fontFamily:
-					'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+				fontFamily: "var(--snow-shot-font-ui)",
 				fontSize: 14,
 				lineHeight: 1.5,
 				motionDurationFast: "0.12s",
 				motionDurationMid: "0.18s",
+			},
+			components: {
+				Button: {
+					primaryColor: currentThemeRuntime.palette.canvas,
+				},
+				Tabs: {
+					itemActiveColor: currentThemeRuntime.palette.ink,
+					itemHoverColor: currentThemeRuntime.palette.ink,
+					itemSelectedColor: currentThemeRuntime.palette.ink,
+				},
 			},
 		};
 	}, [

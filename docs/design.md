@@ -56,7 +56,16 @@ Theme presets own the canvas atmosphere, surface ladder, borders, shadows,
 sidebar/header material, logo treatment, command rows, and keycaps. The user's
 accent color and radius remain adjustable after selecting a preset. Runtime color
 resolution must reject an accent with insufficient contrast against the active
-canvas and use the preset's readable recommendation instead.
+canvas and core surfaces, then use the preset's readable recommendation instead.
+
+Theme text tokens have stable readability roles across every preset. `ink`,
+`body`, and informational `muted` text must keep at least 4.5:1 contrast on the
+canvas, standard surfaces, cards, and content panels. `ash` is reserved for
+disabled or non-text UI and must keep at least 3:1. The application uses a
+platform-native UI font stack with explicit CJK fallbacks, standard 400/600
+weights, and a 12px minimum for explanatory copy. Glass themes keep their vivid
+atmosphere outside content surfaces while panels, sidebars, and headers remain
+opaque enough for predictable text contrast.
 
 User-supplied background images and custom CSS remain the highest-priority skin
 layer. When a custom background is active, layout chrome becomes translucent and

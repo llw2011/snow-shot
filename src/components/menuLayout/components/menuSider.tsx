@@ -180,13 +180,9 @@ const MenuSiderCore: React.FC<{
                 .logo-wrap .logo-text {
                     color: var(--snow-shot-ink);
                     font-size: 15px;
-                    font-weight: 650;
+                    font-weight: 600;
                     letter-spacing: 0;
                     line-height: 1;
-                }
-
-                :global(body) {
-                    --snow-shot-text-color: ${darkMode ? "#f4f4f6" : "#15171a"};
                 }
 
                 .macos-title-bar-margin {
