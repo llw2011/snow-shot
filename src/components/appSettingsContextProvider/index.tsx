@@ -1982,6 +1982,9 @@ const AppSettingsContextProviderCore: React.FC<{
 				Button: {
 					primaryColor: currentThemeRuntime.palette.canvas,
 				},
+				Switch: {
+					handleBg: currentThemeRuntime.palette.canvas,
+				},
 				Tabs: {
 					itemActiveColor: currentThemeRuntime.palette.ink,
 					itemHoverColor: currentThemeRuntime.palette.ink,

@@ -554,7 +554,9 @@ pub async fn get_window_elements(
 
             #[cfg(target_os = "windows")]
             {
-                if window_title.eq("Shell Handwriting Canvas") {
+                if window_title.eq("Shell Handwriting Canvas")
+                    || window_title.eq("Snow Shot - Draw")
+                {
                     return None;
                 }
 
@@ -563,10 +565,12 @@ pub async fn get_window_elements(
                     Err(_) => return None,
                 };
 
-                x = window_info.rcClient.left;
-                y = window_info.rcClient.top;
-                width = window_info.rcClient.right - window_info.rcClient.left;
-                height = window_info.rcClient.bottom - window_info.rcClient.top;
+                // Use the complete top-level window bounds so title bars and native frames
+                // remain selectable even when UI Automation only returns child controls.
+                x = window_info.rcWindow.left;
+                y = window_info.rcWindow.top;
+                width = window_info.rcWindow.right - window_info.rcWindow.left;
+                height = window_info.rcWindow.bottom - window_info.rcWindow.top;
             }
 
             #[cfg(target_os = "macos")]
