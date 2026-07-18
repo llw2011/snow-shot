@@ -235,7 +235,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 	const selectedWindowIdRef = useRef<number | undefined>(undefined); // 选中的窗口 ID
 	const elementsListRTreeRef = useRef<Flatbush | undefined>(undefined); // 窗口元素的 RTree
 	const selectWindowElementLoadingRef = useRef(true); // 是否正在加载元素选择功能
-	const uiElementsReadyRef = useRef(false); // UIA 子元素仅作为整窗选择后的可选增强
+	const uiElementsReadyRef = useRef(false); // UIA 子元素仅在初始化完成后参与局部选择
 	const selectWindowElementGenerationRef = useRef(0); // 隔离连续截图的异步选择结果
 	const selectWindowFromMousePositionLevelRef = useRef(0);
 	const onMouseMoveAutoSelectLastParamsRef = useRef<
@@ -488,14 +488,6 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 				rectIndexs[0],
 			);
 
-			// 整窗候选始终排在第一层，并且不等待可能缓慢或失效的 UIA provider。
-			if (
-				windowRectList.length > 0 &&
-				selectWindowFromMousePositionLevelRef.current === 0
-			) {
-				return windowRectList;
-			}
-
 			let elementRectList: ElementRect[] | undefined;
 			if (isEnableFindChildrenElements() && uiElementsReadyRef.current) {
 				try {
@@ -507,40 +499,43 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 					// 获取元素失败，忽略
 				}
 			}
-
-			const result = windowRectList.length > 0 ? [windowRectList[0]] : [];
-			const rectKeys = new Set(
-				result.map(
-					(rect) => `${rect.min_x},${rect.min_y},${rect.max_x},${rect.max_y}`,
-				),
-			);
+			const result: ElementRect[] = [];
+			const rectKeys = new Set<string>();
+			const topWindowRect = windowRectList[0];
 			for (const rect of elementRectList ?? []) {
+				const candidateRect = topWindowRect
+					? {
+							min_x: Math.max(rect.min_x, topWindowRect.min_x),
+							min_y: Math.max(rect.min_y, topWindowRect.min_y),
+							max_x: Math.min(rect.max_x, topWindowRect.max_x),
+							max_y: Math.min(rect.max_y, topWindowRect.max_y),
+						}
+					: rect;
 				const validRect =
-					Number.isFinite(rect.min_x) &&
-					Number.isFinite(rect.min_y) &&
-					Number.isFinite(rect.max_x) &&
-					Number.isFinite(rect.max_y) &&
-					rect.min_x < rect.max_x &&
-					rect.min_y < rect.max_y &&
-					rect.min_x <= mousePosition.mouseX &&
-					rect.max_x >= mousePosition.mouseX &&
-					rect.min_y <= mousePosition.mouseY &&
-					rect.max_y >= mousePosition.mouseY;
-				const rectKey = `${rect.min_x},${rect.min_y},${rect.max_x},${rect.max_y}`;
+					Number.isFinite(candidateRect.min_x) &&
+					Number.isFinite(candidateRect.min_y) &&
+					Number.isFinite(candidateRect.max_x) &&
+					Number.isFinite(candidateRect.max_y) &&
+					candidateRect.min_x < candidateRect.max_x &&
+					candidateRect.min_y < candidateRect.max_y &&
+					candidateRect.min_x <= mousePosition.mouseX &&
+					candidateRect.max_x >= mousePosition.mouseX &&
+					candidateRect.min_y <= mousePosition.mouseY &&
+					candidateRect.max_y >= mousePosition.mouseY;
+				const rectKey = `${candidateRect.min_x},${candidateRect.min_y},${candidateRect.max_x},${candidateRect.max_y}`;
 				if (validRect && !rectKeys.has(rectKey)) {
-					result.push(rect);
+					result.push(candidateRect);
 					rectKeys.add(rectKey);
 				}
 			}
-			// Keep obscured/background windows after the top-level window and UIA path.
-			for (const rect of windowRectList.slice(1)) {
+			// 局部元素优先；完整顶层窗口始终保留为可切换层级和可靠兜底。
+			for (const rect of windowRectList) {
 				const rectKey = `${rect.min_x},${rect.min_y},${rect.max_x},${rect.max_y}`;
 				if (!rectKeys.has(rectKey)) {
 					result.push(rect);
 					rectKeys.add(rectKey);
 				}
 			}
-
 			return result.length > 0 ? result : undefined;
 		},
 		[isEnableFindChildrenElements],

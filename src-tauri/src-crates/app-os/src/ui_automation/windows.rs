@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::mem;
+use std::time::{Duration, Instant};
 
 use atree::Arena;
 use atree::Token;
@@ -25,12 +26,14 @@ use xcap::Window;
 use super::ElementLevel;
 use super::UIAutomationError;
 
+const NEGATIVE_CHILD_CACHE_RETRY_INTERVAL: Duration = Duration::from_millis(250);
+
 enum ElementChildrenNextSiblingCacheItem {
     Element(UIElement, ElementLevel),
     /**
      * 叶子节点
      */
-    Leaf,
+    Leaf(Instant),
     /**
      * 没有下一个兄弟节点
      */
@@ -475,8 +478,10 @@ impl UIElements {
                     queue = Some(element.clone());
                     current_level = level.clone();
                 }
-                // 叶子节点说明直接命中了，不需要重新获取
-                ElementChildrenNextSiblingCacheItem::Leaf => {}
+                ElementChildrenNextSiblingCacheItem::Leaf(last_checked) => {
+                    try_get_first_child =
+                        last_checked.elapsed() >= NEGATIVE_CHILD_CACHE_RETRY_INTERVAL;
+                }
                 // 没有下一个节点说明遍历结束了
                 ElementChildrenNextSiblingCacheItem::NoNext => {}
             },
@@ -506,8 +511,12 @@ impl UIElements {
                     );
                 }
                 Err(_) => {
-                    self.element_children_next_sibling_cache
-                        .insert(parent_level, ElementChildrenNextSiblingCacheItem::Leaf);
+                    // WebView providers may expose children shortly after their top-level
+                    // element. Throttle negative lookups without making them permanent.
+                    self.element_children_next_sibling_cache.insert(
+                        parent_level,
+                        ElementChildrenNextSiblingCacheItem::Leaf(Instant::now()),
+                    );
                 }
             }
         }
@@ -587,8 +596,10 @@ impl UIElements {
 
                             continue;
                         } else {
-                            self.element_children_next_sibling_cache
-                                .insert(current_level, ElementChildrenNextSiblingCacheItem::Leaf);
+                            self.element_children_next_sibling_cache.insert(
+                                current_level,
+                                ElementChildrenNextSiblingCacheItem::Leaf(Instant::now()),
+                            );
                         }
                     }
                 }
