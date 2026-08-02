@@ -74,12 +74,12 @@ const ScrollShadow: React.FC<ScrollShadowProps> = ({
 
                 .left-shadow {
                     left: 0;
-                    background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
+                    background: linear-gradient(to right, var(--snow-shot-hairline-strong), transparent);
                 }
 
                 .right-shadow {
                     right: 0;
-                    background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
+                    background: linear-gradient(to left, var(--snow-shot-hairline-strong), transparent);
                 }
             `}</style>
 		</div>

@@ -167,10 +167,71 @@ body {
 
 /* GitHub Markdown CSS 样式优化 */
 .markdown-body {
+    --focus-outlineColor: var(--snow-shot-primary);
+    --fgColor-default: var(--snow-shot-body);
+    --fgColor-muted: var(--snow-shot-muted);
+    --fgColor-accent: var(--snow-shot-primary);
+    --fgColor-success: var(--snow-shot-green);
+    --fgColor-attention: var(--snow-shot-yellow);
+    --fgColor-danger: var(--snow-shot-red);
+    --fgColor-done: var(--snow-shot-primary);
+    --bgColor-default: transparent;
+    --bgColor-muted: var(--snow-shot-surface-elevated);
+    --bgColor-neutral-muted: color-mix(in srgb, var(--snow-shot-ink) 9%, transparent);
+    --bgColor-attention-muted: color-mix(in srgb, var(--snow-shot-yellow) 14%, transparent);
+    --borderColor-default: var(--snow-shot-hairline);
+    --borderColor-muted: var(--snow-shot-hairline-soft);
+    --borderColor-neutral-muted: var(--snow-shot-hairline-soft);
+    --borderColor-accent-emphasis: var(--snow-shot-primary);
+    --borderColor-success-emphasis: var(--snow-shot-green);
+    --borderColor-attention-emphasis: var(--snow-shot-yellow);
+    --borderColor-danger-emphasis: var(--snow-shot-red);
+    --borderColor-done-emphasis: var(--snow-shot-primary);
+    --color-prettylights-syntax-comment: var(--snow-shot-muted);
+    --color-prettylights-syntax-constant: var(--snow-shot-blue);
+    --color-prettylights-syntax-constant-other-reference-link: var(--snow-shot-blue);
+    --color-prettylights-syntax-entity: var(--snow-shot-primary);
+    --color-prettylights-syntax-storage-modifier-import: var(--snow-shot-body);
+    --color-prettylights-syntax-entity-tag: var(--snow-shot-green);
+    --color-prettylights-syntax-keyword: var(--snow-shot-red);
+    --color-prettylights-syntax-string: var(--snow-shot-green);
+    --color-prettylights-syntax-variable: var(--snow-shot-yellow);
+    --color-prettylights-syntax-brackethighlighter-unmatched: var(--snow-shot-red);
+    --color-prettylights-syntax-brackethighlighter-angle: var(--snow-shot-muted);
+    --color-prettylights-syntax-invalid-illegal-text: var(--snow-shot-ink);
+    --color-prettylights-syntax-invalid-illegal-bg: color-mix(in srgb, var(--snow-shot-red) 28%, transparent);
+    --color-prettylights-syntax-carriage-return-text: var(--snow-shot-ink);
+    --color-prettylights-syntax-carriage-return-bg: color-mix(in srgb, var(--snow-shot-red) 28%, transparent);
+    --color-prettylights-syntax-string-regexp: var(--snow-shot-green);
+    --color-prettylights-syntax-markup-list: var(--snow-shot-yellow);
+    --color-prettylights-syntax-markup-heading: var(--snow-shot-primary);
+    --color-prettylights-syntax-markup-italic: var(--snow-shot-body);
+    --color-prettylights-syntax-markup-bold: var(--snow-shot-ink);
+    --color-prettylights-syntax-markup-deleted-text: var(--snow-shot-red);
+    --color-prettylights-syntax-markup-deleted-bg: color-mix(in srgb, var(--snow-shot-red) 16%, transparent);
+    --color-prettylights-syntax-markup-inserted-text: var(--snow-shot-green);
+    --color-prettylights-syntax-markup-inserted-bg: color-mix(in srgb, var(--snow-shot-green) 16%, transparent);
+    --color-prettylights-syntax-markup-changed-text: var(--snow-shot-yellow);
+    --color-prettylights-syntax-markup-changed-bg: color-mix(in srgb, var(--snow-shot-yellow) 16%, transparent);
+    --color-prettylights-syntax-markup-ignored-text: var(--snow-shot-muted);
+    --color-prettylights-syntax-markup-ignored-bg: color-mix(in srgb, var(--snow-shot-blue) 16%, transparent);
+    --color-prettylights-syntax-meta-diff-range: var(--snow-shot-primary);
+    --color-prettylights-syntax-sublimelinter-gutter-mark: var(--snow-shot-ash);
     box-sizing: border-box;
     min-width: 200px;
     max-width: 100%;
     padding: 0;
+    color: var(--snow-shot-body);
+    background-color: transparent;
+    font-family: var(--snow-shot-font-ui);
+}
+
+.app-dark .markdown-body {
+    color-scheme: dark;
+}
+
+.app-light .markdown-body {
+    color-scheme: light;
 }
 
 :root {
@@ -192,6 +253,7 @@ body {
     --snow-shot-red: #ff6161;
     --snow-shot-green: #59d499;
     --snow-shot-yellow: #ffc533;
+    --snow-shot-on-error: #07080a;
     --snow-shot-primary: #ffffff;
     --snow-shot-primary-soft: rgba(255, 255, 255, 0.13);
     --snow-shot-primary-strong: rgba(255, 255, 255, 0.38);
@@ -218,6 +280,20 @@ body {
     font-feature-settings: "calt", "kern", "liga";
     font-kerning: normal;
     text-rendering: optimizeLegibility;
+}
+
+.ant-badge .ant-badge-count {
+    color: var(--snow-shot-on-error) !important;
+}
+
+.ant-tag {
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.ant-dropdown-menu-item-selected,
+.ant-dropdown-menu-submenu-title-selected {
+    color: var(--snow-shot-ink) !important;
 }
 
 .ant-app .menu-layout-wrap {

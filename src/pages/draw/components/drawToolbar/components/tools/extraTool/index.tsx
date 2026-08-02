@@ -1,11 +1,12 @@
 import { ScanOutlined } from "@ant-design/icons";
-import { Button, Flex, message, theme } from "antd";
+import { Button, Flex, theme } from "antd";
 import { useCallback, useContext, useState } from "react";
 import { useIntl } from "react-intl";
 import { createVideoRecordWindow } from "@/commands/core";
 import { DrawStatePublisher } from "@/components/drawCore/extra";
 import { VideoRecordIcon } from "@/components/icons";
 import { PLUGIN_ID_FFMPEG } from "@/constants/pluginService";
+import { AntdContext } from "@/contexts/antdContext";
 import {
 	AppSettingsActionContext,
 	AppSettingsPublisher,
@@ -31,6 +32,7 @@ export const ExtraTool: React.FC<{
 	const { token } = theme.useToken();
 
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
+	const { message } = useContext(AntdContext);
 	const { captureBoundingBoxInfoRef, selectLayerActionRef, finishCapture } =
 		useContext(DrawContext);
 
@@ -85,7 +87,13 @@ export const ExtraTool: React.FC<{
 		setTimeout(() => {
 			finishCapture();
 		}, 0);
-	}, [captureBoundingBoxInfoRef, finishCapture, intl, selectLayerActionRef]);
+	}, [
+		captureBoundingBoxInfoRef,
+		finishCapture,
+		intl,
+		message,
+		selectLayerActionRef,
+	]);
 
 	const updateLastActiveTool = useCallback(
 		(value: ExtraToolList) => {

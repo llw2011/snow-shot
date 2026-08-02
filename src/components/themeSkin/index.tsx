@@ -29,11 +29,12 @@ export const ThemeSkin = () => {
 	}, [currentTheme]);
 
 	const backgroundImageUrl = useMemo(() => {
-		if (!themeSkinSettings?.skinPath) {
+		const skinPath = themeSkinSettings?.skinPath.trim();
+		if (!skinPath) {
 			return null;
 		}
 
-		return convertFileSrc(themeSkinSettings.skinPath);
+		return convertFileSrc(skinPath);
 	}, [themeSkinSettings?.skinPath]);
 
 	const backgroundPosition = useMemo(() => {
@@ -90,15 +91,10 @@ export const ThemeSkin = () => {
 			return "transparent";
 		}
 
-		let backgroundColor = token.colorBgContainer;
-		if (isDarkMode) {
-			backgroundColor = "#001529";
-		}
-
-		return Color(backgroundColor)
+		return Color(token.colorBgLayout)
 			.alpha(0.83 * maskOpacity)
 			.toString();
-	}, [themeSkinSettings, token.colorBgContainer, maskOpacity, isDarkMode]);
+	}, [themeSkinSettings, token.colorBgLayout, maskOpacity]);
 
 	const levelOneBackgroundColor = useMemo(() => {
 		if (!themeSkinSettings) {
@@ -124,10 +120,16 @@ export const ThemeSkin = () => {
 		if (!themeSkinSettings) {
 			return "transparent";
 		}
-		return Color(token.colorPrimaryBg)
+		return Color(token.colorBgContainer)
+			.mix(Color(token.colorPrimary), 0.13)
 			.alpha(0.64 * maskOpacity)
 			.toString();
-	}, [themeSkinSettings, token.colorPrimaryBg, maskOpacity]);
+	}, [
+		themeSkinSettings,
+		token.colorBgContainer,
+		token.colorPrimary,
+		maskOpacity,
+	]);
 
 	// 自定义 CSS 可以脱离背景图片单独生效。
 	if (!backgroundImageUrl) {

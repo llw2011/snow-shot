@@ -1032,7 +1032,7 @@ export const SystemSettingsPage = () => {
 										{configDirBasePath}
 									</Typography.Text>
 									<Button
-										color="orange"
+										color="primary"
 										onClick={async () => {
 											try {
 												const path = await dialog.open({

@@ -28,11 +28,11 @@ export const HotkeysMenu: React.FC<{
                 }
 
                 :global(.component-hotkeys-menu .hotkeys-menu-button) {
-                    opacity: 0.42;
+                    color: var(--snow-shot-muted);
                 }
 
                 :global(.component-hotkeys-menu .hotkeys-menu-button:hover) {
-                    opacity: 1;
+                    color: var(--snow-shot-ink);
                 }
             `}</style>
 		</div>

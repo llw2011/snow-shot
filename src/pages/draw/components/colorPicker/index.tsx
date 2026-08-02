@@ -1041,7 +1041,7 @@ const ColorPickerCore: React.FC<{
                         flex-direction: column;
                         gap: ${token.marginXXS}px;
                         margin-top: ${token.marginXXS}px;
-                        font-size: ${token.fontSizeSM}px;
+                        font-size: 12px;
                         width: ${COLOR_PICKER_PREVIEW_CANVAS_SIZE}px;
                         border-bottom-left-radius: ${token.borderRadius}px;
                         border-bottom-right-radius: ${token.borderRadius}px;

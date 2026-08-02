@@ -11,7 +11,7 @@ export const ModelSelectLabel: React.FC<{
 			<div>{modelName}</div>
 			<div>
 				{reasoner && (
-					<Tag color="processing">
+					<Tag>
 						<FormattedMessage id="tools.chat.reasoner" />
 					</Tag>
 				)}

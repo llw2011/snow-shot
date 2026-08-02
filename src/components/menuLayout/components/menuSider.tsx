@@ -14,9 +14,8 @@ type MenuItem = ItemType<MenuItemType>;
 
 const MenuSiderCore: React.FC<{
 	menuItems: MenuItem[];
-	darkMode: boolean;
 	pathname: string;
-}> = ({ menuItems, darkMode, pathname }) => {
+}> = ({ menuItems, pathname }) => {
 	const { token } = theme.useToken();
 	const [collapsed, setCollapsed] = useState(false);
 	useAppSettingsLoad(
@@ -51,7 +50,6 @@ const MenuSiderCore: React.FC<{
 	return (
 		<Sider
 			className="snow-shot-sider"
-			theme={darkMode ? "dark" : "light"}
 			collapsed={collapsed}
 			width={212}
 			collapsedWidth={72}
@@ -99,7 +97,6 @@ const MenuSiderCore: React.FC<{
 						defaultSelectedKeys={[menuItems[0]?.key?.toString() ?? "/"]}
 						selectedKeys={[pathname]}
 						mode="inline"
-						theme={darkMode ? "dark" : "light"}
 						items={menuItems}
 						defaultOpenKeys={menuItems
 							.map((item) => item?.key as string)

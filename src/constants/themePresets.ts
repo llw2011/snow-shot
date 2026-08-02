@@ -88,7 +88,47 @@ export const colorWithAlpha = (value: string, alpha: number) => {
 	}
 };
 
+const MIN_TEXT_CONTRAST = 4.5;
+
+const ensureReadableTextColor = (value: string, surfaces: string[]) => {
+	try {
+		const source = Color(value);
+		const surfaceColors = surfaces.map((surface) => Color(surface));
+		if (
+			surfaceColors.every(
+				(surface) => source.contrast(surface) >= MIN_TEXT_CONTRAST,
+			)
+		) {
+			return source.hex();
+		}
+
+		const target = Color(surfaces[0]).isDark()
+			? Color("#FFFFFF")
+			: Color("#000000");
+		for (let step = 1; step <= 100; step += 1) {
+			const candidate = Color(source.mix(target, step / 100).hex());
+			if (
+				surfaceColors.every(
+					(surface) => candidate.contrast(surface) >= MIN_TEXT_CONTRAST,
+				)
+			) {
+				return candidate.hex();
+			}
+		}
+
+		return target.hex();
+	} catch {
+		return value;
+	}
+};
+
 const createThemeMode = (input: ThemeModeInput): AppThemeModeDefinition => {
+	const textSurfaces = [
+		input.canvas,
+		input.surface,
+		input.surfaceElevated,
+		input.surfaceCard,
+	];
 	const palette: AppThemePalette = {
 		canvas: input.canvas,
 		surface: input.surface,
@@ -101,10 +141,10 @@ const createThemeMode = (input: ThemeModeInput): AppThemeModeDefinition => {
 		body: input.body,
 		muted: input.muted,
 		ash: input.ash,
-		blue: input.blue ?? "#57C1FF",
-		red: input.red ?? "#FF6161",
-		green: input.green ?? "#59D499",
-		yellow: input.yellow ?? "#FFC533",
+		blue: ensureReadableTextColor(input.blue ?? "#57C1FF", textSurfaces),
+		red: ensureReadableTextColor(input.red ?? "#FF6161", textSurfaces),
+		green: ensureReadableTextColor(input.green ?? "#59D499", textSurfaces),
+		yellow: ensureReadableTextColor(input.yellow ?? "#FFC533", textSurfaces),
 	};
 
 	const visuals: AppThemeVisuals = {
@@ -158,7 +198,6 @@ const createThemeMode = (input: ThemeModeInput): AppThemeModeDefinition => {
 			colorIcon: palette.muted,
 			colorIconHover: palette.ink,
 			colorLink: input.recommendedAccent,
-			colorLinkHover: input.recommendedAccent,
 			colorInfo: palette.blue,
 			colorSuccess: palette.green,
 			colorWarning: palette.yellow,
@@ -166,8 +205,6 @@ const createThemeMode = (input: ThemeModeInput): AppThemeModeDefinition => {
 			colorPrimaryBg: colorWithAlpha(input.recommendedAccent, 0.12),
 			colorPrimaryBgHover: colorWithAlpha(input.recommendedAccent, 0.2),
 			colorPrimaryBorder: colorWithAlpha(input.recommendedAccent, 0.42),
-			colorPrimaryHover: input.recommendedAccent,
-			colorPrimaryActive: input.recommendedAccent,
 			boxShadow: visuals.shadow,
 			boxShadowSecondary: visuals.cardShadow,
 		},
@@ -630,9 +667,11 @@ export const getAppThemeRuntime = (
 export const resolveThemePrimaryColor = (
 	value: string,
 	runtime: AppThemeModeDefinition,
+	transformColor: (color: string) => string = (color) => color,
 ) => {
 	try {
 		const candidate = Color(value);
+		const transformedCandidate = Color(transformColor(candidate.hex()));
 		const textSurfaces = [
 			runtime.palette.canvas,
 			runtime.palette.surface,
@@ -640,7 +679,11 @@ export const resolveThemePrimaryColor = (
 			runtime.palette.surfaceCard,
 		];
 		if (
-			textSurfaces.every((surface) => candidate.contrast(Color(surface)) >= 4.5)
+			textSurfaces.every(
+				(surface) =>
+					candidate.contrast(Color(surface)) >= MIN_TEXT_CONTRAST &&
+					transformedCandidate.contrast(Color(surface)) >= MIN_TEXT_CONTRAST,
+			)
 		) {
 			return candidate.hex();
 		}
@@ -655,8 +698,12 @@ export const createThemeCssVariables = (
 	runtime: AppThemeModeDefinition,
 	primaryColor: string,
 	borderRadius: number,
+	promoteLowContrastText = false,
 ): Record<ThemeCssVariable, string> => {
 	const { palette, visuals } = runtime;
+	const body = promoteLowContrastText ? palette.ink : palette.body;
+	const muted = promoteLowContrastText ? palette.body : palette.muted;
+	const ash = promoteLowContrastText ? palette.muted : palette.ash;
 
 	return {
 		"--snow-shot-canvas": palette.canvas,
@@ -670,13 +717,14 @@ export const createThemeCssVariables = (
 		"--snow-shot-hairline-soft": palette.hairlineSoft,
 		"--snow-shot-hairline-strong": palette.hairlineStrong,
 		"--snow-shot-ink": palette.ink,
-		"--snow-shot-body": palette.body,
-		"--snow-shot-muted": palette.muted,
-		"--snow-shot-ash": palette.ash,
+		"--snow-shot-body": body,
+		"--snow-shot-muted": muted,
+		"--snow-shot-ash": ash,
 		"--snow-shot-blue": palette.blue,
 		"--snow-shot-red": palette.red,
 		"--snow-shot-green": palette.green,
 		"--snow-shot-yellow": palette.yellow,
+		"--snow-shot-on-error": palette.canvas,
 		"--snow-shot-primary": primaryColor,
 		"--snow-shot-primary-soft": colorWithAlpha(primaryColor, 0.13),
 		"--snow-shot-primary-strong": colorWithAlpha(primaryColor, 0.38),

@@ -370,9 +370,9 @@ export const ThemePresetSelector = ({
                     gap: 3px;
                     flex: 0 0 auto;
                     color: var(--snow-shot-ink);
-                    font-size: 11px;
+                    font-size: 12px;
                     font-weight: 600;
-                    line-height: 16px;
+                    line-height: 18px;
                 }
 
                 .theme-preset-active :global(.anticon) {

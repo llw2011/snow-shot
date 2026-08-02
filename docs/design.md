@@ -67,9 +67,31 @@ weights, and a 12px minimum for explanatory copy. Glass themes keep their vivid
 atmosphere outside content surfaces while panels, sidebars, and headers remain
 opaque enough for predictable text contrast.
 
+Semantic info, success, warning, and error colors are also text colors. Each
+must keep at least 4.5:1 contrast on every core surface in all twelve preset/mode
+combinations. Solid primary and danger controls use a foreground derived from
+the active canvas instead of assuming white text. Decorative accent colors are
+not valid text colors unless they independently pass the same contrast check.
+
+Third-party content and overlay roots must follow Snow Shot's selected mode,
+not the operating system media query. Markdown variables, embedded display
+iframes, Ant Design's `App` root, portals, messages, modals, dropdowns, tooltips,
+and popovers all live inside or explicitly receive the active theme context.
+The provider order is `ConfigProvider -> Ant App -> application content`.
+
 User-supplied background images and custom CSS remain the highest-priority skin
 layer. When a custom background is active, layout chrome becomes translucent and
 must not hide the image. Theme presets may still provide readable foreground,
 border, and control tokens above that custom layer. Custom CSS may be used without
 selecting a background image; image position, opacity, blur, and mask controls are
 inactive until an image path is present.
+
+The mask control remains authoritative over custom-background translucency; a
+theme preset must not narrow its range or silently turn the main layout opaque.
+At the default mask level, major surfaces retain the established 83% overlay and
+form controls add their established 42% local surface, so the image stays visible
+without making controls image-dependent. While an image is active,
+secondary `body` text is promoted to `ink`, informational `muted` text is
+promoted to `body`, and disabled `ash` is promoted to `muted`. Users who
+deliberately lower the mask continue to trade foreground contrast for a more
+prominent image.

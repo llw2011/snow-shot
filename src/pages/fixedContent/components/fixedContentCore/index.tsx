@@ -2995,7 +2995,7 @@ const FixedContentCoreInner: React.FC<{
                     color: ${token.colorWhite};
                     padding: ${token.paddingXXS}px ${token.paddingSM}px;
                     border-top-right-radius: ${token.borderRadius}px;
-                    font-size: ${token.fontSizeSM}px;
+                    font-size: 12px;
                     z-index: ${zIndexs.FixedToScreen_ScaleInfo};
                     transition: opacity ${token.motionDurationFast} ${token.motionEaseInOut};
                     display: ${isThumbnail || enableDraw || enableSelectText ? "none" : "block"};

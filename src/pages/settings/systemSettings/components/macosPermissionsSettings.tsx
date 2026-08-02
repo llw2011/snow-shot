@@ -1,4 +1,4 @@
-﻿import { Alert, Button, List, theme } from "antd";
+﻿import { Alert, Button, List, Typography, theme } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import {
@@ -30,26 +30,24 @@ const PermissionListItem: React.FC<{
 	return (
 		<List.Item
 			actions={[
-				<Button
-					key="recordScreen"
-					variant="link"
-					color={permissionState ? "green" : "primary"}
-					onClick={() => {
-						if (permissionState) {
-							return;
-						}
-
-						requestPermission().then(() => {
-							reloadPermissionsState();
-						});
-					}}
-				>
-					{permissionState ? (
+				permissionState ? (
+					<Typography.Text key="authorized" type="success">
 						<FormattedMessage id="settings.systemSettings.macosPermissionsSettings.authorized" />
-					) : (
+					</Typography.Text>
+				) : (
+					<Button
+						key="requestPermission"
+						variant="link"
+						color="primary"
+						onClick={() => {
+							requestPermission().then(() => {
+								reloadPermissionsState();
+							});
+						}}
+					>
 						<FormattedMessage id="settings.systemSettings.macosPermissionsSettings.request" />
-					)}
-				</Button>,
+					</Button>
+				),
 			]}
 		>
 			<List.Item.Meta title={permissionName} description={permissionTip} />

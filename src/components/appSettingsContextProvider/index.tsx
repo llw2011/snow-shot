@@ -3,10 +3,12 @@ import {
 	type Window as AppWindow,
 	getCurrentWindow,
 } from "@tauri-apps/api/window";
-import { ConfigProvider, type ThemeConfig, theme } from "antd";
+import { App as AntdApp, ConfigProvider, type ThemeConfig, theme } from "antd";
 import enUS from "antd/es/locale/en_US";
 import zhCN from "antd/es/locale/zh_CN";
 import zhTW from "antd/es/locale/zh_TW";
+import type { MappingAlgorithm } from "antd/es/theme/interface";
+import Color from "color";
 import { debounce, isEqual, trim } from "es-toolkit";
 import React, {
 	useCallback,
@@ -92,6 +94,74 @@ import { ImageFormat } from "@/types/utils/file";
 import { getConfigDirPath } from "@/utils/environment";
 import { appError, appWarn, formatErrorDetails } from "@/utils/log";
 import { canUseOcr } from "@/utils/ocr";
+
+const preserveReadableThemeColors: MappingAlgorithm = (token, mapToken) => {
+	const current = mapToken ?? theme.defaultAlgorithm(token);
+	const stateTarget = Color(current.colorBgLayout).isDark()
+		? Color("#FFFFFF")
+		: Color("#000000");
+	const createStateColor = (value: string, weight: number) => {
+		try {
+			const source = Color(value);
+			if (source.hex() === stateTarget.hex()) {
+				return source.mix(Color(current.colorBgLayout), weight / 2).hex();
+			}
+			return source.mix(stateTarget, weight).hex();
+		} catch {
+			return value;
+		}
+	};
+	const primaryHover = createStateColor(token.colorPrimary, 0.18);
+	const primaryActive = createStateColor(token.colorPrimary, 0.32);
+	const infoHover = createStateColor(token.colorInfo, 0.18);
+	const infoActive = createStateColor(token.colorInfo, 0.32);
+	const successHover = createStateColor(token.colorSuccess, 0.18);
+	const successActive = createStateColor(token.colorSuccess, 0.32);
+	const warningHover = createStateColor(token.colorWarning, 0.18);
+	const warningActive = createStateColor(token.colorWarning, 0.32);
+	const errorHover = createStateColor(token.colorError, 0.18);
+	const errorActive = createStateColor(token.colorError, 0.32);
+	return {
+		...current,
+		colorPrimary: token.colorPrimary,
+		colorPrimaryHover: primaryHover,
+		colorPrimaryActive: primaryActive,
+		colorPrimaryBg: colorWithAlpha(token.colorPrimary, 0.12),
+		colorPrimaryBgHover: colorWithAlpha(token.colorPrimary, 0.2),
+		colorPrimaryBorder: colorWithAlpha(token.colorPrimary, 0.42),
+		colorPrimaryBorderHover: colorWithAlpha(token.colorPrimary, 0.58),
+		colorPrimaryText: token.colorPrimary,
+		colorPrimaryTextHover: primaryHover,
+		colorPrimaryTextActive: primaryActive,
+		colorLink: token.colorPrimary,
+		colorLinkHover: primaryHover,
+		colorLinkActive: primaryActive,
+		colorInfo: token.colorInfo,
+		colorInfoHover: infoHover,
+		colorInfoActive: infoActive,
+		colorInfoText: token.colorInfo,
+		colorInfoTextHover: infoHover,
+		colorInfoTextActive: infoActive,
+		colorSuccess: token.colorSuccess,
+		colorSuccessHover: successHover,
+		colorSuccessActive: successActive,
+		colorSuccessText: token.colorSuccess,
+		colorSuccessTextHover: successHover,
+		colorSuccessTextActive: successActive,
+		colorWarning: token.colorWarning,
+		colorWarningHover: warningHover,
+		colorWarningActive: warningActive,
+		colorWarningText: token.colorWarning,
+		colorWarningTextHover: warningHover,
+		colorWarningTextActive: warningActive,
+		colorError: token.colorError,
+		colorErrorHover: errorHover,
+		colorErrorActive: errorActive,
+		colorErrorText: token.colorError,
+		colorErrorTextHover: errorHover,
+		colorErrorTextActive: errorActive,
+	};
+};
 
 const getFilePath = async (group: AppSettingsGroup) => {
 	const configDirPath = await getConfigDirPath();
@@ -1880,13 +1950,38 @@ const AppSettingsContextProviderCore: React.FC<{
 			appSettings[AppSettingsGroup.Common].themePreset,
 		],
 	);
+	const hasCustomBackground =
+		appSettings[AppSettingsGroup.ThemeSkin].skinPath.trim().length > 0;
+	const themeAlgorithms = useMemo(() => {
+		const algorithms = [
+			appContextValue.currentTheme === AppSettingsTheme.Dark
+				? theme.darkAlgorithm
+				: theme.defaultAlgorithm,
+		];
+		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
+			algorithms.push(theme.compactAlgorithm);
+		}
+		algorithms.push(preserveReadableThemeColors);
+		return algorithms;
+	}, [
+		appContextValue.currentTheme,
+		appSettings[AppSettingsGroup.Common].enableCompactLayout,
+	]);
 	const currentPrimaryColor = useMemo(
 		() =>
 			resolveThemePrimaryColor(
 				appSettings[AppSettingsGroup.Common].mainColor,
 				currentThemeRuntime,
+				(value) =>
+					theme.getDesignToken({
+						algorithm: themeAlgorithms,
+						token: {
+							...currentThemeRuntime.antTokens,
+							colorPrimary: value,
+						},
+					}).colorPrimary,
 			),
-		[appSettings, currentThemeRuntime],
+		[appSettings, currentThemeRuntime, themeAlgorithms],
 	);
 
 	useEffect(() => {
@@ -1948,26 +2043,33 @@ const AppSettingsContextProviderCore: React.FC<{
 	}, []);
 
 	const antdTheme = useMemo((): ThemeConfig => {
-		const isDarkMode = appContextValue.currentTheme === AppSettingsTheme.Dark;
-		const algorithms = [
-			isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-		];
-		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
-			algorithms.push(theme.compactAlgorithm);
-		}
-
 		return {
-			algorithm: algorithms,
+			algorithm: themeAlgorithms,
 			token: {
 				...currentThemeRuntime.antTokens,
+				colorTextSecondary: hasCustomBackground
+					? currentThemeRuntime.palette.ink
+					: currentThemeRuntime.palette.body,
+				colorTextTertiary: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
+				colorTextQuaternary: hasCustomBackground
+					? currentThemeRuntime.palette.muted
+					: currentThemeRuntime.palette.ash,
+				colorTextPlaceholder: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
+				colorTextDisabled: hasCustomBackground
+					? currentThemeRuntime.palette.muted
+					: currentThemeRuntime.palette.ash,
+				colorIcon: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
 				colorPrimary: currentPrimaryColor,
 				colorPrimaryBg: colorWithAlpha(currentPrimaryColor, 0.12),
 				colorPrimaryBgHover: colorWithAlpha(currentPrimaryColor, 0.2),
 				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
-				colorPrimaryHover: currentPrimaryColor,
-				colorPrimaryActive: currentPrimaryColor,
 				colorLink: currentPrimaryColor,
-				colorLinkHover: currentPrimaryColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
 					? 32
@@ -1979,8 +2081,22 @@ const AppSettingsContextProviderCore: React.FC<{
 				motionDurationMid: "0.18s",
 			},
 			components: {
+				Badge: {
+					textFontSize: 12,
+					textFontSizeSM: 12,
+				},
 				Button: {
 					primaryColor: currentThemeRuntime.palette.canvas,
+					dangerColor: currentThemeRuntime.palette.canvas,
+					contentFontSize: 14,
+				},
+				Menu: {
+					itemColor: currentThemeRuntime.palette.body,
+					itemHoverColor: currentThemeRuntime.palette.ink,
+					itemSelectedColor: currentThemeRuntime.palette.ink,
+					subMenuItemSelectedColor: currentThemeRuntime.palette.ink,
+					itemSelectedBg: colorWithAlpha(currentPrimaryColor, 0.13),
+					popupBg: currentThemeRuntime.palette.surfaceElevated,
 				},
 				Switch: {
 					handleBg: currentThemeRuntime.palette.canvas,
@@ -1993,11 +2109,12 @@ const AppSettingsContextProviderCore: React.FC<{
 			},
 		};
 	}, [
-		appContextValue.currentTheme,
 		appSettings[AppSettingsGroup.Common].enableCompactLayout,
 		appSettings[AppSettingsGroup.Common].borderRadius,
 		currentPrimaryColor,
 		currentThemeRuntime,
+		hasCustomBackground,
+		themeAlgorithms,
 	]);
 
 	useEffect(() => {
@@ -2007,6 +2124,7 @@ const AppSettingsContextProviderCore: React.FC<{
 			currentThemeRuntime,
 			currentPrimaryColor,
 			appSettings[AppSettingsGroup.Common].borderRadius,
+			hasCustomBackground,
 		);
 
 		root.dataset.snowTheme = appSettings[AppSettingsGroup.Common].themePreset;
@@ -2024,20 +2142,23 @@ const AppSettingsContextProviderCore: React.FC<{
 		appSettings[AppSettingsGroup.Common].themePreset,
 		currentPrimaryColor,
 		currentThemeRuntime,
+		hasCustomBackground,
 	]);
 
 	return (
 		<AppSettingsActionContext.Provider value={appSettingsContextValue}>
 			<ConfigProvider theme={antdTheme} locale={antdLocale}>
-				<IntlProvider
-					locale={appSettings[AppSettingsGroup.Common].language}
-					messages={messages[appSettings[AppSettingsGroup.Common].language]}
-					defaultLocale={AppSettingsLanguage.ZHHans}
-				>
-					<AppContext.Provider value={appContextValue}>
-						{children}
-					</AppContext.Provider>
-				</IntlProvider>
+				<AntdApp>
+					<IntlProvider
+						locale={appSettings[AppSettingsGroup.Common].language}
+						messages={messages[appSettings[AppSettingsGroup.Common].language]}
+						defaultLocale={AppSettingsLanguage.ZHHans}
+					>
+						<AppContext.Provider value={appContextValue}>
+							{children}
+						</AppContext.Provider>
+					</IntlProvider>
+				</AntdApp>
 			</ConfigProvider>
 		</AppSettingsActionContext.Provider>
 	);

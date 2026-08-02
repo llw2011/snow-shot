@@ -27,7 +27,6 @@ import {
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
-import { AppContext } from "@/contexts/appContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -35,11 +34,7 @@ import { withStatePublisher } from "@/hooks/useStatePublisher";
 import { en } from "@/messages/en";
 import { zhHans } from "@/messages/zhHans";
 import { zhHant } from "@/messages/zhHant";
-import {
-	AppSettingsGroup,
-	AppSettingsLanguage,
-	AppSettingsTheme,
-} from "@/types/appSettings";
+import { AppSettingsGroup, AppSettingsLanguage } from "@/types/appSettings";
 import type { RouteItem, RouteMapItem } from "@/types/components/menuLayout";
 import { getPlatformValue } from "@/utils/platform";
 import { MenuContent } from "./components/menuContent";
@@ -79,7 +74,6 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 
 	const intl = useIntl();
 	const appSettings = useContext(AppSettingsActionContext);
-	const { currentTheme } = useContext(AppContext);
 	const { updateAppSettings } = appSettings;
 
 	const routerLocation = useLocation();
@@ -555,11 +549,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 			<CheckVersion />
 			<div className="menu-layout-wrap">
 				<Layout>
-					<MenuSider
-						menuItems={menuItems}
-						darkMode={currentTheme === AppSettingsTheme.Dark}
-						pathname={pathname}
-					/>
+					<MenuSider menuItems={menuItems} pathname={pathname} />
 					<MenuContent pathname={pathname} routeTabsMap={routeTabsMap}>
 						<GlobalShortcut>{children}</GlobalShortcut>
 					</MenuContent>

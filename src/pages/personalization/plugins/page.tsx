@@ -118,7 +118,7 @@ export const PluginsPage = () => {
 								<Button
 									key="uninstall"
 									variant="text"
-									color="red"
+									danger
 									size="small"
 									icon={<DeleteOutlined />}
 									loading={item.status === PluginStatus.Uninstalling}
@@ -153,7 +153,7 @@ export const PluginsPage = () => {
 							<Button
 								key="forceInstall"
 								variant="text"
-								color="green"
+								color="primary"
 								size="small"
 								icon={<SyncOutlined />}
 								disabled={item.status !== PluginStatus.Installed}

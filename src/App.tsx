@@ -1,8 +1,8 @@
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 
 import { routeTree } from "./routeTree.gen";
-import "./styles.css";
 import "github-markdown-css/github-markdown.css";
+import "./styles.css";
 import { GlobalContext } from "./components/globalContext";
 
 // Set up a Router instance

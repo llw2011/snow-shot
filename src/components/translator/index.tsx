@@ -53,9 +53,9 @@ const SelectLabel: React.FC<{
                     display: inline;
                     color: ${token.colorTextDescription};
                     margin-left: ${token.marginXS}px;
-                    font-size: 0.7em;
+                    font-size: 12px;
                     position: relative;
-                    bottom: 0.15em;
+                    bottom: 1px;
                 }
             `}</style>
 		</div>

@@ -1,4 +1,3 @@
-import { App as AntdApp } from "antd";
 import type React from "react";
 import { useEffect } from "react";
 import { HotkeysProvider } from "react-hotkeys-hook";
@@ -43,9 +42,5 @@ export const GlobalContext: React.FC<{
 		};
 	}, []);
 
-	return (
-		<AntdApp>
-			<HotkeysProvider>{children}</HotkeysProvider>
-		</AntdApp>
-	);
+	return <HotkeysProvider>{children}</HotkeysProvider>;
 };

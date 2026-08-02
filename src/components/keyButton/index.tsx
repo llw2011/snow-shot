@@ -306,7 +306,6 @@ export const KeyButton: React.FC<{
 										}}
 										type="text"
 										variant="outlined"
-										color="red"
 										icon={<DeleteOutlined />}
 									></Button>
 								) : (
@@ -317,7 +316,7 @@ export const KeyButton: React.FC<{
 										}}
 										type="default"
 										variant="outlined"
-										color="green"
+										color="primary"
 										icon={<CheckOutlined />}
 									></Button>
 								)}
@@ -330,7 +329,7 @@ export const KeyButton: React.FC<{
 												key={item}
 												type="text"
 												variant="outlined"
-												color="blue"
+												color="primary"
 												size="small"
 												onClick={() => {
 													setSpicalRecordKeys((pre) => {
