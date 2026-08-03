@@ -2081,6 +2081,10 @@ const AppSettingsContextProviderCore: React.FC<{
 				motionDurationMid: "0.18s",
 			},
 			components: {
+				App: {
+					fontSize: 14,
+					lineHeight: 1.5,
+				},
 				Badge: {
 					textFontSize: 12,
 					textFontSizeSM: 12,

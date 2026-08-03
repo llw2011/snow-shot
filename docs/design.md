@@ -67,6 +67,11 @@ weights, and a 12px minimum for explanatory copy. Glass themes keep their vivid
 atmosphere outside content surfaces while panels, sidebars, and headers remain
 opaque enough for predictable text contrast.
 
+Compact layout changes control height, spacing, and padding without shrinking
+the application root type scale. Default interface copy remains 14px at a 1.5
+line height; 12px is reserved for explanatory copy, tags, badges, tooltips, and
+keycaps rather than used as the inherited application font size.
+
 Semantic info, success, warning, and error colors are also text colors. Each
 must keep at least 4.5:1 contrast on every core surface in all twelve preset/mode
 combinations. Solid primary and danger controls use a foreground derived from
