@@ -302,6 +302,8 @@ const installTauriBrowserShim = () => {
 			}
 
 			case "native_action_ack":
+			case "native_draw_runtime_probe_ack":
+			case "native_main_runtime_probe_ack":
 			case "draw_window_ready":
 				return true as T;
 			case "create_draw_window":
@@ -317,8 +319,8 @@ const installTauriBrowserShim = () => {
 			case "native_shortcut_set_input_active":
 			case "native_shortcut_set_full_screen_policy":
 			case "native_tray_set_click_action":
+			case "native_tray_set_enabled":
 			case "native_runtime_start":
-			case "native_runtime_heartbeat":
 			case "native_runtime_ready":
 			case "native_draw_runtime_ready":
 			case "native_runtime_bind_draw":

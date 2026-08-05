@@ -9,6 +9,8 @@ pub mod screenshot;
 pub mod scroll_screenshot;
 pub mod video_record;
 pub mod webview;
+#[cfg(target_os = "windows")]
+mod windows_session;
 
 use snow_shot_app_services::listen_mouse_service;
 use snow_shot_tauri_commands_core::{FullScreenDrawWindowLabels, VideoRecordWindowLabels};
@@ -33,7 +35,13 @@ use snow_shot_app_shared::EnigoManager;
 use snow_shot_global_state::{CaptureState, ReadClipboardState, WebViewSharedBufferState};
 use snow_shot_plugin_service::plugin_service;
 
+#[cfg(not(debug_assertions))]
+const RECOVERY_LOG_RECORD_LIMIT: usize = 1024;
+
 pub(crate) fn configure_main_window(main_window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    windows_session::install(main_window);
+
     let window_clone = main_window.clone();
     main_window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -84,6 +92,8 @@ pub fn run() {
 
     let enable_run_log = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let enable_run_log_clone = enable_run_log.clone();
+    #[cfg(not(debug_assertions))]
+    let recovery_log_records = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
     let plugin_service = Arc::new(plugin_service::PluginService::new());
 
@@ -102,9 +112,8 @@ pub fn run() {
 
     // let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
 
-    // log 文件可能因为某些异常情况不断输出，造成日志文件过大
-    // 先在 release 下屏蔽日志输出
-    // 注意不要移除 log 插件的初始化,避免前端调用 log 时保存再次报错,持续循环报错
+    // Release 默认只保留不含用户内容的恢复诊断；详细日志仍由用户开关控制。
+    // 日志文件必须有界，避免异常循环持续占用磁盘。
     let log_targets: Vec<Target> = if cfg!(debug_assertions) {
         vec![
             Target::new(TargetKind::Stdout),
@@ -134,19 +143,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            let Some(app_window) = app.get_webview_window("main") else {
-                log::error!("[single_instance] main window not found");
-                return;
-            };
-            if let Err(error) = app_window.show() {
-                log::error!("[single_instance] show main window failed: {error}");
-            }
-            if let Err(error) = app_window.unminimize() {
-                log::error!("[single_instance] unminimize main window failed: {error}");
-            }
-            if let Err(error) = app_window.set_focus() {
-                log::error!("[single_instance] focus main window failed: {error}");
-            }
+            native_action::handle_single_instance(app);
         }))
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
@@ -169,11 +166,12 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::default()
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
+                .max_file_size(128 * 1024)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .targets(log_targets)
                 .level(log_level)
-                .filter(move |_| {
+                .filter(move |_metadata| {
                     #[cfg(debug_assertions)]
                     {
                         return true;
@@ -181,7 +179,13 @@ pub fn run() {
 
                     #[cfg(not(debug_assertions))]
                     {
-                        return enable_run_log.load(std::sync::atomic::Ordering::Relaxed);
+                        if enable_run_log.load(std::sync::atomic::Ordering::Relaxed) {
+                            return true;
+                        }
+                        return _metadata.target() == "snow-shot-recovery"
+                            && recovery_log_records
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                < RECOVERY_LOG_RECORD_LIMIT;
                     }
                 })
                 .build(),
@@ -198,6 +202,9 @@ pub fn run() {
             }
 
             configure_main_window(&main_window);
+            if let Err(error) = native_action::ensure_main_tray_during_setup(app.handle()) {
+                log::error!(target: "snow-shot-recovery", "[lib::setup] failed to create native fallback tray: {error}");
+            }
 
             // 如果是调试模式，则显示窗口
             #[cfg(debug_assertions)]
@@ -339,10 +346,12 @@ pub fn run() {
             native_action::native_shortcut_set_input_active,
             native_action::native_shortcut_set_full_screen_policy,
             native_action::native_tray_set_click_action,
+            native_action::native_tray_set_enabled,
             native_action::native_runtime_start,
-            native_action::native_runtime_heartbeat,
             native_action::native_runtime_ready,
+            native_action::native_main_runtime_probe_ack,
             native_action::native_draw_runtime_ready,
+            native_action::native_draw_runtime_probe_ack,
             native_action::native_runtime_bind_draw,
             native_action::native_action_ack,
         ])
@@ -392,7 +401,7 @@ pub fn run() {
                 .state::<native_action::NativeActionState>()
                 .main_rebuild_active()
         {
-            log::warn!("[native_action] prevented exit while rebuilding the main window");
+            log::warn!(target: "snow-shot-recovery", "[native_action] prevented exit while rebuilding the main window");
             api.prevent_exit();
         }
     });

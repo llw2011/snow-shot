@@ -1,4 +1,4 @@
-import { emit } from "@tauri-apps/api/event";
+import { emit, emitTo } from "@tauri-apps/api/event";
 import * as tauriLog from "@tauri-apps/plugin-log";
 import { captureFocusedWindow } from "@/commands/screenshot";
 import { FOCUS_WINDOW_APP_NAME_ENV_VARIABLE } from "@/constants/components/chat";
@@ -13,12 +13,18 @@ export const executeScreenshot = async (
 	type: ScreenshotType = ScreenshotType.Default,
 	windowLabel?: string,
 	captureHistoryId?: string,
+	targetWindowLabel?: string,
 ) => {
-	await emit("execute-screenshot", {
+	const payload = {
 		type,
 		windowLabel,
 		captureHistoryId,
-	});
+	};
+	if (targetWindowLabel) {
+		await emitTo(targetWindowLabel, "execute-screenshot", payload);
+		return;
+	}
+	await emit("execute-screenshot", payload);
 };
 
 export const executeScreenshotFocusedWindow = async (

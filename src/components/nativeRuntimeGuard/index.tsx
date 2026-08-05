@@ -1,13 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
-import {
-	nativeRuntimeHeartbeat,
-	nativeRuntimeStart,
-} from "@/commands/nativeAction";
+import { nativeRuntimeStart } from "@/commands/nativeAction";
 import { appError } from "@/utils/log";
-
-const HEARTBEAT_INTERVAL_MS = 5000;
-const MAIN_WINDOW_LABEL = "main";
 
 export const NativeRuntimeGuard = () => {
 	useEffect(() => {
@@ -35,21 +29,7 @@ export const NativeRuntimeGuard = () => {
 				});
 		}
 
-		let heartbeatTimer: number | undefined;
-		if (windowLabel === MAIN_WINDOW_LABEL) {
-			const heartbeat = () => {
-				nativeRuntimeHeartbeat().catch((error) => {
-					appError("[NativeRuntimeGuard] heartbeat failed", error);
-				});
-			};
-			heartbeat();
-			heartbeatTimer = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
-		}
-
 		return () => {
-			if (heartbeatTimer !== undefined) {
-				window.clearInterval(heartbeatTimer);
-			}
 			releaseLock?.();
 			abortController.abort();
 		};

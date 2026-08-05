@@ -27,7 +27,10 @@ import {
 } from "@/commands/core";
 import { setCaptureState } from "@/commands/globalSate";
 import { listenKeyStart, listenKeyStop } from "@/commands/listenKey";
-import { nativeDrawRuntimeReady } from "@/commands/nativeAction";
+import {
+	nativeDrawRuntimeProbeAck,
+	nativeDrawRuntimeReady,
+} from "@/commands/nativeAction";
 import { captureAllMonitors, switchAlwaysOnTop } from "@/commands/screenshot";
 import {
 	scrollScreenshotClear,
@@ -218,6 +221,8 @@ const DrawPageCore: React.FC<{
 	const drawPageStateRef = useRef<DrawPageState>(DrawPageState.Init);
 	const [canvasReady, setCanvasReady] = useState(false);
 	const [appSettingsReady, setAppSettingsReady] = useState(false);
+	const [drawActionListenersReady, setDrawActionListenersReady] =
+		useState(false);
 	const drawRuntimeReadySentRef = useRef(false);
 	const drawRuntimeReadySendingRef = useRef(false);
 	useAppSettingsLoad(
@@ -230,6 +235,7 @@ const DrawPageCore: React.FC<{
 			!canvasReady ||
 			!appSettingsReady ||
 			!listenersReady ||
+			!drawActionListenersReady ||
 			drawRuntimeReadySentRef.current ||
 			drawRuntimeReadySendingRef.current
 		) {
@@ -243,6 +249,7 @@ const DrawPageCore: React.FC<{
 				throw new Error("draw window readiness request is no longer pending");
 			}
 			drawRuntimeReadySentRef.current = true;
+			await releaseDrawPage();
 		})()
 			.catch((error) => {
 				appError("[DrawPageCore] draw runtime ready failed", error);
@@ -250,7 +257,7 @@ const DrawPageCore: React.FC<{
 			.finally(() => {
 				drawRuntimeReadySendingRef.current = false;
 			});
-	}, [appSettingsReady, canvasReady, listenersReady]);
+	}, [appSettingsReady, canvasReady, drawActionListenersReady, listenersReady]);
 	const mousePositionRef = useRef<MousePosition>(new MousePosition(0, 0));
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
@@ -1264,26 +1271,19 @@ const DrawPageCore: React.FC<{
 		message,
 	]);
 
-	const releaseExecuteScreenshotTimerRef = useRef<
-		| {
-				timer: NodeJS.Timeout | undefined;
-				type: ScreenshotType;
-		  }
-		| undefined
+	type ExecuteScreenshotPayload = {
+		type: ScreenshotType;
+		windowLabel?: string;
+		captureHistoryId?: string;
+	};
+	const pendingReleaseScreenshotRef = useRef<
+		ExecuteScreenshotPayload | undefined
 	>(undefined);
 
 	useEffect(() => {
 		// 监听截图命令
 		const listenerId = addListener("execute-screenshot", (args) => {
-			const payload = (
-				args as {
-					payload: {
-						type: ScreenshotType;
-						windowLabel?: string;
-						captureHistoryId?: string;
-					};
-				}
-			).payload;
+			const payload = (args as { payload: ExecuteScreenshotPayload }).payload;
 
 			// 防止循环调用
 			if (payload.windowLabel === appWindowRef.current?.label) {
@@ -1294,29 +1294,21 @@ const DrawPageCore: React.FC<{
 				return;
 			}
 
-			if (payload.type === ScreenshotType.CaptureFullScreen) {
-				captureHistoryActionRef.current?.captureFullScreen();
-				return;
-			}
-
 			if (drawPageStateRef.current === DrawPageState.Init) {
 				return;
 			} else if (drawPageStateRef.current === DrawPageState.Release) {
-				// 这时候可能窗口还在加载中，每隔一段时间触发下截图
-				if (releaseExecuteScreenshotTimerRef.current?.timer) {
-					clearInterval(releaseExecuteScreenshotTimerRef.current.timer);
-				}
-				releaseExecuteScreenshotTimerRef.current = {
-					timer: setInterval(() => {
-						executeScreenshotFunc(payload.type, appWindowRef.current?.label);
-					}, 128),
-					type: payload.type,
-				};
-
+				// The replacement draw page emits release-draw-page after its canvas and
+				// listeners are ready. Defer once to that event instead of polling it.
+				pendingReleaseScreenshotRef.current = payload;
 				return;
 			} else if (drawPageStateRef.current === DrawPageState.WaitRelease) {
 				// 重置为激活状态
 				drawPageStateRef.current = DrawPageState.Active;
+			}
+
+			if (payload.type === ScreenshotType.CaptureFullScreen) {
+				captureHistoryActionRef.current?.captureFullScreen();
+				return;
 			}
 
 			excuteScreenshot(payload.type, payload);
@@ -1333,20 +1325,44 @@ const DrawPageCore: React.FC<{
 				if (drawPageStateRef.current !== DrawPageState.Release) {
 					return;
 				}
-
-				if (releaseExecuteScreenshotTimerRef.current?.timer) {
-					clearInterval(releaseExecuteScreenshotTimerRef.current.timer);
-					executeScreenshotFunc(releaseExecuteScreenshotTimerRef.current.type);
-				}
 			}
 
-			getCurrentWindow().close();
+			const pendingScreenshot = pendingReleaseScreenshotRef.current;
+			pendingReleaseScreenshotRef.current = undefined;
+			void (async () => {
+				if (pendingScreenshot) {
+					await executeScreenshotFunc(
+						pendingScreenshot.type,
+						appWindowRef.current?.label,
+						pendingScreenshot.captureHistoryId,
+					);
+				}
+				await getCurrentWindow().close();
+			})().catch((error) => {
+				appError("[DrawPageCore] release draw handoff failed", error);
+			});
 		});
+
+		const runtimeProbeListenerId = addListener(
+			"native-draw-runtime-probe",
+			(args) => {
+				const { probeId, documentId } = (
+					args as {
+						payload: { probeId: number; documentId: string };
+					}
+				).payload;
+				void nativeDrawRuntimeProbeAck(probeId, documentId).catch((error) => {
+					appError("[DrawPageCore] draw runtime probe ack failed", error);
+				});
+			},
+		);
+		setDrawActionListenersReady(true);
 
 		return () => {
 			removeListener(listenerId);
 			removeListener(finishListenerId);
 			removeListener(releaseListenerId);
+			removeListener(runtimeProbeListenerId);
 		};
 	}, [addListener, excuteScreenshot, removeListener, finishCapture]);
 
@@ -1545,7 +1561,6 @@ const DrawPageCore: React.FC<{
 	const onInitCanvasReady = useCallback(async () => {
 		drawPageStateRef.current = DrawPageState.Active;
 		setCanvasReady(true);
-		await releaseDrawPage();
 	}, []);
 
 	return (

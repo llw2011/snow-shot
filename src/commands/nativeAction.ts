@@ -99,13 +99,8 @@ export const nativeTraySetClickAction = async (action: TrayIconClickAction) => {
 	await invoke<void>("native_tray_set_click_action", { action });
 };
 
-export const nativeRuntimeHeartbeat = async () => {
-	await nativeRuntimeStart();
-	await invoke<void>("native_runtime_heartbeat", {
-		documentId: runtimeDocumentId,
-	});
-	await syncShortcutInputState();
-	await confirmNativeRuntimeReady();
+export const nativeTraySetEnabled = async (enabled: boolean) => {
+	await invoke<void>("native_tray_set_enabled", { enabled });
 };
 
 export const nativeRuntimeListenersReady = async () => {
@@ -123,6 +118,32 @@ export const nativeRuntimeSettingsReady = async () => {
 export const nativeDrawRuntimeReady = async () => {
 	await nativeRuntimeStart();
 	await invoke<void>("native_draw_runtime_ready", {
+		documentId: runtimeDocumentId,
+	});
+};
+
+export const nativeDrawRuntimeProbeAck = async (
+	probeId: number,
+	expectedDocumentId: string,
+) => {
+	if (expectedDocumentId !== runtimeDocumentId) {
+		return false;
+	}
+	return await invoke<boolean>("native_draw_runtime_probe_ack", {
+		probeId,
+		documentId: runtimeDocumentId,
+	});
+};
+
+export const nativeMainRuntimeProbeAck = async (
+	probeId: number,
+	expectedDocumentId: string,
+) => {
+	if (expectedDocumentId !== runtimeDocumentId) {
+		return false;
+	}
+	return await invoke<boolean>("native_main_runtime_probe_ack", {
+		probeId,
 		documentId: runtimeDocumentId,
 	});
 };

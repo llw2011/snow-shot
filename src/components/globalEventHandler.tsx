@@ -7,7 +7,10 @@ import {
 	getSelectedText,
 } from "@/commands/core";
 import { getCaptureState } from "@/commands/globalSate";
-import { nativeActionAck } from "@/commands/nativeAction";
+import {
+	nativeActionAck,
+	nativeMainRuntimeProbeAck,
+} from "@/commands/nativeAction";
 import { showMainWindow } from "@/commands/videoRecord";
 import { EventListenerContext } from "@/components/eventListener";
 import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
@@ -38,6 +41,7 @@ type NativeActionRequest = {
 	documentId: string;
 	action: AppFunction;
 	source: string;
+	drawWindowLabel?: string;
 };
 
 const GlobalEventHandlerCore: React.FC = () => {
@@ -49,8 +53,18 @@ const GlobalEventHandlerCore: React.FC = () => {
 	useEffect(() => {
 		const listenerIdList: number[] = [];
 		listenerIdList.push(
+			addListener("native-main-runtime-probe", (args) => {
+				const { probeId, documentId } = (
+					args as {
+						payload: { probeId: number; documentId: string };
+					}
+				).payload;
+				void nativeMainRuntimeProbeAck(probeId, documentId).catch((error) => {
+					appError("[GlobalEventHandler] main runtime probe ack failed", error);
+				});
+			}),
 			addListener("execute-native-action", async (args) => {
-				const { requestId, documentId, action, source } = (
+				const { requestId, documentId, action, source, drawWindowLabel } = (
 					args as { payload: NativeActionRequest }
 				).payload;
 				try {
@@ -66,27 +80,29 @@ const GlobalEventHandlerCore: React.FC = () => {
 				}
 
 				try {
+					const executeDrawScreenshot = (type?: ScreenshotType) =>
+						executeScreenshot(type, undefined, undefined, drawWindowLabel);
 					switch (action) {
 						case AppFunction.Screenshot:
-							await executeScreenshot();
+							await executeDrawScreenshot();
 							break;
 						case AppFunction.ScreenshotDelay:
-							await executeScreenshot(ScreenshotType.Delay);
+							await executeDrawScreenshot(ScreenshotType.Delay);
 							break;
 						case AppFunction.ScreenshotFixed:
-							await executeScreenshot(ScreenshotType.Fixed);
+							await executeDrawScreenshot(ScreenshotType.Fixed);
 							break;
 						case AppFunction.ScreenshotOcr:
-							await executeScreenshot(ScreenshotType.OcrDetect);
+							await executeDrawScreenshot(ScreenshotType.OcrDetect);
 							break;
 						case AppFunction.ScreenshotOcrTranslate:
-							await executeScreenshot(ScreenshotType.OcrTranslate);
+							await executeDrawScreenshot(ScreenshotType.OcrTranslate);
 							break;
 						case AppFunction.ScreenshotCopy:
-							await executeScreenshot(ScreenshotType.Copy);
+							await executeDrawScreenshot(ScreenshotType.Copy);
 							break;
 						case AppFunction.ScreenshotFullScreen:
-							await executeScreenshot(ScreenshotType.CaptureFullScreen);
+							await executeDrawScreenshot(ScreenshotType.CaptureFullScreen);
 							break;
 						case AppFunction.ScreenshotFocusedWindow:
 							await executeScreenshotFocusedWindow(getAppSettings());
@@ -113,13 +129,13 @@ const GlobalEventHandlerCore: React.FC = () => {
 							await createFixedContentWindow();
 							break;
 						case AppFunction.VideoRecord:
-							await executeScreenshot(ScreenshotType.VideoRecord);
+							await executeDrawScreenshot(ScreenshotType.VideoRecord);
 							break;
 						case AppFunction.VideoRecordCopy:
 							await startOrCopyVideo();
 							break;
 						case AppFunction.TopWindow:
-							await executeScreenshot(ScreenshotType.TopWindow);
+							await executeDrawScreenshot(ScreenshotType.TopWindow);
 							break;
 						case AppFunction.FullScreenDraw:
 							await createFullScreenDrawWindow();

@@ -277,6 +277,10 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 				callback: async () => {},
 			});
 			defaultListener.push({
+				event: "native-main-runtime-probe",
+				callback: async () => {},
+			});
+			defaultListener.push({
 				event: "release-ocr-session",
 				callback: async () => {
 					releaseOcrSessionAction();
@@ -363,6 +367,10 @@ const EventListenerCore: React.FC<{ children: React.ReactNode }> = ({
 			});
 
 			if (isDrawPage) {
+				defaultListener.push({
+					event: "native-draw-runtime-probe",
+					callback: async () => {},
+				});
 				defaultListener.push({
 					event: "execute-screenshot",
 					callback: async () => {},

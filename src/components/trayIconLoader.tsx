@@ -3,7 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Image } from "@tauri-apps/api/image";
 import { Menu, type MenuItem } from "@tauri-apps/api/menu";
 import { join, resourceDir } from "@tauri-apps/api/path";
-import { TrayIcon, type TrayIconOptions } from "@tauri-apps/api/tray";
+import { TrayIcon } from "@tauri-apps/api/tray";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isEqual } from "es-toolkit";
 import React, { useCallback, useContext, useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import { useIntl } from "react-intl";
 import {
 	nativeShortcutSetDisabled,
 	nativeTraySetClickAction,
+	nativeTraySetEnabled,
 } from "@/commands/nativeAction";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
@@ -49,7 +50,6 @@ export const TrayIconStatePublisher = createPublisher<{
 });
 
 type TrayResources = {
-	trayIcon: TrayIcon | undefined;
 	trayIconMenu: Menu | undefined;
 };
 
@@ -64,19 +64,41 @@ const runTrayMutation = <T,>(mutation: () => Promise<T>) => {
 	return result;
 };
 
-const replaceTrayIcon = async (id: string, options: TrayIconOptions) => {
-	if (await TrayIcon.getById(id)) {
-		await TrayIcon.removeById(id);
+const closeImageResource = async (image: Image | null | undefined) => {
+	try {
+		await image?.close();
+	} catch (error) {
+		appError("[TrayIconLoader] close tray image resource failed", error);
 	}
-	return await TrayIcon.new(options);
 };
 
-const closeTrayResources = async ({
-	trayIcon,
-	trayIconMenu,
-}: TrayResources) => {
-	await trayIconMenu?.close();
-	await trayIcon?.close();
+const closeMenuResource = async (menu: Menu | undefined) => {
+	try {
+		await menu?.close();
+	} catch (error) {
+		appError("[TrayIconLoader] close tray menu resource failed", error);
+	}
+};
+
+const updateTrayIcon = async (id: string, icon: Image | null, menu: Menu) => {
+	const trayIcon = await TrayIcon.getById(id);
+	if (!trayIcon) {
+		throw new Error(`native tray icon ${id} is unavailable`);
+	}
+
+	if (icon) {
+		await trayIcon.setIcon(icon);
+	}
+	await trayIcon.setMenu(menu);
+	await trayIcon.setTooltip("Snow Shot");
+	await trayIcon.setShowMenuOnLeftClick(false);
+	await trayIcon.setVisible(true);
+	// Tauri getById exposes the manager-owned RID. Calling close() here would
+	// remove the Rust fallback tray itself; the lookup does not allocate a clone.
+};
+
+const closeTrayResources = async ({ trayIconMenu }: TrayResources) => {
+	await closeMenuResource(trayIconMenu);
 };
 
 export const getDefaultIconPath = async (
@@ -188,6 +210,7 @@ const TrayIconLoaderComponent = () => {
 			return;
 		}
 
+		await nativeTraySetEnabled(enableTrayIcon);
 		if (!enableTrayIcon) {
 			return;
 		}
@@ -210,9 +233,13 @@ const TrayIconLoaderComponent = () => {
 		}
 
 		if (iconImage) {
-			const size = await iconImage.size();
+			const size = await iconImage.size().catch(async (error) => {
+				await closeImageResource(iconImage);
+				throw error;
+			});
 			if (size.width > 128 || size.height > 128) {
 				message.error(intl.formatMessage({ id: "home.trayIcon.error3" }));
+				await closeImageResource(iconImage);
 				return;
 			}
 		}
@@ -468,14 +495,17 @@ const TrayIconLoaderComponent = () => {
 					text: intl.formatMessage({ id: "home.exit" }),
 				},
 			],
+		}).catch(async (error) => {
+			await closeImageResource(iconImage);
+			throw error;
 		});
 
 		const trayIconId = `${appWindow.label}-trayIcon`;
-		const options: TrayIconOptions = {
-			id: trayIconId,
-			icon: iconImage
-				? iconImage
-				: ((await (async () => {
+		let trayIconImage: Image | null = iconImage ?? null;
+		try {
+			if (!trayIconImage) {
+				trayIconImage =
+					(await (async () => {
 						let targetDefaultIcon = defaultIcon;
 						if (currentTheme === AppSettingsTheme.Dark && defaultIconDark) {
 							targetDefaultIcon = defaultIconDark;
@@ -486,18 +516,17 @@ const TrayIconLoaderComponent = () => {
 						const iconImage = await Image.fromPath(native_path);
 
 						return iconImage;
-					})()) ??
-					(await defaultWindowIcon()) ??
-					""),
-			showMenuOnLeftClick: false,
-			tooltip: "Snow Shot",
-			menu,
-		};
+					})()) ?? (await defaultWindowIcon());
+			}
 
-		return {
-			trayIcon: await replaceTrayIcon(trayIconId, options),
-			trayIconMenu: menu,
-		};
+			await updateTrayIcon(trayIconId, trayIconImage, menu);
+			return { trayIconMenu: menu };
+		} catch (error) {
+			await closeMenuResource(menu);
+			throw error;
+		} finally {
+			await closeImageResource(trayIconImage);
+		}
 	}, [
 		shortcutKeys,
 		enableTrayIcon,
@@ -524,7 +553,10 @@ const TrayIconLoaderComponent = () => {
 			return;
 		}
 
-		const trayIconPromise = runTrayMutation(initTrayIcon);
+		const trayIconPromise = runTrayMutation(initTrayIcon).catch((error) => {
+			appError("[TrayIconLoader] update native tray icon failed", error);
+			return undefined;
+		});
 		let trayResourcesClosed = false;
 
 		const closeTrayIcon = (errorContext: string) => {
