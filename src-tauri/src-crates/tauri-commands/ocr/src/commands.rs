@@ -169,6 +169,7 @@ pub async fn ocr_detect(
 pub async fn ocr_detect_with_shared_buffer(
     ocr_service: tauri::State<'_, Mutex<OcrService>>,
     shared_buffer_service: tauri::State<'_, std::sync::Arc<snow_shot_webview::SharedBufferService>>,
+    webview: tauri::Webview,
     channel_id: String,
     scale_factor: f32,
     detect_angle: bool,
@@ -179,7 +180,10 @@ pub async fn ocr_detect_with_shared_buffer(
         return Err("[ocr_detect_with_shared_buffer] Invalid scale factor".to_string());
     }
 
-    let image_data = match shared_buffer_service.receive_data(channel_id) {
+    let image_data = match shared_buffer_service
+        .receive_data(channel_id, webview)
+        .await
+    {
         Ok(image_data) => image_data,
         Err(e) => {
             return Err(format!(

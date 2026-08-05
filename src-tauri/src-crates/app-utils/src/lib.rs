@@ -825,9 +825,13 @@ pub fn split_rgba_image_metadata<'a>(
 #[cfg(target_os = "windows")]
 pub async fn write_bitmap_image_to_clipboard_with_shared_buffer(
     shared_buffer_service: tauri::State<'_, std::sync::Arc<snow_shot_webview::SharedBufferService>>,
+    webview: tauri::Webview,
     channel_id: String,
 ) -> Result<(), String> {
-    let image_data = match shared_buffer_service.receive_data(channel_id) {
+    let image_data = match shared_buffer_service
+        .receive_data(channel_id, webview)
+        .await
+    {
         Ok(image_data) => image_data,
         Err(e) => {
             return Err(format!(

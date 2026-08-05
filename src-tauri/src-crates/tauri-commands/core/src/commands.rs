@@ -889,10 +889,12 @@ pub async fn write_bitmap_image_to_clipboard(
 #[command]
 pub async fn write_bitmap_image_to_clipboard_with_shared_buffer(
     shared_buffer_service: tauri::State<'_, Arc<snow_shot_webview::SharedBufferService>>,
+    webview: tauri::Webview,
     channel_id: String,
 ) -> Result<(), String> {
     snow_shot_app_utils::write_bitmap_image_to_clipboard_with_shared_buffer(
         shared_buffer_service,
+        webview,
         channel_id,
     )
     .await
@@ -1013,11 +1015,15 @@ pub async fn set_exclude_from_capture(
 pub async fn write_image_pixels_to_clipboard_with_shared_buffer(
     app: tauri::AppHandle,
     shared_buffer_service: tauri::State<'_, Arc<snow_shot_webview::SharedBufferService>>,
+    webview: tauri::Webview,
     channel_id: String,
 ) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
 
-    let image_data = match shared_buffer_service.receive_data(channel_id) {
+    let image_data = match shared_buffer_service
+        .receive_data(channel_id, webview)
+        .await
+    {
         Ok(image_data) => image_data,
         Err(e) => {
             return Err(format!(
