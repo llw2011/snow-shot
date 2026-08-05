@@ -347,34 +347,38 @@ export const HomePage = () => {
 				})}
 			<style jsx>{`
                 :global(.home-wrap) {
-                    padding-top: ${token.paddingXS}px;
+                    padding-top: 0;
                 }
 
                 .home-command-group {
-                    margin-bottom: ${token.margin}px;
-                    padding: ${token.paddingSM}px;
+                    margin-bottom: 12px;
+                    padding: 14px;
                     border: 1px solid var(--snow-shot-hairline-soft);
-                    border-radius: ${token.borderRadius}px;
-                    background: var(--snow-shot-command-group-bg);
-                    box-shadow: var(--snow-shot-card-shadow);
+                    border-radius: var(--snow-shot-radius-lg);
+                    background: var(--snow-shot-surface);
+                    box-shadow: none;
+                }
+
+                .home-command-group:first-of-type {
+                    border-color: var(--snow-shot-primary-strong);
                 }
 
                 .home-command-group :global(.components_group-title) {
-                    margin-bottom: ${token.marginSM}px !important;
-                    padding: 0 ${token.paddingXXS}px;
+                    margin-bottom: 10px !important;
+                    padding: 0 2px;
                 }
 
                 .home-command-list {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                    gap: ${token.paddingXS}px;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 8px;
                 }
 
                 .home-command-item {
                     min-width: 0;
                 }
 
-                @media (max-width: 760px) {
+                @container snow-content (max-width: 880px) {
                     .home-command-list {
                         grid-template-columns: minmax(0, 1fr);
                     }

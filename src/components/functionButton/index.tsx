@@ -1,7 +1,6 @@
-import { Button, Flex, theme } from "antd";
+import { Button } from "antd";
 import type React from "react";
 import { useState } from "react";
-import { zIndexs } from "@/utils/zIndex";
 import { IconLabel } from "../iconLable";
 
 export const FunctionButton: React.FC<{
@@ -10,52 +9,102 @@ export const FunctionButton: React.FC<{
 	onClick?: () => Promise<void>;
 	children?: React.ReactNode;
 }> = ({ label, icon, onClick, children }) => {
-	const { token } = theme.useToken();
 	const [loading, setLoading] = useState(false);
+
 	return (
-		<div style={{ position: "relative" }}>
+		<div className={`snow-command-row${children ? " has-shortcut" : ""}`}>
 			<Button
-				className="snow-command-button"
-				size="large"
+				className="snow-command-button snow-command-action"
 				loading={loading}
 				block
-				style={{
-					overflow: "hidden",
-					paddingRight: children ? 190 : token.padding,
-				}}
 				onClick={async () => {
 					setLoading(true);
-					await onClick?.();
-					setLoading(false);
+					try {
+						await onClick?.();
+					} finally {
+						setLoading(false);
+					}
 				}}
 			>
-				<Flex
-					justify="flex-start"
-					align="center"
-					style={{ width: "100%", height: "100%", minWidth: 0 }}
-				>
+				<span className="snow-command-label">
 					<IconLabel icon={icon} label={label} />
-				</Flex>
+				</span>
 			</Button>
-			<div
-				style={{
-					position: "absolute",
-					height: "100%",
-					zIndex: zIndexs.Main_FunctionButtonInput,
-					right: 0,
-					top: 0,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "flex-end",
-					paddingLeft: token.padding,
-					paddingRight: token.padding,
-				}}
-				onClick={(e) => {
-					e.stopPropagation();
-				}}
-			>
-				{children}
-			</div>
+
+			{children && (
+				<div
+					className="snow-command-shortcut"
+					onClick={(event) => event.stopPropagation()}
+				>
+					{children}
+				</div>
+			)}
+
+			<style jsx>{`
+				.snow-command-row {
+					display: grid;
+					grid-template-columns: minmax(0, 1fr);
+					align-items: center;
+					min-width: 0;
+					min-height: 48px;
+					overflow: hidden;
+					border: 1px solid var(--snow-shot-hairline-soft);
+					border-radius: var(--snow-shot-radius);
+					background: var(--snow-shot-surface-elevated);
+					transition:
+						background-color 0.16s ease,
+						border-color 0.16s ease;
+				}
+
+				.snow-command-row.has-shortcut {
+					grid-template-columns: minmax(0, 1fr) auto;
+				}
+
+				.snow-command-row:hover,
+				.snow-command-row:focus-within {
+					border-color: var(--snow-shot-hairline-strong);
+					background: var(--snow-shot-surface-card);
+				}
+
+				.snow-command-row :global(.snow-command-action.ant-btn) {
+					justify-content: flex-start;
+					height: 46px;
+					min-width: 0;
+					padding: 0 12px;
+					border: 0 !important;
+					border-radius: 0 !important;
+					background: transparent !important;
+					box-shadow: none !important;
+					text-align: left;
+				}
+
+				.snow-command-row :global(.snow-command-action.ant-btn:hover),
+				.snow-command-row :global(.snow-command-action.ant-btn:focus-visible) {
+					background: transparent !important;
+				}
+
+				.snow-command-label {
+					display: block;
+					min-width: 0;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
+
+				.snow-command-shortcut {
+					display: flex;
+					align-items: center;
+					justify-content: flex-end;
+					min-width: 0;
+					padding: 0 10px 0 4px;
+				}
+
+				@media (prefers-reduced-motion: reduce) {
+					.snow-command-row {
+						transition: none;
+					}
+				}
+			`}</style>
 		</div>
 	);
 };

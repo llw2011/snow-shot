@@ -1,11 +1,11 @@
 "use client";
 
-import { Col, Divider, Form, Row, Spin, theme } from "antd";
+import { Col, Form, Row, Spin, theme } from "antd";
 import { useCallback, useContext, useMemo, useState } from "react";
 import { FormattedMessage } from "react-intl";
-import { GroupTitle } from "@/components/groupTitle";
 import { KeyButton } from "@/components/keyButton";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import { SettingsSection } from "@/components/settingsSection";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
 	defaultCommonKeyEventComponentConfig,
@@ -243,55 +243,54 @@ export const HotKeySettingsPage = () => {
 					})
 					.map((configGroup, index) => {
 						return (
-							<div key={configGroup}>
-								<GroupTitle
-									id={configGroup}
-									extra={
-										<ResetSettingsButton
-											title={
-												<FormattedMessage
-													id={`settings.hotKeySettings.${configGroup}`}
-													key={configGroup}
-												/>
-											}
-											appSettingsGroup={AppSettingsGroup.CommonKeyEvent}
-											filter={(settings) => {
-												return Object.keys(settings).reduce(
-													(acc, key) => {
-														if (
-															commonKeyEvent[key as CommonKeyEventKey].group ===
-															configGroup
-														) {
-															acc[key] = settings[key];
-														}
-														return acc;
-													},
-													{} as Record<string, unknown>,
-												);
-											}}
-										/>
-									}
-								>
+							<SettingsSection
+								key={configGroup}
+								sectionId={configGroup}
+								title={
 									<FormattedMessage
 										id={`settings.hotKeySettings.${configGroup}`}
 									/>
-								</GroupTitle>
+								}
+								extra={
+									<ResetSettingsButton
+										title={
+											<FormattedMessage
+												id={`settings.hotKeySettings.${configGroup}`}
+												key={configGroup}
+											/>
+										}
+										appSettingsGroup={AppSettingsGroup.CommonKeyEvent}
+										filter={(settings) => {
+											return Object.keys(settings).reduce(
+												(acc, key) => {
+													if (
+														commonKeyEvent[key as CommonKeyEventKey].group ===
+														configGroup
+													) {
+														acc[key] = settings[key];
+													}
+													return acc;
+												},
+												{} as Record<string, unknown>,
+											);
+										}}
+									/>
+								}
+								defaultOpen={index === 0}
+							>
 								<Spin spinning={appSettingsLoading}>
 									<Row gutter={token.marginLG}>
-										{keyEventFormItemList[configGroup as CommonKeyEventGroup]}
+										{keyEventFormItemList[configGroup]}
 									</Row>
 								</Spin>
-
-								{index !== keyEventFormItemListKeys.length - 1 && <Divider />}
-							</div>
+							</SettingsSection>
 						);
 					})}
 			</Form>
 
-			<Divider />
-
-			<GroupTitle
-				id="drawingHotKey"
+			<SettingsSection
+				sectionId="drawingHotKey"
+				title={<FormattedMessage id="settings.drawingHotKey" />}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -304,17 +303,15 @@ export const HotKeySettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.drawingHotKey" />
-			</GroupTitle>
-
-			<Form
-				className="settings-form common-settings-form"
-				form={drawToolbarKeyEventForm}
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>{drawToolbarKeyEventFormItemList}</Row>
-				</Spin>
-			</Form>
+				<Form
+					className="settings-form common-settings-form"
+					form={drawToolbarKeyEventForm}
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>{drawToolbarKeyEventFormItemList}</Row>
+					</Spin>
+				</Form>
+			</SettingsSection>
 
 			<div className="hot-key-settings-form"></div>
 		</div>

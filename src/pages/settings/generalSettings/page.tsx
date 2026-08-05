@@ -11,7 +11,6 @@ import {
 	type CheckboxOptionType,
 	Col,
 	ColorPicker,
-	Divider,
 	Form,
 	Image,
 	Row,
@@ -23,11 +22,11 @@ import type { AggregationColor } from "antd/es/color-picker/color";
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { ContentWrap } from "@/components/contentWrap";
-import { GroupTitle } from "@/components/groupTitle";
 import { IconLabel } from "@/components/iconLable";
 import { DarkModeIcon, LanguageIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import { SettingsSection } from "@/components/settingsSection";
 import { getDefaultIconPath } from "@/components/trayIconLoader";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
@@ -343,8 +342,9 @@ export const GeneralSettingsPage = () => {
 
 	return (
 		<ContentWrap className="settings-wrap">
-			<GroupTitle
-				id="commonSettings"
+			<SettingsSection
+				sectionId="commonSettings"
+				title={<FormattedMessage id="settings.commonSettings" />}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -356,61 +356,65 @@ export const GeneralSettingsPage = () => {
 						appSettingsGroup={AppSettingsGroup.Common}
 					/>
 				}
+				defaultOpen
 			>
-				<FormattedMessage id="settings.commonSettings" />
-			</GroupTitle>
+				<Form
+					className="settings-form common-settings-form"
+					form={commonForm}
+					onValuesChange={(_, values) => {
+						updateAppSettings(
+							AppSettingsGroup.Common,
+							values,
+							true,
+							true,
+							true,
+						);
+					}}
+					layout="vertical"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<Form.Item
+									label={
+										<IconLabel
+											icon={<DarkModeIcon />}
+											label={<FormattedMessage id="settings.theme" />}
+										/>
+									}
+									name="theme"
+								>
+									<Select options={themeOptions} />
+								</Form.Item>
+							</Col>
+							<Col span={12}>
+								<Form.Item
+									className="settings-wrap-language"
+									name="language"
+									label={
+										<IconLabel
+											icon={<LanguageIcon />}
+											label={<FormattedMessage id="settings.language" />}
+										/>
+									}
+									required={false}
+									rules={[{ required: true }]}
+								>
+									<Select>
+										<Option value={AppSettingsLanguage.EN}>English</Option>
+										<Option value={AppSettingsLanguage.ZHHant}>繁体中文</Option>
+										<Option value={AppSettingsLanguage.ZHHans}>简体中文</Option>
+									</Select>
+								</Form.Item>
+							</Col>
+						</Row>
+					</Spin>
+				</Form>
+			</SettingsSection>
 
-			<Form
-				className="settings-form common-settings-form"
-				form={commonForm}
-				onValuesChange={(_, values) => {
-					updateAppSettings(AppSettingsGroup.Common, values, true, true, true);
-				}}
-				layout="vertical"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<Form.Item
-								label={
-									<IconLabel
-										icon={<DarkModeIcon />}
-										label={<FormattedMessage id="settings.theme" />}
-									/>
-								}
-								name="theme"
-							>
-								<Select options={themeOptions} />
-							</Form.Item>
-						</Col>
-						<Col span={12}>
-							<Form.Item
-								className="settings-wrap-language"
-								name="language"
-								label={
-									<IconLabel
-										icon={<LanguageIcon />}
-										label={<FormattedMessage id="settings.language" />}
-									/>
-								}
-								required={false}
-								rules={[{ required: true }]}
-							>
-								<Select>
-									<Option value={AppSettingsLanguage.EN}>English</Option>
-									<Option value={AppSettingsLanguage.ZHHant}>繁体中文</Option>
-									<Option value={AppSettingsLanguage.ZHHans}>简体中文</Option>
-								</Select>
-							</Form.Item>
-						</Col>
-					</Row>
-				</Spin>
-			</Form>
-
-			<Divider />
-
-			<GroupTitle
-				id="screenshotSettings"
+			<SettingsSection
+				sectionId="screenshotSettings"
+				title={<FormattedMessage id="settings.screenshotSettings" />}
 				extra={
 					<ResetSettingsButton
 						title={intl.formatMessage({ id: "settings.screenshotSettings" })}
@@ -418,268 +422,269 @@ export const GeneralSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.screenshotSettings" />
-			</GroupTitle>
+				<ProForm<AppSettingsData[AppSettingsGroup.Screenshot]>
+					className="settings-form screenshot-settings-form"
+					form={screenshotForm}
+					submitter={false}
+					onValuesChange={(_, values) => {
+						if (typeof values.fullScreenAuxiliaryLineColor === "object") {
+							values.fullScreenAuxiliaryLineColor = (
+								values.fullScreenAuxiliaryLineColor as AggregationColor
+							).toHexString();
+						}
 
-			<ProForm<AppSettingsData[AppSettingsGroup.Screenshot]>
-				className="settings-form screenshot-settings-form"
-				form={screenshotForm}
-				submitter={false}
-				onValuesChange={(_, values) => {
-					if (typeof values.fullScreenAuxiliaryLineColor === "object") {
-						values.fullScreenAuxiliaryLineColor = (
-							values.fullScreenAuxiliaryLineColor as AggregationColor
-						).toHexString();
-					}
+						if (typeof values.monitorCenterAuxiliaryLineColor === "object") {
+							values.monitorCenterAuxiliaryLineColor = (
+								values.monitorCenterAuxiliaryLineColor as AggregationColor
+							).toHexString();
+						}
 
-					if (typeof values.monitorCenterAuxiliaryLineColor === "object") {
-						values.monitorCenterAuxiliaryLineColor = (
-							values.monitorCenterAuxiliaryLineColor as AggregationColor
-						).toHexString();
-					}
+						if (
+							typeof values.colorPickerCenterAuxiliaryLineColor === "object"
+						) {
+							values.colorPickerCenterAuxiliaryLineColor = (
+								values.colorPickerCenterAuxiliaryLineColor as AggregationColor
+							).toHexString();
+						}
 
-					if (typeof values.colorPickerCenterAuxiliaryLineColor === "object") {
-						values.colorPickerCenterAuxiliaryLineColor = (
-							values.colorPickerCenterAuxiliaryLineColor as AggregationColor
-						).toHexString();
-					}
+						if (typeof values.selectRectMaskColor === "object") {
+							values.selectRectMaskColor = (
+								values.selectRectMaskColor as AggregationColor
+							).toHexString();
+						}
 
-					if (typeof values.selectRectMaskColor === "object") {
-						values.selectRectMaskColor = (
-							values.selectRectMaskColor as AggregationColor
-						).toHexString();
-					}
+						updateAppSettings(
+							AppSettingsGroup.Screenshot,
+							values,
+							true,
+							true,
+							true,
+							true,
+							false,
+						);
+					}}
+					layout="vertical"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSlider
+									name="uiScale"
+									label={
+										<FormattedMessage id="settings.commonSettings.screenshotSettings.uiScale" />
+									}
+									min={25}
+									max={100}
+									step={1}
+									marks={{
+										25: "25%",
+										100: "100%",
+									}}
+								/>
+							</Col>
 
-					updateAppSettings(
-						AppSettingsGroup.Screenshot,
-						values,
-						true,
-						true,
-						true,
-						true,
-						false,
-					);
-				}}
-				layout="vertical"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSlider
-								name="uiScale"
-								label={
-									<FormattedMessage id="settings.commonSettings.screenshotSettings.uiScale" />
-								}
-								min={25}
-								max={100}
-								step={1}
-								marks={{
-									25: "25%",
-									100: "100%",
-								}}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProFormSlider
+									name="toolbarUiScale"
+									label={
+										<FormattedMessage id="settings.commonSettings.screenshotSettings.toolbarUiScale" />
+									}
+									min={25}
+									max={100}
+									step={1}
+									marks={{
+										25: "25%",
+										100: "100%",
+									}}
+								/>
+							</Col>
 
-						<Col span={12}>
-							<ProFormSlider
-								name="toolbarUiScale"
-								label={
-									<FormattedMessage id="settings.commonSettings.screenshotSettings.toolbarUiScale" />
-								}
-								min={25}
-								max={100}
-								step={1}
-								marks={{
-									25: "25%",
-									100: "100%",
-								}}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProForm.Item
+									className="settings-wrap-language"
+									name="controlNode"
+									label={
+										<IconLabel
+											label={<FormattedMessage id="settings.controlNode" />}
+										/>
+									}
+									required={false}
+									rules={[{ required: true }]}
+								>
+									<Select>
+										<Option value={AppSettingsControlNode.Circle}>
+											<FormattedMessage id="settings.controlNode.circle" />
+										</Option>
+									</Select>
+								</ProForm.Item>
+							</Col>
 
-						<Col span={12}>
-							<ProForm.Item
-								className="settings-wrap-language"
-								name="controlNode"
-								label={
-									<IconLabel
-										label={<FormattedMessage id="settings.controlNode" />}
-									/>
-								}
-								required={false}
-								rules={[{ required: true }]}
-							>
-								<Select>
-									<Option value={AppSettingsControlNode.Circle}>
-										<FormattedMessage id="settings.controlNode.circle" />
-									</Option>
-								</Select>
-							</ProForm.Item>
-						</Col>
+							<Col span={12}>
+								<ProFormSwitch
+									name="disableAnimation"
+									label={<FormattedMessage id="settings.disableAnimation" />}
+								/>
+							</Col>
 
-						<Col span={12}>
-							<ProFormSwitch
-								name="disableAnimation"
-								label={<FormattedMessage id="settings.disableAnimation" />}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProFormRadio.Group
+									name="colorPickerShowMode"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.screenshotSettings.colorPickerShowMode" />
+									}
+									options={[
+										{
+											label: (
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRect" />
+											),
+											value: ColorPickerShowMode.BeyondSelectRect,
+										},
+										{
+											label: (
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.alwaysShowColorPicker" />
+											),
+											value: ColorPickerShowMode.Always,
+										},
+										{
+											label: (
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.neverShowColorPicker" />
+											),
+											value: ColorPickerShowMode.Never,
+										},
+									]}
+								/>
+							</Col>
 
-						<Col span={12}>
-							<ProFormRadio.Group
-								name="colorPickerShowMode"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.screenshotSettings.colorPickerShowMode" />
-								}
-								options={[
-									{
-										label: (
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRect" />
-										),
-										value: ColorPickerShowMode.BeyondSelectRect,
-									},
-									{
-										label: (
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.alwaysShowColorPicker" />
-										),
-										value: ColorPickerShowMode.Always,
-									},
-									{
-										label: (
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.neverShowColorPicker" />
-										),
-										value: ColorPickerShowMode.Never,
-									},
-								]}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="selectRectMaskColor"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.selectRectMaskColor" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
 
-						<Col span={12}>
-							<ProForm.Item
-								name="selectRectMaskColor"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.selectRectMaskColor" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
+							<Col span={12}>
+								<ProFormSlider
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRectElementOpacity" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRectElementOpacity.tip" />
+											}
+										/>
+									}
+									name="beyondSelectRectElementOpacity"
+									min={0}
+									max={100}
+									step={1}
+									marks={{
+										0: "0%",
+										100: "100%",
+									}}
+								/>
+							</Col>
 
-						<Col span={12}>
-							<ProFormSlider
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRectElementOpacity" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.beyondSelectRectElementOpacity.tip" />
-										}
-									/>
-								}
-								name="beyondSelectRectElementOpacity"
-								min={0}
-								max={100}
-								step={1}
-								marks={{
-									0: "0%",
-									100: "100%",
-								}}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProFormSlider
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.hotKeyTipOpacity" />
+											}
+										/>
+									}
+									name="hotKeyTipOpacity"
+									min={0}
+									max={100}
+									step={1}
+									marks={{
+										0: "0%",
+										100: "100%",
+									}}
+								/>
+							</Col>
+						</Row>
 
-						<Col span={12}>
-							<ProFormSlider
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.hotKeyTipOpacity" />
-										}
-									/>
-								}
-								name="hotKeyTipOpacity"
-								min={0}
-								max={100}
-								step={1}
-								marks={{
-									0: "0%",
-									100: "100%",
-								}}
-							/>
-						</Col>
-					</Row>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProForm.Item
+									name="fullScreenAuxiliaryLineColor"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.fullScreenAuxiliaryLineColor" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
 
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProForm.Item
-								name="fullScreenAuxiliaryLineColor"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.fullScreenAuxiliaryLineColor" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="monitorCenterAuxiliaryLineColor"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.monitorCenterAuxiliaryLineColor" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
 
-						<Col span={12}>
-							<ProForm.Item
-								name="monitorCenterAuxiliaryLineColor"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.monitorCenterAuxiliaryLineColor" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="colorPickerCenterAuxiliaryLineColor"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.colorPickerCenterAuxiliaryLineColor" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
+						</Row>
 
-						<Col span={12}>
-							<ProForm.Item
-								name="colorPickerCenterAuxiliaryLineColor"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.colorPickerCenterAuxiliaryLineColor" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
-					</Row>
+						<Row gutter={token.marginLG}>
+							<Col span={24}>
+								<ProFormSelect
+									name="toolbarHiddenToolList"
+									label={
+										<FormattedMessage id="settings.customToolbarToolList" />
+									}
+									options={customToolbarToolListOptions}
+									mode="multiple"
+								/>
+							</Col>
+						</Row>
+					</Spin>
+				</ProForm>
+			</SettingsSection>
 
-					<Row gutter={token.marginLG}>
-						<Col span={24}>
-							<ProFormSelect
-								name="toolbarHiddenToolList"
-								label={<FormattedMessage id="settings.customToolbarToolList" />}
-								options={customToolbarToolListOptions}
-								mode="multiple"
-							/>
-						</Col>
-					</Row>
-				</Spin>
-			</ProForm>
-
-			<Divider />
-
-			<GroupTitle
-				id="fixedContentSettings"
+			<SettingsSection
+				sectionId="fixedContentSettings"
+				title={<FormattedMessage id="settings.fixedContentSettings" />}
 				extra={
 					<ResetSettingsButton
 						title={intl.formatMessage({ id: "settings.fixedContentSettings" })}
@@ -687,57 +692,56 @@ export const GeneralSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.fixedContentSettings" />
-			</GroupTitle>
+				<ProForm<AppSettingsData[AppSettingsGroup.FixedContent]>
+					className="settings-form fixed-content-settings-form"
+					form={fixedContentForm}
+					submitter={false}
+					onValuesChange={(_, values) => {
+						if (typeof values.borderColor === "object") {
+							values.borderColor = (
+								values.borderColor as AggregationColor
+							).toHexString();
+						}
 
-			<ProForm<AppSettingsData[AppSettingsGroup.FixedContent]>
-				className="settings-form fixed-content-settings-form"
-				form={fixedContentForm}
-				submitter={false}
-				onValuesChange={(_, values) => {
-					if (typeof values.borderColor === "object") {
-						values.borderColor = (
-							values.borderColor as AggregationColor
-						).toHexString();
-					}
+						updateAppSettings(
+							AppSettingsGroup.FixedContent,
+							values,
+							true,
+							true,
+							true,
+							true,
+							false,
+						);
+					}}
+					layout="vertical"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProForm.Item
+									name="borderColor"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.fixedContentSettings.borderColor" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
+						</Row>
+					</Spin>
+				</ProForm>
+			</SettingsSection>
 
-					updateAppSettings(
-						AppSettingsGroup.FixedContent,
-						values,
-						true,
-						true,
-						true,
-						true,
-						false,
-					);
-				}}
-				layout="vertical"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProForm.Item
-								name="borderColor"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.fixedContentSettings.borderColor" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
-					</Row>
-				</Spin>
-			</ProForm>
-
-			<Divider />
-
-			<GroupTitle
-				id="trayIconSettings"
+			<SettingsSection
+				sectionId="trayIconSettings"
+				title={
+					<FormattedMessage id="settings.commonSettings.trayIconSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={intl.formatMessage({
@@ -747,119 +751,117 @@ export const GeneralSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.commonSettings.trayIconSettings" />
-			</GroupTitle>
-
-			<ProForm<AppSettingsData[AppSettingsGroup.CommonTrayIcon]>
-				form={trayIconForm}
-				submitter={false}
-				onValuesChange={(_, values) => {
-					updateAppSettings(
-						AppSettingsGroup.CommonTrayIcon,
-						values,
-						true,
-						true,
-						true,
-						true,
-						false,
-					);
-				}}
-				layout="horizontal"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="enableTrayIcon"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.enableTrayIcon" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.enableTrayIconTip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-
-						<Col span={24}>
-							<ProFormRadio.Group
-								name="defaultIcons"
-								label={
-									<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons" />
-								}
-								fieldProps={{
-									className: "tray-icon-radio-group",
-								}}
-								options={defaultIconsOptions}
-							/>
-						</Col>
-
-						<Col span={24}>
-							<ProForm.Item
-								name="iconPath"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.tip" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<PathInput
-									filters={[
-										{ name: "PNG(*.png)", extensions: ["png"] },
-										{ name: "ICO(*.ico)", extensions: ["ico"] },
-									]}
+				<ProForm<AppSettingsData[AppSettingsGroup.CommonTrayIcon]>
+					form={trayIconForm}
+					submitter={false}
+					onValuesChange={(_, values) => {
+						updateAppSettings(
+							AppSettingsGroup.CommonTrayIcon,
+							values,
+							true,
+							true,
+							true,
+							true,
+							false,
+						);
+					}}
+					layout="horizontal"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSwitch
+									name="enableTrayIcon"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.enableTrayIcon" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.enableTrayIconTip" />
+											}
+										/>
+									}
 								/>
-							</ProForm.Item>
-						</Col>
+							</Col>
 
-						<Col span={24}>
-							<ProFormRadio.Group
-								name="defaultIconsDark"
-								label={
-									<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons.darkDefault" />
-								}
-								fieldProps={{
-									className: "tray-icon-radio-group",
-								}}
-								options={defaultIconsOptions}
-							/>
-						</Col>
-
-						<Col span={24}>
-							<ProForm.Item
-								name="iconPathDark"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.darkDefault" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.tip" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<PathInput
-									filters={[
-										{ name: "PNG(*.png)", extensions: ["png"] },
-										{ name: "ICO(*.ico)", extensions: ["ico"] },
-									]}
+							<Col span={24}>
+								<ProFormRadio.Group
+									name="defaultIcons"
+									label={
+										<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons" />
+									}
+									fieldProps={{
+										className: "tray-icon-radio-group",
+									}}
+									options={defaultIconsOptions}
 								/>
-							</ProForm.Item>
-						</Col>
-					</Row>
-				</Spin>
-			</ProForm>
+							</Col>
+
+							<Col span={24}>
+								<ProForm.Item
+									name="iconPath"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.tip" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<PathInput
+										filters={[
+											{ name: "PNG(*.png)", extensions: ["png"] },
+											{ name: "ICO(*.ico)", extensions: ["ico"] },
+										]}
+									/>
+								</ProForm.Item>
+							</Col>
+
+							<Col span={24}>
+								<ProFormRadio.Group
+									name="defaultIconsDark"
+									label={
+										<FormattedMessage id="settings.commonSettings.trayIconSettings.defaultIcons.darkDefault" />
+									}
+									fieldProps={{
+										className: "tray-icon-radio-group",
+									}}
+									options={defaultIconsOptions}
+								/>
+							</Col>
+
+							<Col span={24}>
+								<ProForm.Item
+									name="iconPathDark"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.darkDefault" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.commonSettings.trayIconSettings.iconPath.tip" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<PathInput
+										filters={[
+											{ name: "PNG(*.png)", extensions: ["png"] },
+											{ name: "ICO(*.ico)", extensions: ["ico"] },
+										]}
+									/>
+								</ProForm.Item>
+							</Col>
+						</Row>
+					</Spin>
+				</ProForm>
+			</SettingsSection>
 
 			<style jsx>{`
                 :global(.settings-form)

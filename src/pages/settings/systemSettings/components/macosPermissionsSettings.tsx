@@ -10,8 +10,8 @@ import {
 	requestScreenRecordingPermission,
 } from "tauri-plugin-macos-permissions-api";
 import useInterval from "use-interval";
-import { GroupTitle } from "@/components/groupTitle";
 import { ResetIcon } from "@/components/icons";
+import { SettingsSection } from "@/components/settingsSection";
 import { useStateRef } from "@/hooks/useStateRef";
 
 const PermissionListItem: React.FC<{
@@ -118,27 +118,26 @@ export const MacOSPermissionsSettings: React.FC = () => {
 	);
 
 	return (
-		<>
-			<GroupTitle
-				id="macosPermissionsSettings"
-				extra={
-					<Button
-						loading={realodButtonLoading}
-						type="text"
-						onClick={async () => {
-							setRealodButtonLoading(true);
-							await reloadPermissionsState();
-
-							setRealodButtonLoading(false);
-						}}
-					>
-						<ResetIcon />
-					</Button>
-				}
-			>
+		<SettingsSection
+			sectionId="macosPermissionsSettings"
+			title={
 				<FormattedMessage id="settings.systemSettings.macosPermissionsSettings" />
-			</GroupTitle>
+			}
+			extra={
+				<Button
+					loading={realodButtonLoading}
+					type="text"
+					onClick={async () => {
+						setRealodButtonLoading(true);
+						await reloadPermissionsState();
 
+						setRealodButtonLoading(false);
+					}}
+				>
+					<ResetIcon />
+				</Button>
+			}
+		>
 			<Alert
 				message={
 					<FormattedMessage
@@ -204,6 +203,6 @@ export const MacOSPermissionsSettings: React.FC = () => {
 					reloadPermissionsState={reloadPermissionsState}
 				/>
 			</List>
-		</>
+		</SettingsSection>
 	);
 };

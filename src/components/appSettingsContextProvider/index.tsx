@@ -2072,10 +2072,12 @@ const AppSettingsContextProviderCore: React.FC<{
 				colorLink: currentPrimaryColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
-					? 32
-					: 36,
+					? 34
+					: 40,
 				fontFamily: "var(--snow-shot-font-ui)",
 				fontSize: 14,
+				fontSizeSM: 12,
+				fontSizeLG: 16,
 				lineHeight: 1.5,
 				motionDurationFast: "0.12s",
 				motionDurationMid: "0.18s",

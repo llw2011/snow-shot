@@ -1,6 +1,10 @@
 :root {
     --background: #ffffff;
     --snow-shot-window-radius: 14px;
+    --snow-shot-content-max-width: 1040px;
+    --snow-shot-settings-max-width: 920px;
+    --snow-shot-motion-fast: 0.12s;
+    --snow-shot-motion-mid: 0.18s;
     --snow-shot-font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
 }
 
@@ -115,9 +119,9 @@ body {
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Track {
-    --scrollbar-width: 3px;
-    --scrollbar-width-hover: 12px;
-    --border-radius: 1px;
+    --scrollbar-width: 5px;
+    --scrollbar-width-hover: 5px;
+    --border-radius: 4px;
 
     background-color: unset !important;
     width: var(--scrollbar-width-hover) !important;
@@ -238,7 +242,7 @@ body {
     --snow-shot-canvas: #07080a;
     --snow-shot-surface: #0d0d0d;
     --snow-shot-surface-elevated: #101111;
-    --snow-shot-surface-card: #121212;
+    --snow-shot-surface-card: #151617;
     --snow-shot-panel-bg: #0d0d0d;
     --snow-shot-sider-bg: #07080a;
     --snow-shot-header-bg: #07080a;
@@ -336,6 +340,8 @@ body {
 .ant-app .menu-layout-wrap .ant-menu-submenu-title {
     border-radius: var(--snow-shot-radius) !important;
     color: var(--snow-shot-body);
+    min-height: 38px !important;
+    margin-block: 2px !important;
     margin-inline: 8px !important;
     width: calc(100% - 16px) !important;
 }
@@ -349,13 +355,14 @@ body {
 .ant-app .menu-layout-wrap .ant-menu-item-selected {
     background: var(--snow-shot-primary-soft) !important;
     color: var(--snow-shot-ink) !important;
-    box-shadow: inset 0 0 0 1px var(--snow-shot-primary-strong);
+    box-shadow: inset 2px 0 0 var(--snow-shot-primary);
 }
 
 .ant-app .menu-layout-wrap .ant-menu-sub {
-    background: color-mix(in srgb, var(--snow-shot-surface-elevated) 62%, transparent) !important;
-    border-radius: var(--snow-shot-radius);
-    margin: 0 8px 8px;
+    background: transparent !important;
+    border-left: 1px solid var(--snow-shot-hairline-soft);
+    border-radius: 0;
+    margin: 2px 8px 6px 17px;
 }
 
 .ant-app .menu-layout-wrap .ant-tabs-nav {
@@ -406,7 +413,7 @@ body {
 }
 
 .snow-command-button.ant-btn {
-    height: 44px;
+    height: 46px;
     border-color: var(--snow-shot-hairline) !important;
     background: var(--snow-shot-surface) !important;
     color: var(--snow-shot-ink) !important;
@@ -447,96 +454,137 @@ body {
     border-color: rgba(255, 97, 97, 0.28) !important;
 }
 
+.snow-keycap-button[data-empty="true"] {
+    color: var(--snow-shot-muted) !important;
+    border-color: var(--snow-shot-hairline) !important;
+}
+
 .components_group-title {
     color: var(--snow-shot-ink) !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
     font-weight: 600 !important;
     letter-spacing: 0 !important;
 }
 
 .ant-app .home-command-group {
     border-color: var(--snow-shot-hairline-soft) !important;
-    background: var(--snow-shot-command-group-bg) !important;
-    box-shadow: var(--snow-shot-card-shadow);
+    background: var(--snow-shot-surface) !important;
+    box-shadow: none;
 }
 
 .ant-app .menu-layout-wrap :where(button, [role="button"], input, textarea, .ant-select-selector):focus-visible {
-    outline-color: var(--snow-shot-primary);
+    outline: 2px solid var(--snow-shot-primary);
+    outline-offset: 2px;
 }
 
-html[data-snow-theme="aurora"] .ant-app .menu-layout-wrap .ant-menu-item-selected,
-html[data-snow-theme="aurora"] .ant-app .snow-command-button:hover {
-    box-shadow:
-        inset 0 0 0 1px var(--snow-shot-primary-strong),
-        var(--snow-shot-glow) !important;
+.settings-wrap {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(100%, var(--snow-shot-settings-max-width));
+    height: auto !important;
+    min-height: 100%;
+    margin: 0 auto;
+    padding: 4px 0 40px;
 }
 
-html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n + 1) {
-    border-top-color: var(--snow-shot-accent-alt-one) !important;
+.settings-wrap>.ant-divider {
+    display: none;
 }
 
-html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n + 2) {
-    border-top-color: var(--snow-shot-accent-alt-two) !important;
+.settings-wrap>.components_group-title {
+    margin: 18px 0 4px !important;
 }
 
-html[data-snow-theme="aurora"] .ant-app .home-command-group:nth-of-type(3n) {
-    border-top-color: var(--snow-shot-accent-alt-three) !important;
+.settings-wrap>.components_group-title:first-child {
+    margin-top: 0 !important;
 }
 
-html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n + 1) {
-    box-shadow:
-        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-one) 72%, transparent),
-        var(--snow-shot-card-shadow);
+.settings-section-body .ant-form-item {
+    margin-bottom: 18px;
 }
 
-html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n + 2) {
-    box-shadow:
-        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-two) 72%, transparent),
-        var(--snow-shot-card-shadow);
+.settings-section-body .ant-form-item-label>label,
+.settings-section-body .ant-pro-form-item-label>label {
+    color: var(--snow-shot-body);
+    font-weight: 500;
+    line-height: 20px;
 }
 
-html[data-snow-theme="prism"] .ant-app .home-command-group:nth-of-type(3n) {
-    box-shadow:
-        inset 0 3px 0 color-mix(in srgb, var(--snow-shot-accent-alt-three) 72%, transparent),
-        var(--snow-shot-card-shadow);
+.settings-section-body .ant-form-item-extra,
+.settings-section-body .ant-form-item-explain {
+    max-width: 68ch;
+    padding-top: 4px;
+    color: var(--snow-shot-muted);
+    font-size: 12px;
+    line-height: 18px;
 }
 
-html[data-snow-theme="matrix"] .ant-app .snow-keycap-button {
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace !important;
-    letter-spacing: 0.035em !important;
+.settings-section-body .ant-form-item:last-child {
+    margin-bottom: 16px;
 }
 
-html[data-snow-theme="matrix"] .ant-app .menu-layout-wrap .ant-menu-item-selected {
-    box-shadow:
-        inset 3px 0 0 var(--snow-shot-primary),
-        inset 0 0 0 1px var(--snow-shot-primary-strong);
+.settings-section-body .ant-divider {
+    margin: 20px 0;
 }
 
-html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n + 1) {
-    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-one);
+.home-wrap {
+    width: min(100%, var(--snow-shot-content-max-width));
+    height: auto !important;
+    min-height: 100%;
+    margin: 0 auto;
 }
 
-html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n + 2) {
-    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-two);
+@container snow-content (max-width: 880px) {
+    .home-command-list {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .settings-section-body .ant-row:not(.ant-form-item-row)>.ant-col {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-row {
+        flex-wrap: nowrap;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-label {
+        flex: 1 1 auto !important;
+        max-width: min(62%, 420px) !important;
+        padding-right: 16px;
+        text-align: left;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-control {
+        flex: 0 1 320px !important;
+        max-width: 44% !important;
+        min-width: 180px;
+    }
 }
 
-html[data-snow-theme="chromatic"] .ant-app .home-command-group:nth-of-type(3n) {
-    box-shadow: inset 4px 0 0 var(--snow-shot-accent-alt-three);
+@container snow-content (max-width: 620px) {
+    .settings-section-body .ant-form-horizontal .ant-form-item-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-label,
+    .settings-section-body .ant-form-horizontal .ant-form-item-control {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        min-width: 0;
+    }
 }
 
-html[data-snow-theme="chromatic"] .ant-app .menu-layout-wrap .ant-menu-item-selected {
-    box-shadow:
-        inset 4px 0 0 var(--snow-shot-primary),
-        inset 0 0 0 1px var(--snow-shot-primary-strong);
-}
-
-html[data-snow-theme="glacier"] .ant-app .menu-layout-wrap .content-wrap>.center,
-html[data-snow-theme="glacier"] .ant-app .home-command-group {
-    box-shadow:
-        var(--snow-shot-card-shadow),
-        inset 0 1px 0 color-mix(in srgb, var(--snow-shot-ink) 10%, transparent);
-}
-
-html[data-snow-theme="glacier"] .ant-app .snow-command-button:hover {
-    box-shadow: var(--snow-shot-glow) !important;
+@media (prefers-reduced-motion: reduce) {
+    .menu-layout-wrap *,
+    .menu-layout-wrap *::before,
+    .menu-layout-wrap *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

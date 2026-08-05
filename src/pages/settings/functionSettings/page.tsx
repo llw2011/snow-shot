@@ -37,9 +37,10 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { videoRecordGetMicrophoneDeviceNames } from "@/commands/videoRecord";
 import { ContentWrap } from "@/components/contentWrap";
 import { DirectoryInput } from "@/components/directoryInput";
-import { GroupTitle, SubGroupTitle } from "@/components/groupTitle";
+import { SubGroupTitle } from "@/components/groupTitle";
 import { IconLabel } from "@/components/iconLable";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import { SettingsSection } from "@/components/settingsSection";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import { FOCUS_WINDOW_APP_NAME_ENV_VARIABLE } from "@/constants/components/chat";
 import {
@@ -735,9 +736,12 @@ export const FunctionSettingsPage = () => {
 	}, [intl]);
 
 	return (
-		<ContentWrap>
-			<GroupTitle
-				id="screenshotSettings"
+		<ContentWrap className="settings-wrap">
+			<SettingsSection
+				sectionId="screenshotSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.screenshotSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -746,16 +750,236 @@ export const FunctionSettingsPage = () => {
 						appSettingsGroup={AppSettingsGroup.FunctionScreenshot}
 					/>
 				}
+				defaultOpen
 			>
-				<FormattedMessage id="settings.functionSettings.screenshotSettings" />
-			</GroupTitle>
+				<Spin spinning={appSettingsLoading}>
+					<ProForm
+						form={screenshotForm}
+						onValuesChange={(_, values) => {
+							updateAppSettings(
+								AppSettingsGroup.FunctionScreenshot,
+								values,
+								true,
+								true,
+								true,
+								true,
+								false,
+							);
+						}}
+						submitter={false}
+						layout="horizontal"
+					>
+						<Row gutter={token.marginLG}>
+							{currentPlatform !== "macos" && (
+								<Col span={12}>
+									<ProFormSwitch
+										name="findChildrenElements"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.screenshotSettings.findChildrenElements" />
+										}
+									/>
+								</Col>
+							)}
 
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={screenshotForm}
+							<Col span={12}>
+								<ProFormSwitch
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.shortcutCanleTip" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.shortcutCanleTip.tip" />
+											}
+										/>
+									}
+									name="shortcutCanleTip"
+									layout="horizontal"
+								/>
+							</Col>
+						</Row>
+
+						{ocrReady && (
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSelect
+										name="ocrAfterAction"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.screenshotSettings.ocrAfterAction" />
+										}
+										options={ocrAfterActionOptions}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSwitch
+										name="ocrCopyText"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.screenshotSettings.ocrCopyText" />
+										}
+									/>
+								</Col>
+							</Row>
+						)}
+
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSelect
+									name="doubleClickAction"
+									layout="horizontal"
+									label={
+										<IconLabel
+											label={<FormattedMessage id="draw.doubleClickAction" />}
+										/>
+									}
+									options={doubleClickActionOptions}
+								/>
+							</Col>
+						</Row>
+
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSwitch
+									name="focusedWindowCopyToClipboard"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.screenshotSettings.focusedWindowCopyToClipboard" />
+									}
+								/>
+							</Col>
+
+							<Col span={12}>
+								<ProFormSwitch
+									name="fullScreenCopyToClipboard"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.screenshotSettings.fullScreenCopyToClipboard" />
+									}
+								/>
+							</Col>
+						</Row>
+
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSwitch
+									name="copyImageFileToClipboard"
+									layout="horizontal"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="draw.copyImageFileToClipboard" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="draw.copyImageFileToClipboard.tip" />
+											}
+										/>
+									}
+								/>
+							</Col>
+
+							<Col span={12}>
+								<ProFormSwitch
+									name="autoSaveOnCopy"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.autoSave" />
+									}
+								/>
+							</Col>
+
+							<Col span={12}>
+								<ProFormSwitch
+									name="fastSave"
+									layout="horizontal"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.fastSave" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.fastSave.tip" />
+											}
+										/>
+									}
+								/>
+							</Col>
+						</Row>
+
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProForm.Item
+									name="saveFileDirectory"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.directory" />
+											}
+										/>
+									}
+									required={false}
+								>
+									<DirectoryInput />
+								</ProForm.Item>
+							</Col>
+
+							<Col span={12}>
+								<ProForm.Item
+									name="saveFileFormat"
+									label={
+										<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.saveFileFormat" />
+									}
+								>
+									<Select
+										options={[
+											{
+												label: "PNG(*.png)",
+												value: ImageFormat.PNG,
+											},
+											{
+												label: "JPEG(*.jpg)",
+												value: ImageFormat.JPEG,
+											},
+											{
+												label: "WEBP(*.webp)",
+												value: ImageFormat.WEBP,
+											},
+											{
+												label: "AVIF(*.avif)",
+												value: ImageFormat.AVIF,
+											},
+											{
+												label: "JPEG XL(*.jxl)",
+												value: ImageFormat.JPEG_XL,
+											},
+										]}
+									/>
+								</ProForm.Item>
+							</Col>
+						</Row>
+					</ProForm>
+				</Spin>
+			</SettingsSection>
+
+			<SettingsSection
+				sectionId="functionDrawSettings"
+				title={<FormattedMessage id="settings.commonSettings.draw" />}
+				extra={
+					<ResetSettingsButton
+						title={intl.formatMessage({ id: "settings.commonSettings.draw" })}
+						appSettingsGroup={AppSettingsGroup.FunctionDraw}
+					/>
+				}
+			>
+				<ProForm<AppSettingsData[AppSettingsGroup.FunctionDraw]>
+					className="settings-form common-draw-settings-form"
+					form={functionDrawForm}
+					submitter={false}
 					onValuesChange={(_, values) => {
 						updateAppSettings(
-							AppSettingsGroup.FunctionScreenshot,
+							AppSettingsGroup.FunctionDraw,
 							values,
 							true,
 							true,
@@ -764,307 +988,84 @@ export const FunctionSettingsPage = () => {
 							false,
 						);
 					}}
-					submitter={false}
 					layout="horizontal"
 				>
-					<Row gutter={token.marginLG}>
-						{currentPlatform !== "macos" && (
-							<Col span={12}>
-								<ProFormSwitch
-									name="findChildrenElements"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.screenshotSettings.findChildrenElements" />
-									}
-								/>
-							</Col>
-						)}
-
-						<Col span={12}>
-							<ProFormSwitch
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.shortcutCanleTip" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.shortcutCanleTip.tip" />
-										}
-									/>
-								}
-								name="shortcutCanleTip"
-								layout="horizontal"
-							/>
-						</Col>
-					</Row>
-
-					{ocrReady && (
+					<Spin spinning={appSettingsLoading}>
 						<Row gutter={token.marginLG}>
 							<Col span={12}>
-								<ProFormSelect
-									name="ocrAfterAction"
-									layout="horizontal"
+								<ProFormSwitch
+									name="lockDrawTool"
 									label={
-										<FormattedMessage id="settings.functionSettings.screenshotSettings.ocrAfterAction" />
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.screenshotSettings.lockDrawTool" />
+											}
+										/>
 									}
-									options={ocrAfterActionOptions}
 								/>
 							</Col>
 
 							<Col span={12}>
 								<ProFormSwitch
-									name="ocrCopyText"
-									layout="horizontal"
+									name="enableSliderChangeWidth"
 									label={
-										<FormattedMessage id="settings.functionSettings.screenshotSettings.ocrCopyText" />
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.commonSettings.draw.enableSliderChangeWidth" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.commonSettings.draw.enableSliderChangeWidth.tip" />
+											}
+										/>
+									}
+								/>
+							</Col>
+
+							<Col span={12}>
+								<ProFormSwitch
+									name="toolIndependentStyle"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.commonSettings.draw.toolIndependentStyle" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.commonSettings.draw.toolIndependentStyle.tip" />
+											}
+										/>
 									}
 								/>
 							</Col>
 						</Row>
-					)}
 
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSelect
-								name="doubleClickAction"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={<FormattedMessage id="draw.doubleClickAction" />}
-									/>
-								}
-								options={doubleClickActionOptions}
-							/>
-						</Col>
-					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="focusedWindowCopyToClipboard"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.screenshotSettings.focusedWindowCopyToClipboard" />
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="fullScreenCopyToClipboard"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.screenshotSettings.fullScreenCopyToClipboard" />
-								}
-							/>
-						</Col>
-					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="copyImageFileToClipboard"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="draw.copyImageFileToClipboard" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="draw.copyImageFileToClipboard.tip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="autoSaveOnCopy"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.autoSave" />
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="fastSave"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.fastSave" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.fastSave.tip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProForm.Item
-								name="saveFileDirectory"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.directory" />
-										}
-									/>
-								}
-								required={false}
-							>
-								<DirectoryInput />
-							</ProForm.Item>
-						</Col>
-
-						<Col span={12}>
-							<ProForm.Item
-								name="saveFileFormat"
-								label={
-									<FormattedMessage id="settings.functionSettings.screenshotSettings.autoSaveFileMode.saveFileFormat" />
-								}
-							>
-								<Select
-									options={[
-										{
-											label: "PNG(*.png)",
-											value: ImageFormat.PNG,
-										},
-										{
-											label: "JPEG(*.jpg)",
-											value: ImageFormat.JPEG,
-										},
-										{
-											label: "WEBP(*.webp)",
-											value: ImageFormat.WEBP,
-										},
-										{
-											label: "AVIF(*.avif)",
-											value: ImageFormat.AVIF,
-										},
-										{
-											label: "JPEG XL(*.jxl)",
-											value: ImageFormat.JPEG_XL,
-										},
-									]}
+						<Row gutter={token.marginLG}>
+							<Col span={24}>
+								<ProFormSelect
+									name="disableQuickSelectElementToolList"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.drawSettings.disableQuickSelectElementToolList" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.functionSettings.drawSettings.disableQuickSelectElementToolList.tip" />
+											}
+										/>
+									}
+									mode="multiple"
+									options={disableQuickSelectElementToolListOptions}
 								/>
-							</ProForm.Item>
-						</Col>
-					</Row>
+							</Col>
+						</Row>
+					</Spin>
 				</ProForm>
-			</Spin>
+			</SettingsSection>
 
-			<Divider />
-
-			<GroupTitle
-				id="functionDrawSettings"
-				extra={
-					<ResetSettingsButton
-						title={intl.formatMessage({ id: "settings.commonSettings.draw" })}
-						appSettingsGroup={AppSettingsGroup.FunctionDraw}
-					/>
+			<SettingsSection
+				sectionId="fixedContentSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.fixedContentSettings" />
 				}
-			>
-				<FormattedMessage id="settings.commonSettings.draw" />
-			</GroupTitle>
-
-			<ProForm<AppSettingsData[AppSettingsGroup.FunctionDraw]>
-				className="settings-form common-draw-settings-form"
-				form={functionDrawForm}
-				submitter={false}
-				onValuesChange={(_, values) => {
-					updateAppSettings(
-						AppSettingsGroup.FunctionDraw,
-						values,
-						true,
-						true,
-						true,
-						true,
-						false,
-					);
-				}}
-				layout="horizontal"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="lockDrawTool"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.lockDrawTool" />
-										}
-									/>
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="enableSliderChangeWidth"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.commonSettings.draw.enableSliderChangeWidth" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.commonSettings.draw.enableSliderChangeWidth.tip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="toolIndependentStyle"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.commonSettings.draw.toolIndependentStyle" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.commonSettings.draw.toolIndependentStyle.tip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={24}>
-							<ProFormSelect
-								name="disableQuickSelectElementToolList"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.drawSettings.disableQuickSelectElementToolList" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.drawSettings.disableQuickSelectElementToolList.tip" />
-										}
-									/>
-								}
-								mode="multiple"
-								options={disableQuickSelectElementToolListOptions}
-							/>
-						</Col>
-					</Row>
-				</Spin>
-			</ProForm>
-
-			<Divider />
-
-			<GroupTitle
-				id="fixedContentSettings"
 				extra={
 					<ResetSettingsButton
 						title={
@@ -1074,109 +1075,104 @@ export const FunctionSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.functionSettings.fixedContentSettings" />
-			</GroupTitle>
+				<Spin spinning={appSettingsLoading}>
+					<ProForm
+						form={fixedContentForm}
+						onValuesChange={(_, values) => {
+							updateAppSettings(
+								AppSettingsGroup.FunctionFixedContent,
+								values,
+								true,
+								true,
+								true,
+								true,
+								false,
+							);
+						}}
+						submitter={false}
+						layout="horizontal"
+					>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSwitch
+									name="zoomWithMouse"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.fixedContentSettings.zoomWithMouse" />
+									}
+								/>
+							</Col>
 
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={fixedContentForm}
-					onValuesChange={(_, values) => {
-						updateAppSettings(
-							AppSettingsGroup.FunctionFixedContent,
-							values,
-							true,
-							true,
-							true,
-							true,
-							false,
-						);
-					}}
-					submitter={false}
-					layout="horizontal"
-				>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="zoomWithMouse"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.fixedContentSettings.zoomWithMouse" />
-								}
-							/>
-						</Col>
+							<Col span={12}>
+								<ProFormSelect
+									name="initialPosition"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.fixedContentSettings.initialPosition" />
+									}
+									options={initialPositionOptions}
+								/>
+							</Col>
 
-						<Col span={12}>
-							<ProFormSelect
-								name="initialPosition"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.fixedContentSettings.initialPosition" />
-								}
-								options={initialPositionOptions}
-							/>
-						</Col>
+							{ocrReady && (
+								<Col span={12}>
+									<ProFormSwitch
+										label={
+											<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoOcr" />
+										}
+										name="autoOcr"
+										layout="horizontal"
+									/>
+								</Col>
+							)}
 
-						{ocrReady && (
+							<Col span={12}>
+								<ProFormSwitch
+									name="autoResizeWindow"
+									layout="horizontal"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoResizeWindow" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoResizeWindow.tip" />
+											}
+										/>
+									}
+								/>
+							</Col>
+
 							<Col span={12}>
 								<ProFormSwitch
 									label={
-										<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoOcr" />
+										<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoCopyToClipboard" />
 									}
-									name="autoOcr"
+									name="autoCopyToClipboard"
 									layout="horizontal"
 								/>
 							</Col>
-						)}
-
-						<Col span={12}>
-							<ProFormSwitch
-								name="autoResizeWindow"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoResizeWindow" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoResizeWindow.tip" />
-										}
-									/>
-								}
-							/>
-						</Col>
-
-						<Col span={12}>
-							<ProFormSwitch
-								label={
-									<FormattedMessage id="settings.functionSettings.fixedContentSettings.autoCopyToClipboard" />
-								}
-								name="autoCopyToClipboard"
-								layout="horizontal"
-							/>
-						</Col>
-					</Row>
-				</ProForm>
-			</Spin>
+						</Row>
+					</ProForm>
+				</Spin>
+			</SettingsSection>
 
 			{(isReadyStatus?.(PLUGIN_ID_GLM_OCR) ||
 				isReadyStatus?.(PLUGIN_ID_RAPID_OCR)) && (
-				<>
-					<Divider />
-
-					<GroupTitle
-						id="ocrSettings"
-						extra={
-							<ResetSettingsButton
-								title={
-									<FormattedMessage id="settings.functionSettings.ocrSettings" />
-								}
-								appSettingsGroup={AppSettingsGroup.FunctionOcr}
-							/>
-						}
-					>
+				<SettingsSection
+					sectionId="ocrSettings"
+					title={
 						<FormattedMessage id="settings.functionSettings.ocrSettings" />
-					</GroupTitle>
-
+					}
+					extra={
+						<ResetSettingsButton
+							title={
+								<FormattedMessage id="settings.functionSettings.ocrSettings" />
+							}
+							appSettingsGroup={AppSettingsGroup.FunctionOcr}
+						/>
+					}
+				>
 					<Spin spinning={appSettingsLoading}>
 						<ProForm
 							form={functionOcrForm}
@@ -1349,27 +1345,24 @@ export const FunctionSettingsPage = () => {
 							</Row>
 						</ProForm>
 					</Spin>
-				</>
+				</SettingsSection>
 			)}
 
 			{isReadyStatus?.(PLUGIN_ID_TRANSLATE) && (
-				<>
-					<Divider />
-
-					<GroupTitle
-						id="translationSettings"
-						extra={
-							<ResetSettingsButton
-								title={
-									<FormattedMessage id="settings.functionSettings.translationSettings" />
-								}
-								appSettingsGroup={AppSettingsGroup.FunctionTranslation}
-							/>
-						}
-					>
+				<SettingsSection
+					sectionId="translationSettings"
+					title={
 						<FormattedMessage id="settings.functionSettings.translationSettings" />
-					</GroupTitle>
-
+					}
+					extra={
+						<ResetSettingsButton
+							title={
+								<FormattedMessage id="settings.functionSettings.translationSettings" />
+							}
+							appSettingsGroup={AppSettingsGroup.FunctionTranslation}
+						/>
+					}
+				>
 					<Spin spinning={appSettingsLoading}>
 						<TranslationConfig />
 
@@ -1788,28 +1781,25 @@ export const FunctionSettingsPage = () => {
 							</Row>
 						</ProForm>
 					</Spin>
-				</>
+				</SettingsSection>
 			)}
 
 			{(isReadyStatus?.(PLUGIN_ID_TRANSLATE) ||
 				isReadyStatus?.(PLUGIN_ID_AI_CHAT)) && (
-				<>
-					<Divider />
-
-					<GroupTitle
-						id="chatSettings"
-						extra={
-							<ResetSettingsButton
-								title={
-									<FormattedMessage id="settings.functionSettings.chatSettings" />
-								}
-								appSettingsGroup={AppSettingsGroup.FunctionChat}
-							/>
-						}
-					>
+				<SettingsSection
+					sectionId="chatSettings"
+					title={
 						<FormattedMessage id="settings.functionSettings.chatSettings" />
-					</GroupTitle>
-
+					}
+					extra={
+						<ResetSettingsButton
+							title={
+								<FormattedMessage id="settings.functionSettings.chatSettings" />
+							}
+							appSettingsGroup={AppSettingsGroup.FunctionChat}
+						/>
+					}
+				>
 					<Spin spinning={appSettingsLoading}>
 						<ProForm
 							form={functionForm}
@@ -2044,13 +2034,14 @@ export const FunctionSettingsPage = () => {
 							</Row>
 						</ProForm>
 					</Spin>
-				</>
+				</SettingsSection>
 			)}
 
-			<Divider />
-
-			<GroupTitle
-				id="fullScreenDrawSettings"
+			<SettingsSection
+				sectionId="fullScreenDrawSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.fullScreenDrawSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -2060,76 +2051,12 @@ export const FunctionSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.functionSettings.fullScreenDrawSettings" />
-			</GroupTitle>
-
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={fullScreenDrawForm}
-					onValuesChange={(_, values) => {
-						updateAppSettings(
-							AppSettingsGroup.FunctionFullScreenDraw,
-							values,
-							true,
-							true,
-							true,
-							true,
-							false,
-						);
-					}}
-					submitter={false}
-					layout="horizontal"
-				>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSelect
-								name="defaultTool"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.fullScreenDrawSettings.defaultTool" />
-								}
-								options={fullScreenDrawDefaultToolOptions}
-							/>
-						</Col>
-					</Row>
-				</ProForm>
-			</Spin>
-
-			<Divider />
-
-			<div hidden={!isReadyStatus?.(PLUGIN_ID_FFMPEG)}>
-				<GroupTitle
-					id="videoRecordSettings"
-					extra={
-						<ResetSettingsButton
-							title={
-								<FormattedMessage id="settings.functionSettings.videoRecordSettings" />
-							}
-							appSettingsGroup={AppSettingsGroup.FunctionVideoRecord}
-						/>
-					}
-				>
-					<FormattedMessage id="settings.functionSettings.videoRecordSettings" />
-				</GroupTitle>
-
 				<Spin spinning={appSettingsLoading}>
 					<ProForm
-						form={videoRecordForm}
+						form={fullScreenDrawForm}
 						onValuesChange={(_, values) => {
-							// 处理颜色值转换
-							if (typeof values.keyDisplayBackgroundColor === "object") {
-								values.keyDisplayBackgroundColor = (
-									values.keyDisplayBackgroundColor as AggregationColor
-								).toRgbString();
-							}
-							if (typeof values.keyDisplayTextColor === "object") {
-								values.keyDisplayTextColor = (
-									values.keyDisplayTextColor as AggregationColor
-								).toHexString();
-							}
-
 							updateAppSettings(
-								AppSettingsGroup.FunctionVideoRecord,
+								AppSettingsGroup.FunctionFullScreenDraw,
 								values,
 								true,
 								true,
@@ -2144,327 +2071,389 @@ export const FunctionSettingsPage = () => {
 						<Row gutter={token.marginLG}>
 							<Col span={12}>
 								<ProFormSelect
-									name="videoMaxSize"
+									name="defaultTool"
 									layout="horizontal"
 									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.videoMaxSize" />
+										<FormattedMessage id="settings.functionSettings.fullScreenDrawSettings.defaultTool" />
 									}
-									options={videoMaxSizeOptions}
+									options={fullScreenDrawDefaultToolOptions}
 								/>
-							</Col>
-
-							<Col span={12}>
-								<ProFormSelect
-									name="frameRate"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.frameRate" />
-									}
-									options={[
-										{
-											label: "10",
-											value: 10,
-										},
-										{
-											label: "15",
-											value: 15,
-										},
-										{
-											label: "24",
-											value: 24,
-										},
-										{
-											label: "30",
-											value: 30,
-										},
-										{
-											label: "60",
-											value: 60,
-										},
-										{
-											label: "120",
-											value: 120,
-										},
-										{
-											label: "83",
-											value: 83,
-										},
-										{
-											label: "42",
-											value: 42,
-										},
-									]}
-								/>
-							</Col>
-						</Row>
-
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<ProFormSelect
-									name="gifMaxSize"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifMaxSize" />
-									}
-									options={gifMaxSizeOptions}
-								/>
-							</Col>
-
-							<Col span={12}>
-								<ProFormSelect
-									name="gifFrameRate"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifFrameRate" />
-									}
-									options={[
-										{
-											label: "10",
-											value: 10,
-										},
-										{
-											label: "15",
-											value: 15,
-										},
-										{
-											label: "24",
-											value: 24,
-										},
-									]}
-								/>
-							</Col>
-
-							<Col span={12}>
-								<ProFormSelect
-									name="gifFormat"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifFormat" />
-									}
-									options={gifFormatOptions}
-								/>
-							</Col>
-						</Row>
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<ProFormSelect
-									name="microphoneDeviceName"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.microphoneDeviceName" />
-									}
-									options={microphoneDeviceNameOptions}
-								/>
-							</Col>
-						</Row>
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<ProFormSelect
-									name="encoder"
-									layout="horizontal"
-									label={
-										<IconLabel
-											label={
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoder" />
-											}
-											tooltipTitle={
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoder.tip" />
-											}
-										/>
-									}
-									options={[
-										{
-											label: "Libx264 (CPU)",
-											value: "libx264",
-										},
-										{
-											label: "Libx265 (CPU)",
-											value: "libx265",
-										},
-										...(currentPlatform === "windows"
-											? [
-													{
-														label: "H264_AMF (AMD)",
-														value: "h264_amf",
-													},
-													{
-														label: "H264_NVENC (NVIDIA)",
-														value: "h264_nvenc",
-													},
-												]
-											: []),
-									]}
-								/>
-							</Col>
-
-							<Col span={12}>
-								<ProFormSelect
-									name="encoderPreset"
-									layout="horizontal"
-									label={
-										<IconLabel
-											label={
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoderPreset" />
-											}
-											tooltipTitle={
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoderPreset.tip" />
-											}
-										/>
-									}
-									options={encoderPresetOptions}
-								/>
-							</Col>
-
-							<Col span={12}>
-								<ProFormSwitch
-									name="hwaccel"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.hwaccel" />
-									}
-								/>
-							</Col>
-						</Row>
-						<Row gutter={token.marginLG}>
-							<Col span={24}>
-								<ProForm.Item
-									name="saveDirectory"
-									label={
-										<IconLabel
-											label={
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.saveDirectory" />
-											}
-										/>
-									}
-									required={false}
-								>
-									<DirectoryInput />
-								</ProForm.Item>
-							</Col>
-						</Row>
-
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<ProFormSwitch
-									name="enableExcludeFromCapture"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.enableExcludeFromCapture" />
-									}
-								/>
-							</Col>
-						</Row>
-
-						<SubGroupTitle>
-							<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplaySettings" />
-						</SubGroupTitle>
-
-						<Row gutter={token.marginLG} style={{ width: "100%" }}>
-							<Col span={12} style={{ width: "100%" }}>
-								<ProFormDigit
-									name="keyDisplayFontSize"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayFontSize" />
-									}
-									style={{ width: "100%" }}
-									min={8}
-									max={64}
-									fieldProps={{
-										precision: 0,
-									}}
-								/>
-							</Col>
-
-							<Col span={12} style={{ width: "100%" }}>
-								<ProFormDigit
-									name="keyDisplayDuration"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDuration" />
-									}
-									min={100}
-									max={10000}
-									style={{ width: "100%" }}
-									fieldProps={{
-										precision: 0,
-										addonAfter: "ms",
-									}}
-								/>
-							</Col>
-						</Row>
-
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<ProFormDigit
-									name="keyDisplayMergeDuration"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayMergeDuration" />
-									}
-									min={0}
-									max={2000}
-									fieldProps={{
-										precision: 0,
-										addonAfter: "ms",
-									}}
-								/>
-							</Col>
-							<Col span={12}>
-								<ProFormSelect
-									name="keyDisplayDirection"
-									layout="horizontal"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection" />
-									}
-									options={[
-										{
-											label: (
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection.horizontal" />
-											),
-											value: KeyDisplayDirection.Horizontal,
-										},
-										{
-											label: (
-												<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection.vertical" />
-											),
-											value: KeyDisplayDirection.Vertical,
-										},
-									]}
-								/>
-							</Col>
-							<Col span={12}>
-								<ProForm.Item
-									name="keyDisplayBackgroundColor"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayBackgroundColor" />
-									}
-									required={false}
-								>
-									<ColorPicker showText placement="bottom" />
-								</ProForm.Item>
-							</Col>
-
-							<Col span={12}>
-								<ProForm.Item
-									name="keyDisplayTextColor"
-									label={
-										<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayTextColor" />
-									}
-									required={false}
-								>
-									<ColorPicker showText placement="bottom" />
-								</ProForm.Item>
 							</Col>
 						</Row>
 					</ProForm>
 				</Spin>
+			</SettingsSection>
 
-				<Divider />
+			<div hidden={!isReadyStatus?.(PLUGIN_ID_FFMPEG)}>
+				<SettingsSection
+					sectionId="videoRecordSettings"
+					title={
+						<FormattedMessage id="settings.functionSettings.videoRecordSettings" />
+					}
+					extra={
+						<ResetSettingsButton
+							title={
+								<FormattedMessage id="settings.functionSettings.videoRecordSettings" />
+							}
+							appSettingsGroup={AppSettingsGroup.FunctionVideoRecord}
+						/>
+					}
+				>
+					<Spin spinning={appSettingsLoading}>
+						<ProForm
+							form={videoRecordForm}
+							onValuesChange={(_, values) => {
+								// 处理颜色值转换
+								if (typeof values.keyDisplayBackgroundColor === "object") {
+									values.keyDisplayBackgroundColor = (
+										values.keyDisplayBackgroundColor as AggregationColor
+									).toRgbString();
+								}
+								if (typeof values.keyDisplayTextColor === "object") {
+									values.keyDisplayTextColor = (
+										values.keyDisplayTextColor as AggregationColor
+									).toHexString();
+								}
+
+								updateAppSettings(
+									AppSettingsGroup.FunctionVideoRecord,
+									values,
+									true,
+									true,
+									true,
+									true,
+									false,
+								);
+							}}
+							submitter={false}
+							layout="horizontal"
+						>
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSelect
+										name="videoMaxSize"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.videoMaxSize" />
+										}
+										options={videoMaxSizeOptions}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSelect
+										name="frameRate"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.frameRate" />
+										}
+										options={[
+											{
+												label: "10",
+												value: 10,
+											},
+											{
+												label: "15",
+												value: 15,
+											},
+											{
+												label: "24",
+												value: 24,
+											},
+											{
+												label: "30",
+												value: 30,
+											},
+											{
+												label: "60",
+												value: 60,
+											},
+											{
+												label: "120",
+												value: 120,
+											},
+											{
+												label: "83",
+												value: 83,
+											},
+											{
+												label: "42",
+												value: 42,
+											},
+										]}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSelect
+										name="gifMaxSize"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifMaxSize" />
+										}
+										options={gifMaxSizeOptions}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSelect
+										name="gifFrameRate"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifFrameRate" />
+										}
+										options={[
+											{
+												label: "10",
+												value: 10,
+											},
+											{
+												label: "15",
+												value: 15,
+											},
+											{
+												label: "24",
+												value: 24,
+											},
+										]}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSelect
+										name="gifFormat"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.gifFormat" />
+										}
+										options={gifFormatOptions}
+									/>
+								</Col>
+							</Row>
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSelect
+										name="microphoneDeviceName"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.microphoneDeviceName" />
+										}
+										options={microphoneDeviceNameOptions}
+									/>
+								</Col>
+							</Row>
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSelect
+										name="encoder"
+										layout="horizontal"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoder" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoder.tip" />
+												}
+											/>
+										}
+										options={[
+											{
+												label: "Libx264 (CPU)",
+												value: "libx264",
+											},
+											{
+												label: "Libx265 (CPU)",
+												value: "libx265",
+											},
+											...(currentPlatform === "windows"
+												? [
+														{
+															label: "H264_AMF (AMD)",
+															value: "h264_amf",
+														},
+														{
+															label: "H264_NVENC (NVIDIA)",
+															value: "h264_nvenc",
+														},
+													]
+												: []),
+										]}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSelect
+										name="encoderPreset"
+										layout="horizontal"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoderPreset" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.encoderPreset.tip" />
+												}
+											/>
+										}
+										options={encoderPresetOptions}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormSwitch
+										name="hwaccel"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.hwaccel" />
+										}
+									/>
+								</Col>
+							</Row>
+							<Row gutter={token.marginLG}>
+								<Col span={24}>
+									<ProForm.Item
+										name="saveDirectory"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.saveDirectory" />
+												}
+											/>
+										}
+										required={false}
+									>
+										<DirectoryInput />
+									</ProForm.Item>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormSwitch
+										name="enableExcludeFromCapture"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.enableExcludeFromCapture" />
+										}
+									/>
+								</Col>
+							</Row>
+
+							<SubGroupTitle>
+								<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplaySettings" />
+							</SubGroupTitle>
+
+							<Row gutter={token.marginLG} style={{ width: "100%" }}>
+								<Col span={12} style={{ width: "100%" }}>
+									<ProFormDigit
+										name="keyDisplayFontSize"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayFontSize" />
+										}
+										style={{ width: "100%" }}
+										min={8}
+										max={64}
+										fieldProps={{
+											precision: 0,
+										}}
+									/>
+								</Col>
+
+								<Col span={12} style={{ width: "100%" }}>
+									<ProFormDigit
+										name="keyDisplayDuration"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDuration" />
+										}
+										min={100}
+										max={10000}
+										style={{ width: "100%" }}
+										fieldProps={{
+											precision: 0,
+											addonAfter: "ms",
+										}}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormDigit
+										name="keyDisplayMergeDuration"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayMergeDuration" />
+										}
+										min={0}
+										max={2000}
+										fieldProps={{
+											precision: 0,
+											addonAfter: "ms",
+										}}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProFormSelect
+										name="keyDisplayDirection"
+										layout="horizontal"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection" />
+										}
+										options={[
+											{
+												label: (
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection.horizontal" />
+												),
+												value: KeyDisplayDirection.Horizontal,
+											},
+											{
+												label: (
+													<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayDirection.vertical" />
+												),
+												value: KeyDisplayDirection.Vertical,
+											},
+										]}
+									/>
+								</Col>
+								<Col span={12}>
+									<ProForm.Item
+										name="keyDisplayBackgroundColor"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayBackgroundColor" />
+										}
+										required={false}
+									>
+										<ColorPicker showText placement="bottom" />
+									</ProForm.Item>
+								</Col>
+
+								<Col span={12}>
+									<ProForm.Item
+										name="keyDisplayTextColor"
+										label={
+											<FormattedMessage id="settings.functionSettings.videoRecordSettings.keyDisplayTextColor" />
+										}
+										required={false}
+									>
+										<ColorPicker showText placement="bottom" />
+									</ProForm.Item>
+								</Col>
+							</Row>
+						</ProForm>
+					</Spin>
+				</SettingsSection>
 			</div>
 
-			<GroupTitle
-				id="trayIconSettings"
+			<SettingsSection
+				sectionId="trayIconSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.trayIconSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -2474,44 +2463,43 @@ export const FunctionSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.functionSettings.trayIconSettings" />
-			</GroupTitle>
+				<Spin spinning={appSettingsLoading}>
+					<ProForm
+						form={trayIconForm}
+						onValuesChange={(_, values) => {
+							updateAppSettings(
+								AppSettingsGroup.FunctionTrayIcon,
+								values,
+								true,
+								true,
+								false,
+								true,
+								false,
+							);
+						}}
+						submitter={false}
+						layout="horizontal"
+					>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSelect
+									name="iconClickAction"
+									label={
+										<FormattedMessage id="settings.functionSettings.trayIconSettings.iconClickAction" />
+									}
+									options={trayIconClickActionOptions}
+								/>
+							</Col>
+						</Row>
+					</ProForm>
+				</Spin>
+			</SettingsSection>
 
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={trayIconForm}
-					onValuesChange={(_, values) => {
-						updateAppSettings(
-							AppSettingsGroup.FunctionTrayIcon,
-							values,
-							true,
-							true,
-							false,
-							true,
-							false,
-						);
-					}}
-					submitter={false}
-					layout="horizontal"
-				>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSelect
-								name="iconClickAction"
-								label={
-									<FormattedMessage id="settings.functionSettings.trayIconSettings.iconClickAction" />
-								}
-								options={trayIconClickActionOptions}
-							/>
-						</Col>
-					</Row>
-				</ProForm>
-			</Spin>
-
-			<Divider />
-
-			<GroupTitle
-				id="globalShortcutSettings"
+			<SettingsSection
+				sectionId="globalShortcutSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.globalShortcutSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -2521,44 +2509,43 @@ export const FunctionSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.functionSettings.globalShortcutSettings" />
-			</GroupTitle>
+				<Spin spinning={appSettingsLoading}>
+					<ProForm
+						form={functionGlobalShortcutForm}
+						onValuesChange={(_, values) => {
+							updateAppSettings(
+								AppSettingsGroup.FunctionGlobalShortcut,
+								values,
+								true,
+								true,
+								false,
+								true,
+								false,
+							);
+						}}
+						submitter={false}
+						layout="horizontal"
+					>
+						<Row gutter={token.marginLG}>
+							<Col span={12}>
+								<ProFormSwitch
+									name="disableOnFocusedFullScreenWindow"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.globalShortcutSettings.disableOnFocusedFullScreenWindow" />
+									}
+								/>
+							</Col>
+						</Row>
+					</ProForm>
+				</Spin>
+			</SettingsSection>
 
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={functionGlobalShortcutForm}
-					onValuesChange={(_, values) => {
-						updateAppSettings(
-							AppSettingsGroup.FunctionGlobalShortcut,
-							values,
-							true,
-							true,
-							false,
-							true,
-							false,
-						);
-					}}
-					submitter={false}
-					layout="horizontal"
-				>
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="disableOnFocusedFullScreenWindow"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.globalShortcutSettings.disableOnFocusedFullScreenWindow" />
-								}
-							/>
-						</Col>
-					</Row>
-				</ProForm>
-			</Spin>
-
-			<Divider />
-
-			<GroupTitle
-				id="outputSettings"
+			<SettingsSection
+				sectionId="outputSettings"
+				title={
+					<FormattedMessage id="settings.functionSettings.outputSettings" />
+				}
 				extra={
 					<ResetSettingsButton
 						title={
@@ -2568,243 +2555,243 @@ export const FunctionSettingsPage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="settings.functionSettings.outputSettings" />
-			</GroupTitle>
+				<Alert
+					message={
+						<Typography>
+							<Row>
+								<Col span={24}>
+									<FormattedMessage id="settings.functionSettings.outputSettings.variables" />
+								</Col>
+								<Col span={12}>
+									<FormattedMessage id="settings.functionSettings.outputSettings.variables.date" />
+									<code>{"{{YYYY-MM-DD_HH-mm-ss}}"}</code>
+								</Col>
+								<Col span={12}>
+									<FormattedMessage id="settings.functionSettings.outputSettings.variables.focusedWindowAppName" />
+									<code>{FOCUS_WINDOW_APP_NAME_ENV_VARIABLE}</code>
+								</Col>
+							</Row>
+						</Typography>
+					}
+					type="info"
+					style={{ marginBottom: token.margin }}
+				/>
 
-			<Alert
-				message={
-					<Typography>
-						<Row>
+				<Spin spinning={appSettingsLoading}>
+					<ProForm
+						form={outputForm}
+						onValuesChange={(_, values) => {
+							updateAppSettings(
+								AppSettingsGroup.FunctionOutput,
+								values,
+								true,
+								true,
+								true,
+								true,
+								false,
+							);
+						}}
+						submitter={false}
+						layout="horizontal"
+					>
+						<Row gutter={token.marginLG}>
 							<Col span={24}>
-								<FormattedMessage id="settings.functionSettings.outputSettings.variables" />
+								<ProFormText
+									name="manualSaveFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.manualSaveFileNameFormat" />
+									}
+								/>
 							</Col>
-							<Col span={12}>
-								<FormattedMessage id="settings.functionSettings.outputSettings.variables.date" />
-								<code>{"{{YYYY-MM-DD_HH-mm-ss}}"}</code>
+
+							<ProFormDependency<{ manualSaveFileNameFormat: string }>
+								name={["manualSaveFileNameFormat"]}
+							>
+								{({ manualSaveFileNameFormat }) => {
+									const text = generateImageFileName(manualSaveFileNameFormat);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.manualSaveFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
+
+							<Col span={24}>
+								<ProFormText
+									name="autoSaveFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.autoSaveFileNameFormat" />
+									}
+								/>
 							</Col>
-							<Col span={12}>
-								<FormattedMessage id="settings.functionSettings.outputSettings.variables.focusedWindowAppName" />
-								<code>{FOCUS_WINDOW_APP_NAME_ENV_VARIABLE}</code>
+
+							<ProFormDependency<{ autoSaveFileNameFormat: string }>
+								name={["autoSaveFileNameFormat"]}
+							>
+								{({ autoSaveFileNameFormat }) => {
+									const text = generateImageFileName(autoSaveFileNameFormat);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.autoSaveFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
+
+							<Col span={24}>
+								<ProFormText
+									name="fastSaveFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.fastSaveFileNameFormat" />
+									}
+								/>
 							</Col>
+
+							<ProFormDependency<{ fastSaveFileNameFormat: string }>
+								name={["fastSaveFileNameFormat"]}
+							>
+								{({ fastSaveFileNameFormat }) => {
+									const text = generateImageFileName(fastSaveFileNameFormat);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.fastSaveFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
+
+							<Col span={24}>
+								<ProFormText
+									name="focusedWindowFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.focusedWindowFileNameFormat" />
+									}
+								/>
+							</Col>
+
+							<ProFormDependency<{ focusedWindowFileNameFormat: string }>
+								name={["focusedWindowFileNameFormat"]}
+							>
+								{({ focusedWindowFileNameFormat }) => {
+									const text = generateImageFileName(
+										focusedWindowFileNameFormat,
+									);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.focusedWindowFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
+
+							<Col span={24}>
+								<ProFormText
+									name="fullScreenFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormat" />
+									}
+								/>
+							</Col>
+
+							<ProFormDependency<{ fullScreenFileNameFormat: string }>
+								name={["fullScreenFileNameFormat"]}
+							>
+								{({ fullScreenFileNameFormat }) => {
+									const text = generateImageFileName(fullScreenFileNameFormat);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
+
+							<Col span={24}>
+								<ProFormText
+									name="videoRecordFileNameFormat"
+									layout="horizontal"
+									label={
+										<FormattedMessage id="settings.functionSettings.outputSettings.videoRecordFileNameFormat" />
+									}
+								/>
+							</Col>
+
+							<ProFormDependency<{ videoRecordFileNameFormat: string }>
+								name={["videoRecordFileNameFormat"]}
+							>
+								{({ videoRecordFileNameFormat }) => {
+									const text = generateImageFileName(videoRecordFileNameFormat);
+									return (
+										<Col span={24}>
+											<ProFormText
+												layout="horizontal"
+												readonly
+												label={
+													<FormattedMessage id="settings.functionSettings.outputSettings.videoRecordFileNameFormatPreview" />
+												}
+												fieldProps={{
+													value: text,
+												}}
+											/>
+										</Col>
+									);
+								}}
+							</ProFormDependency>
 						</Row>
-					</Typography>
-				}
-				type="info"
-				style={{ marginBottom: token.margin }}
-			/>
-
-			<Spin spinning={appSettingsLoading}>
-				<ProForm
-					form={outputForm}
-					onValuesChange={(_, values) => {
-						updateAppSettings(
-							AppSettingsGroup.FunctionOutput,
-							values,
-							true,
-							true,
-							true,
-							true,
-							false,
-						);
-					}}
-					submitter={false}
-					layout="horizontal"
-				>
-					<Row gutter={token.marginLG}>
-						<Col span={24}>
-							<ProFormText
-								name="manualSaveFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.manualSaveFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ manualSaveFileNameFormat: string }>
-							name={["manualSaveFileNameFormat"]}
-						>
-							{({ manualSaveFileNameFormat }) => {
-								const text = generateImageFileName(manualSaveFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.manualSaveFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="autoSaveFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.autoSaveFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ autoSaveFileNameFormat: string }>
-							name={["autoSaveFileNameFormat"]}
-						>
-							{({ autoSaveFileNameFormat }) => {
-								const text = generateImageFileName(autoSaveFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.autoSaveFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="fastSaveFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.fastSaveFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ fastSaveFileNameFormat: string }>
-							name={["fastSaveFileNameFormat"]}
-						>
-							{({ fastSaveFileNameFormat }) => {
-								const text = generateImageFileName(fastSaveFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.fastSaveFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="focusedWindowFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.focusedWindowFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ focusedWindowFileNameFormat: string }>
-							name={["focusedWindowFileNameFormat"]}
-						>
-							{({ focusedWindowFileNameFormat }) => {
-								const text = generateImageFileName(focusedWindowFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.focusedWindowFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="fullScreenFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ fullScreenFileNameFormat: string }>
-							name={["fullScreenFileNameFormat"]}
-						>
-							{({ fullScreenFileNameFormat }) => {
-								const text = generateImageFileName(fullScreenFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="videoRecordFileNameFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.videoRecordFileNameFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ videoRecordFileNameFormat: string }>
-							name={["videoRecordFileNameFormat"]}
-						>
-							{({ videoRecordFileNameFormat }) => {
-								const text = generateImageFileName(videoRecordFileNameFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.videoRecordFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-					</Row>
-				</ProForm>
-			</Spin>
+					</ProForm>
+				</Spin>
+			</SettingsSection>
 
 			<style jsx>{`
                 :global(.api-config-list .ant-pro-form-list-container) {

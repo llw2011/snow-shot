@@ -1,5 +1,11 @@
 import { Layout, Menu, theme } from "antd";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, {
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 
 const { Sider } = Layout;
 
@@ -12,12 +18,48 @@ import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 
 type MenuItem = ItemType<MenuItemType>;
 
+const findOpenAncestor = (
+	items: MenuItem[],
+	pathname: string,
+): string | undefined => {
+	for (const item of items) {
+		if (!item || !("children" in item)) {
+			continue;
+		}
+
+		const children = item.children as MenuItem[] | undefined;
+		if (!children?.length) {
+			continue;
+		}
+
+		if (children.some((child) => child && child.key?.toString() === pathname)) {
+			return item.key?.toString();
+		}
+	}
+
+	return undefined;
+};
+
 const MenuSiderCore: React.FC<{
 	menuItems: MenuItem[];
 	pathname: string;
 }> = ({ menuItems, pathname }) => {
 	const { token } = theme.useToken();
 	const [collapsed, setCollapsed] = useState(false);
+	const activeAncestor = useMemo(
+		() => findOpenAncestor(menuItems, pathname),
+		[menuItems, pathname],
+	);
+	const [openKeys, setOpenKeys] = useState<string[]>(() =>
+		activeAncestor ? [activeAncestor] : [],
+	);
+
+	useEffect(() => {
+		if (!collapsed) {
+			setOpenKeys(activeAncestor ? [activeAncestor] : []);
+		}
+	}, [activeAncestor, collapsed]);
+
 	useAppSettingsLoad(
 		useCallback((settings: AppSettingsData) => {
 			setCollapsed(settings[AppSettingsGroup.Cache].menuCollapsed);
@@ -51,8 +93,8 @@ const MenuSiderCore: React.FC<{
 		<Sider
 			className="snow-shot-sider"
 			collapsed={collapsed}
-			width={212}
-			collapsedWidth={72}
+			width={188}
+			collapsedWidth={60}
 			collapsible
 			onCollapse={(value) => {
 				setCollapsed(value);
@@ -94,23 +136,29 @@ const MenuSiderCore: React.FC<{
 				)}
 				<RSC>
 					<Menu
-						defaultSelectedKeys={[menuItems[0]?.key?.toString() ?? "/"]}
+						aria-label="Snow Shot"
 						selectedKeys={[pathname]}
 						mode="inline"
 						items={menuItems}
-						defaultOpenKeys={menuItems
-							.map((item) => item?.key as string)
-							.filter((key) => !!key)}
+						inlineIndent={16}
+						openKeys={openKeys}
+						onOpenChange={(keys) => {
+							if (collapsed) {
+								return;
+							}
+							const nextKey = keys.find((key) => !openKeys.includes(key));
+							setOpenKeys(nextKey ? [nextKey] : []);
+						}}
 					/>
 				</RSC>
 			</div>
 			<style jsx>{`
                 .logo-wrap {
-                    min-height: 58px;
+                    min-height: 56px;
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 14px 16px 10px;
+                    padding: 12px 14px 8px;
                     color: var(--snow-shot-ink);
                     user-select: none;
                 }
@@ -122,8 +170,8 @@ const MenuSiderCore: React.FC<{
 
                 .logo-mark {
                     position: relative;
-                    width: 30px;
-                    height: 30px;
+                    width: 28px;
+                    height: 28px;
                     flex: 0 0 auto;
                     border: 1px solid var(--snow-shot-hairline-strong);
                     border-radius: 8px;
@@ -163,8 +211,8 @@ const MenuSiderCore: React.FC<{
 
                 .logo-mark-core {
                     position: absolute;
-                    left: 12px;
-                    top: 12px;
+                    left: 11px;
+                    top: 11px;
                     width: 6px;
                     height: 6px;
                     border-radius: 999px;
@@ -184,7 +232,7 @@ const MenuSiderCore: React.FC<{
 
                 .macos-title-bar-margin {
                     width: 100%;
-                    height: 32px;
+                    height: 36px;
                 }
 
                 .menu-sider-wrap {

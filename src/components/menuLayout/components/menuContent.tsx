@@ -4,7 +4,7 @@ import {
 	getCurrentWindow,
 } from "@tauri-apps/api/window";
 import * as tauriOs from "@tauri-apps/plugin-os";
-import { Button, Layout, Space, theme } from "antd";
+import { Button, Layout, Space } from "antd";
 import { Header } from "antd/es/layout/layout";
 import React, {
 	useCallback,
@@ -24,7 +24,6 @@ const MenuContentCore: React.FC<{
 	routeTabsMap: Record<string, RouteMapItem>;
 	children: React.ReactNode;
 }> = ({ pathname, routeTabsMap, children }) => {
-	const { token } = theme.useToken();
 	const appWindowRef = useRef<AppWindow | undefined>(undefined);
 	useEffect(() => {
 		appWindowRef.current = getCurrentWindow();
@@ -45,6 +44,27 @@ const MenuContentCore: React.FC<{
 		[],
 	);
 
+	useEffect(() => {
+		if (pathname.length === 0) {
+			return;
+		}
+
+		const scrollbar = scrollbarRef.current;
+		if (!scrollbar) {
+			return;
+		}
+
+		const frame = window.requestAnimationFrame(() => {
+			if (scrollbar.scrollerElement) {
+				scrollbar.scrollerElement.scrollTo({ top: 0, behavior: "auto" });
+			} else {
+				scrollbar.scrollTop = 0;
+			}
+		});
+
+		return () => window.cancelAnimationFrame(frame);
+	}, [pathname]);
+
 	const [currentPlatform, setCurrentPlatform] = useState<
 		tauriOs.Platform | undefined
 	>(undefined);
@@ -64,6 +84,8 @@ const MenuContentCore: React.FC<{
 							type="text"
 							size="small"
 							icon={<MinusOutlined />}
+							aria-label="Minimize"
+							title="Minimize"
 							onClick={() => {
 								appWindowRef.current?.minimize();
 							}}
@@ -72,6 +94,8 @@ const MenuContentCore: React.FC<{
 							type="text"
 							size="small"
 							icon={<CloseOutlined />}
+							aria-label="Hide Snow Shot"
+							title="Hide Snow Shot"
 							onClick={() => {
 								appWindowRef.current?.hide();
 								appWindowRef.current?.emit("on-hide-main-window");
@@ -88,15 +112,17 @@ const MenuContentCore: React.FC<{
 				)}
 			</Header>
 			<Content>
-				<div className="content-wrap">
+				<div className="content-wrap app-content-shell">
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div className="center">
+					<div className="center app-content-surface">
 						<PageNav tabItems={tabItems} scrollbarRef={scrollbarRef} />
-						<RSC ref={setScrollbarRef}>
-							<div className="content-container">{children}</div>
+						<RSC className="app-page-scrollbar" ref={setScrollbarRef}>
+							<main className="content-container app-page-content">
+								{children}
+							</main>
 						</RSC>
 					</div>
 					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
@@ -109,7 +135,7 @@ const MenuContentCore: React.FC<{
 			<style jsx>{`
                 .app-titlebar {
                     position: relative;
-                    height: 32px !important;
+                    height: 36px !important;
                     background: var(--snow-shot-header-bg) !important;
                     border-bottom: 1px solid var(--snow-shot-hairline-soft);
                 }
@@ -124,27 +150,29 @@ const MenuContentCore: React.FC<{
                     background: var(--snow-shot-surface-card);
                 }
 
-                .content-wrap {
-                    display: grid;
-                    grid-template-columns: ${token.paddingSM}px auto ${token.paddingSM}px;
-                    grid-template-rows: ${token.paddingSM}px auto ${token.paddingSM}px;
-                    height: 100%;
-                    background: transparent;
-                }
+                    .content-wrap {
+                        display: grid;
+                        grid-template-columns: 8px minmax(0, 1fr) 8px;
+                        grid-template-rows: 8px minmax(0, 1fr) 8px;
+                        height: 100%;
+                        background: transparent;
+                    }
 
                 .content-wrap .center {
                     grid-column: 2;
                     grid-row: 2;
                     overflow-y: hidden;
-                    overflow-x: hidden;
-                    border-radius: ${token.borderRadius}px;
-                    background: var(--snow-shot-panel-bg);
-                    border: 1px solid var(--snow-shot-hairline-soft);
-                    box-shadow: var(--snow-shot-shadow);
-                    backdrop-filter: var(--snow-shot-backdrop-filter);
-                    padding: ${token.paddingSM}px ${token.paddingSM}px;
-                    display: flex;
-                    flex-direction: column;
+                        overflow-x: hidden;
+                        container-name: snow-content;
+                        container-type: inline-size;
+                        border-radius: var(--snow-shot-radius-lg);
+                        background: var(--snow-shot-panel-bg);
+                        border: 1px solid var(--snow-shot-hairline-soft);
+                        box-shadow: var(--snow-shot-shadow);
+                        backdrop-filter: var(--snow-shot-backdrop-filter);
+                        padding: 0;
+                        display: flex;
+                        flex-direction: column;
                     transform: translateY(0px);
                 }
 
@@ -153,9 +181,10 @@ const MenuContentCore: React.FC<{
                 }
 
                 .content-container {
-                    padding: 0 ${token.paddingSM}px;
+                    box-sizing: border-box;
+                    padding: 20px 22px 48px;
                     width: 100%;
-                    height: 100%;
+                    min-height: 100%;
                     overflow-x: hidden;
                 }
 

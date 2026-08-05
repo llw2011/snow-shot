@@ -18,11 +18,11 @@ import { debounce } from "es-toolkit";
 import { useCallback, useContext, useMemo } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { ContentWrap } from "@/components/contentWrap";
-import { GroupTitle } from "@/components/groupTitle";
 import { IconLabel } from "@/components/iconLable";
 import { DarkModeIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import { SettingsSection } from "@/components/settingsSection";
 import {
 	getAppThemePreset,
 	getAppThemeRuntime,
@@ -153,131 +153,132 @@ export const AppearancePage = () => {
 
 	return (
 		<ContentWrap className="settings-wrap">
-			<GroupTitle
-				id="commonSettings"
+			<SettingsSection
+				sectionId="commonSettings"
+				title={<FormattedMessage id="appearance.title" />}
 				extra={
 					<ResetSettingsButton
 						title={<FormattedMessage id="appearance.title" key="appearance" />}
 						appSettingsGroup={AppSettingsGroup.Common}
 					/>
 				}
+				defaultOpen
 			>
-				<FormattedMessage id="appearance.title" />
-			</GroupTitle>
-
-			<Form
-				className="settings-form common-settings-form"
-				form={commonForm}
-				onValuesChange={(changedValues, values) => {
-					const themePresetChanged = isAppThemePreset(
-						changedValues.themePreset,
-					);
-					if (themePresetChanged) {
-						const preset = getAppThemePreset(changedValues.themePreset);
-						const runtime = getAppThemeRuntime(
+				<Form
+					className="settings-form common-settings-form"
+					form={commonForm}
+					onValuesChange={(changedValues, values) => {
+						const themePresetChanged = isAppThemePreset(
 							changedValues.themePreset,
-							currentTheme,
 						);
-						values.mainColor = runtime.recommendedAccent;
-						values.borderRadius = preset.recommendedRadius;
-						commonForm.setFieldsValue({
-							mainColor: runtime.recommendedAccent,
-							borderRadius: preset.recommendedRadius,
-						});
-					}
+						if (themePresetChanged) {
+							const preset = getAppThemePreset(changedValues.themePreset);
+							const runtime = getAppThemeRuntime(
+								changedValues.themePreset,
+								currentTheme,
+							);
+							values.mainColor = runtime.recommendedAccent;
+							values.borderRadius = preset.recommendedRadius;
+							commonForm.setFieldsValue({
+								mainColor: runtime.recommendedAccent,
+								borderRadius: preset.recommendedRadius,
+							});
+						}
 
-					if (typeof values.mainColor === "object") {
-						values.mainColor = (
-							values.mainColor as AggregationColor
-						).toHexString();
-					}
+						if (typeof values.mainColor === "object") {
+							values.mainColor = (
+								values.mainColor as AggregationColor
+							).toHexString();
+						}
 
-					const updateCommonSettings = themePresetChanged
-						? updateAppSettings
-						: updateAppSettingsDebounce;
-					updateCommonSettings(
-						AppSettingsGroup.Common,
-						values,
-						true,
-						true,
-						true,
-						false,
-						false,
-					);
-				}}
-				layout="vertical"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={24}>
-							<Form.Item
-								name="themePreset"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="appearance.themePreset.title" />
-										}
+						const updateCommonSettings = themePresetChanged
+							? updateAppSettings
+							: updateAppSettingsDebounce;
+						updateCommonSettings(
+							AppSettingsGroup.Common,
+							values,
+							true,
+							true,
+							true,
+							false,
+							false,
+						);
+					}}
+					layout="vertical"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={24}>
+								<Form.Item
+									name="themePreset"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="appearance.themePreset.title" />
+											}
+										/>
+									}
+									extra={
+										<FormattedMessage id="appearance.themePreset.description" />
+									}
+								>
+									<ThemePresetSelector mode={currentTheme} />
+								</Form.Item>
+							</Col>
+							<Col span={12}>
+								<Form.Item
+									label={
+										<IconLabel
+											icon={<DarkModeIcon />}
+											label={<FormattedMessage id="settings.theme" />}
+										/>
+									}
+									name="theme"
+								>
+									<Select options={themeOptions} />
+								</Form.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="mainColor"
+									label={
+										<IconLabel
+											label={<FormattedMessage id="settings.theme.mainColor" />}
+										/>
+									}
+								>
+									<ColorPicker showText placement="bottom" />
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="borderRadius"
+									label={<FormattedMessage id="settings.borderRadius" />}
+								>
+									<Slider
+										min={0}
+										max={16}
+										step={1}
+										marks={{ 0: "0px", 16: "16px" }}
 									/>
-								}
-								extra={
-									<FormattedMessage id="appearance.themePreset.description" />
-								}
-							>
-								<ThemePresetSelector mode={currentTheme} />
-							</Form.Item>
-						</Col>
-						<Col span={12}>
-							<Form.Item
-								label={
-									<IconLabel
-										icon={<DarkModeIcon />}
-										label={<FormattedMessage id="settings.theme" />}
-									/>
-								}
-								name="theme"
-							>
-								<Select options={themeOptions} />
-							</Form.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="mainColor"
-								label={
-									<IconLabel
-										label={<FormattedMessage id="settings.theme.mainColor" />}
-									/>
-								}
-							>
-								<ColorPicker showText placement="bottom" />
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="borderRadius"
-								label={<FormattedMessage id="settings.borderRadius" />}
-							>
-								<Slider
-									min={0}
-									max={16}
-									step={1}
-									marks={{ 0: "0px", 16: "16px" }}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="enableCompactLayout"
-								label={<FormattedMessage id="settings.compactLayout" />}
-							>
-								<Switch />
-							</ProForm.Item>
-						</Col>
-					</Row>
-				</Spin>
-			</Form>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="enableCompactLayout"
+									label={<FormattedMessage id="settings.compactLayout" />}
+								>
+									<Switch />
+								</ProForm.Item>
+							</Col>
+						</Row>
+					</Spin>
+				</Form>
+			</SettingsSection>
 
-			<GroupTitle
-				id="themeSkinSettings"
+			<SettingsSection
+				sectionId="themeSkinSettings"
+				title={<FormattedMessage id="appearance.themeSkinSettings" />}
 				extra={
 					<ResetSettingsButton
 						title={intl.formatMessage({ id: "settings.themeSkinSettings" })}
@@ -285,169 +286,167 @@ export const AppearancePage = () => {
 					/>
 				}
 			>
-				<FormattedMessage id="appearance.themeSkinSettings" />
-			</GroupTitle>
-
-			<Form
-				className="settings-form theme-skin-settings-form"
-				form={themeSkinForm}
-				onValuesChange={(_, values) => {
-					updateAppSettingsDebounce(
-						AppSettingsGroup.ThemeSkin,
-						values,
-						true,
-						true,
-						true,
-						false,
-						false,
-					);
-				}}
-				layout="vertical"
-			>
-				<Spin spinning={appSettingsLoading}>
-					<Row gutter={token.marginLG}>
-						<Col span={24}>
-							<ProForm.Item
-								name="skinPath"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="appearance.customBackground.path.label" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="appearance.customBackground.path.tip" />
-										}
+				<Form
+					className="settings-form theme-skin-settings-form"
+					form={themeSkinForm}
+					onValuesChange={(_, values) => {
+						updateAppSettingsDebounce(
+							AppSettingsGroup.ThemeSkin,
+							values,
+							true,
+							true,
+							true,
+							false,
+							false,
+						);
+					}}
+					layout="vertical"
+				>
+					<Spin spinning={appSettingsLoading}>
+						<Row gutter={token.marginLG}>
+							<Col span={24}>
+								<ProForm.Item
+									name="skinPath"
+									label={
+										<IconLabel
+											label={
+												<FormattedMessage id="appearance.customBackground.path.label" />
+											}
+											tooltipTitle={
+												<FormattedMessage id="appearance.customBackground.path.tip" />
+											}
+										/>
+									}
+									extra={
+										<FormattedMessage id="appearance.customBackground.path.description" />
+									}
+									required={false}
+								>
+									<PathInput
+										placeholder={intl.formatMessage({
+											id: "appearance.customBackground.path.placeholder",
+										})}
+										filters={[
+											{
+												name: "Image(*.png,*.jpg,*.gif,*webp,*.avif)",
+												extensions: ["png", "jpg", "gif", "webp", "avif"],
+											},
+										]}
 									/>
-								}
-								extra={
-									<FormattedMessage id="appearance.customBackground.path.description" />
-								}
-								required={false}
-							>
-								<PathInput
-									placeholder={intl.formatMessage({
-										id: "appearance.customBackground.path.placeholder",
-									})}
-									filters={[
-										{
-											name: "Image(*.png,*.jpg,*.gif,*webp,*.avif)",
-											extensions: ["png", "jpg", "gif", "webp", "avif"],
-										},
-									]}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinImageSize"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinImageSize" />
-								}
-							>
-								<Select
-									disabled={!hasSkinImage}
-									options={skinImageSizeOptions}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinPosition"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinPosition" />
-								}
-							>
-								<Select
-									disabled={!hasSkinImage}
-									options={skinPositionOptions}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinOpacity"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinOpacity" />
-								}
-							>
-								<Slider
-									disabled={!hasSkinImage}
-									min={0}
-									max={100}
-									step={1}
-									marks={{ 0: "0%", 100: "100%" }}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinBlur"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinBlur" />
-								}
-							>
-								<Slider
-									disabled={!hasSkinImage}
-									min={0}
-									max={32}
-									step={1}
-									marks={{ 0: "0px", 32: "32px" }}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinMaskOpacity"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinMaskOpacity" />
-								}
-							>
-								<Slider
-									disabled={!hasSkinImage}
-									min={0}
-									max={100}
-									step={1}
-									marks={{ 0: "0%", 100: "100%" }}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={12}>
-							<ProForm.Item
-								name="skinMaskBlur"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.skinMaskBlur" />
-								}
-							>
-								<Slider
-									disabled={!hasSkinImage}
-									min={0}
-									max={32}
-									step={1}
-									marks={{ 0: "0px", 32: "32px" }}
-								/>
-							</ProForm.Item>
-						</Col>
-						<Col span={24}>
-							<ProForm.Item
-								name="customCss"
-								label={
-									<FormattedMessage id="settings.themeSkinSettings.customCss" />
-								}
-								extra={
-									<FormattedMessage id="appearance.customBackground.customCss.description" />
-								}
-							>
-								<TextArea
-									autoSize={{
-										minRows: 10,
-										maxRows: 20,
-									}}
-								/>
-							</ProForm.Item>
-						</Col>
-					</Row>
-				</Spin>
-			</Form>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinImageSize"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinImageSize" />
+									}
+								>
+									<Select
+										disabled={!hasSkinImage}
+										options={skinImageSizeOptions}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinPosition"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinPosition" />
+									}
+								>
+									<Select
+										disabled={!hasSkinImage}
+										options={skinPositionOptions}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinOpacity"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinOpacity" />
+									}
+								>
+									<Slider
+										disabled={!hasSkinImage}
+										min={0}
+										max={100}
+										step={1}
+										marks={{ 0: "0%", 100: "100%" }}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinBlur"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinBlur" />
+									}
+								>
+									<Slider
+										disabled={!hasSkinImage}
+										min={0}
+										max={32}
+										step={1}
+										marks={{ 0: "0px", 32: "32px" }}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinMaskOpacity"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinMaskOpacity" />
+									}
+								>
+									<Slider
+										disabled={!hasSkinImage}
+										min={0}
+										max={100}
+										step={1}
+										marks={{ 0: "0%", 100: "100%" }}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={12}>
+								<ProForm.Item
+									name="skinMaskBlur"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.skinMaskBlur" />
+									}
+								>
+									<Slider
+										disabled={!hasSkinImage}
+										min={0}
+										max={32}
+										step={1}
+										marks={{ 0: "0px", 32: "32px" }}
+									/>
+								</ProForm.Item>
+							</Col>
+							<Col span={24}>
+								<ProForm.Item
+									name="customCss"
+									label={
+										<FormattedMessage id="settings.themeSkinSettings.customCss" />
+									}
+									extra={
+										<FormattedMessage id="appearance.customBackground.customCss.description" />
+									}
+								>
+									<TextArea
+										autoSize={{
+											minRows: 10,
+											maxRows: 20,
+										}}
+									/>
+								</ProForm.Item>
+							</Col>
+						</Row>
+					</Spin>
+				</Form>
+			</SettingsSection>
 
 			<style jsx>{`
                 :global(.settings-wrap) {

@@ -35,7 +35,7 @@ export const ResetSettingsButton: React.FC<{
 				}
 			}}
 		>
-			<Button type="text">
+			<Button type="text" aria-label="Reset settings" title="Reset settings">
 				<ResetIcon />
 			</Button>
 		</Popconfirm>

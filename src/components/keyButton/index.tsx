@@ -388,7 +388,8 @@ export const KeyButton: React.FC<{
 					.filter(Boolean)
 					.join(" ")}
 				icon={<KeyboardGrayIcon />}
-				danger={keyValue ? undefined : true}
+				danger={buttonProps?.danger}
+				data-empty={keyValue ? undefined : "true"}
 				onClick={(e) => {
 					buttonProps?.onClick?.(e);
 					setOpen(true);

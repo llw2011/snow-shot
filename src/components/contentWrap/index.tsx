@@ -6,7 +6,7 @@ export const ContentWrap: React.FC<{
 }> = ({ children, className }) => {
 	const { token } = theme.useToken();
 	return (
-		<div className={`content-wrap ${className}`}>
+		<div className={["content-wrap", className].filter(Boolean).join(" ")}>
 			{children}
 			<style jsx>
 				{`
