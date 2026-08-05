@@ -56,6 +56,7 @@ import urlJoin from "url-join";
 import { EventListenerContext } from "@/components/eventListener";
 import { HotkeysMenu } from "@/components/hotkeysMenu";
 import { BotIcon, SidebarIcon, ThinkingIcon } from "@/components/icons";
+import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import { AntdContext } from "@/contexts/antdContext";
 import { AppContext } from "@/contexts/appContext";
 import {
@@ -66,8 +67,8 @@ import { finishScreenshot } from "@/functions/screenshot";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { useStateRef } from "@/hooks/useStateRef";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
-import { appFetch, getUrl, ServiceResponse } from "@/services/tools";
-import { type ChatModel, getChatModelsWithCache } from "@/services/tools/chat";
+import { appFetch, ServiceResponse } from "@/services/tools";
+import type { ChatModel } from "@/services/tools/chat";
 import {
 	type AppSettingsData,
 	AppSettingsGroup,
@@ -237,11 +238,6 @@ export const MarkdownContent: React.FC<{
 	);
 };
 
-const modelRequest = XRequest({
-	baseURL: getUrl("/api/v1/chat/completions"),
-	fetch: appFetch,
-});
-
 type ChatModelConfig = ChatModel & {
 	customConfig?: ChatApiConfig;
 };
@@ -302,8 +298,6 @@ const fliterErrorMessages = (messages: BubbleDataType[] | undefined) => {
 	return finalMessages;
 };
 
-export const CUSTOM_MODEL_PREFIX = "snow_shot_custom_";
-
 const Chat = () => {
 	const intl = useIntl();
 
@@ -322,9 +316,6 @@ const Chat = () => {
 	const [sessionStoreLoading, setSessionStoreLoading] = useState(true);
 	const [customModelConfigList, setCustomModelConfigList] = useState<
 		ChatApiConfig[]
-	>([]);
-	const [onlineModelConfigList, setOnlineModelConfigList] = useState<
-		ChatModel[]
 	>([]);
 	const [supportedModels, setSupportedModels, supportedModelsRef] = useStateRef<
 		ChatModelConfig[]
@@ -356,24 +347,6 @@ const Chat = () => {
 		true,
 	);
 
-	const [
-		supportedModelsLoading,
-		setSupportedModelsLoading,
-		supportedModelsLoadingRef,
-	] = useStateRef(false);
-	useEffect(() => {
-		if (supportedModelsLoadingRef.current) {
-			return;
-		}
-
-		setSupportedModelsLoading(true);
-		getChatModelsWithCache().then((res) => {
-			setSupportedModelsLoading(false);
-
-			setOnlineModelConfigList(res ?? []);
-		});
-	}, [setSupportedModelsLoading, supportedModelsLoadingRef]);
-
 	useEffect(() => {
 		setSupportedModels([
 			...customModelConfigList.map((item) => {
@@ -385,18 +358,15 @@ const Chat = () => {
 					support_vision: item.support_vision ?? false,
 				};
 			}),
-			...onlineModelConfigList.map((item) => {
-				return {
-					model: item.model,
-					name: item.name,
-					thinking: item.thinking,
-					support_vision: item.support_vision,
-				};
-			}),
 		]);
-	}, [onlineModelConfigList, setSupportedModels, customModelConfigList]);
+	}, [setSupportedModels, customModelConfigList]);
 
 	const abortController = useRef<AbortController>(null);
+	const selectedModelConfig = useMemo(
+		() => supportedModels.find((item) => item.model === selectedModel),
+		[supportedModels, selectedModel],
+	);
+	const selectedModelSupportThinking = !!selectedModelConfig?.thinking;
 
 	const [messageHistory, setMessageHistory, messageHistoryRef] = useStateRef<
 		Record<string, MessageInfo<BubbleDataType>[]>
@@ -442,7 +412,8 @@ const Chat = () => {
 		useMemo(() => {
 			return {
 				request: (input, callbacks) => {
-					if (!selectedModelRef.current) {
+					const selectedModel = selectedModelRef.current;
+					if (!selectedModel) {
 						message.error(
 							intl.formatMessage({ id: "tools.chat.noSelectedModel" }),
 						);
@@ -509,35 +480,42 @@ const Chat = () => {
 						}
 					});
 
-					const customModelRequest = getCustomModelRequest(
-						selectedModelRef.current,
-					);
+					const customModelRequest = getCustomModelRequest(selectedModel);
+					if (!customModelRequest) {
+						message.error(
+							intl.formatMessage({ id: "tools.chat.noSelectedModel" }),
+						);
+						return;
+					}
+					const enableThinking =
+						enableThinkingRef.current &&
+						!!supportedModels.find((item) => item.model === selectedModel)
+							?.thinking;
 
-					return (customModelRequest?.request ?? modelRequest).create(
+					return customModelRequest.request.create(
 						{
 							messages: newInputMessages?.map((item) => ({
 								role: item.role ?? "",
 								content: getMessageContent(item, true),
 							})),
-							model: customModelRequest
-								? selectedModelRef.current
-										.substring(CUSTOM_MODEL_PREFIX.length)
-										.replace("_thinking", "")
-								: selectedModelRef.current,
+							model: selectedModel
+								.substring(CUSTOM_MODEL_PREFIX.length)
+								.replace("_thinking", ""),
 							temperature:
 								getAppSettings()[AppSettingsGroup.SystemChat].temperature,
 							max_tokens:
 								getAppSettings()[AppSettingsGroup.SystemChat].maxTokens,
-							enable_thinking: enableThinkingRef.current ? true : undefined,
+							enable_thinking: enableThinking ? true : undefined,
 							stream_options: {
 								include_usage: true,
 							},
 							thinking_budget:
 								getAppSettings()[AppSettingsGroup.SystemChat]
 									.thinkingBudgetTokens,
-							reasoning: customModelRequest?.config?.support_thinking
-								? { effort: "medium" }
-								: undefined,
+							reasoning:
+								enableThinking && customModelRequest?.config?.support_thinking
+									? { effort: "medium" }
+									: undefined,
 							stream: true,
 						},
 						callbacks,
@@ -551,6 +529,7 @@ const Chat = () => {
 			intl,
 			message,
 			enableThinkingRef.current,
+			supportedModels,
 		]);
 	const [agent] = useXAgent<BubbleDataType>(modelAgentConfig);
 	const loading = agent.isRequesting();
@@ -862,7 +841,6 @@ const Chat = () => {
 						);
 					}}
 					styles={{ popup: { root: { minWidth: 200 } } }}
-					loading={supportedModelsLoading}
 				/>
 
 				<Button
@@ -870,14 +848,20 @@ const Chat = () => {
 					icon={
 						<ThinkingIcon
 							style={{
-								color: enableThinking
-									? token.colorPrimary
-									: token.colorTextDisabled,
+								color:
+									selectedModelSupportThinking && enableThinking
+										? token.colorPrimary
+										: token.colorTextDisabled,
 							}}
 						/>
 					}
 					className="chatHeaderThinkingButton"
+					disabled={!selectedModelSupportThinking || loading}
 					onClick={() => {
+						if (!selectedModelSupportThinking) {
+							return;
+						}
+
 						updateAppSettings(
 							AppSettingsGroup.Cache,
 							{ chatModelEnableThinking: !enableThinkingRef.current },
@@ -888,7 +872,11 @@ const Chat = () => {
 							false,
 						);
 					}}
-					title={intl.formatMessage({ id: "tools.chat.thinking" })}
+					title={intl.formatMessage({
+						id: selectedModelSupportThinking
+							? "tools.chat.thinking"
+							: "tools.chat.thinking.unsupported",
+					})}
 				/>
 			</Space>
 
@@ -1461,13 +1449,13 @@ const Chat = () => {
                     display: flex;
                     width: 100%;
                     flex-direction: column;
-                    background: var(--antd-color-bg-container);
-                    color: var(--antd-color-text);
+                    background: var(--snow-shot-surface);
+                    color: var(--snow-shot-ink);
                 }
                 :global(.chatHeader) {
                     height: 64px;
                     box-sizing: border-box;
-                    border-bottom: 1px solid var(--antd-color-border);
+                    border-bottom: 1px solid var(--snow-shot-hairline);
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -1526,7 +1514,7 @@ const Chat = () => {
                 }
                 :global(.speechButton) {
                     font-size: 18px;
-                    color: var(--antd-color-text) !important;
+                    color: var(--snow-shot-ink) !important;
                 }
 
                 :global(.ant-bubble-content-wrapper .ant-bubble-footer) {
@@ -1565,7 +1553,7 @@ export const ChatPage = () => {
                     }
                     :global(.workarea) {
                         flex: 1;
-                        background: var(--antd-color-bg-layout);
+                        background: var(--snow-shot-canvas);
                         display: flex;
                         flex-direction: column;
                     }
@@ -1576,12 +1564,12 @@ export const ChatPage = () => {
                         align-items: center;
                         justify-content: space-between;
                         padding: 0 48px 0 28px;
-                        border-bottom: 1px solid var(--antd-color-border);
+                        border-bottom: 1px solid var(--snow-shot-hairline);
                     }
                     :global(.headerTitle) {
                         font-weight: 600;
                         font-size: 15px;
-                        color: var(--antd-color-text);
+                        color: var(--snow-shot-ink);
                         display: flex;
                         align-items: center;
                         gap: 8px;
@@ -1606,7 +1594,7 @@ export const ChatPage = () => {
                     :global(.workareaBody) {
                         flex: 1;
                         padding: 16px;
-                        background: var(--antd-color-bg-container);
+                        background: var(--snow-shot-surface);
                         border-radius: 16px;
                         min-height: 0;
                     }
@@ -1616,7 +1604,7 @@ export const ChatPage = () => {
                         padding-right: 10px;
                     }
                     :global(.bodyText) {
-                        color: var(--antd-color-text);
+                        color: var(--snow-shot-ink);
                         padding: 8px;
                     }
                 `}</style>

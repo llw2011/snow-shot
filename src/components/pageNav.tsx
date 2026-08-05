@@ -1,90 +1,78 @@
-import { Tabs, type TabsProps, theme } from "antd";
-import { debounce } from "es-toolkit";
-import {
-	useCallback,
-	useEffect,
-	useImperativeHandle,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { Tabs, theme } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Scrollbar } from "react-scrollbars-custom";
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
-export type PageNavActionType = {
-	updateActiveKey: (scrollTop: number) => void;
-};
+const clampScrollTop = (value: number, maxScrollTop: number) =>
+	Math.min(Math.max(value, 0), maxScrollTop);
 
 export const PageNav: React.FC<{
 	tabItems: RouteMapItem;
-	actionRef: React.RefObject<PageNavActionType | null>;
-}> = ({ tabItems, actionRef }) => {
+	scrollbarRef: React.RefObject<Scrollbar | null>;
+}> = ({ tabItems, scrollbarRef }) => {
 	const { token } = theme.useToken();
 
 	const [activeKey, setActiveKey] = useState<string | undefined>(
 		tabItems.items?.[0]?.key,
 	);
-	const tabItemsRef = useRef<TabsProps["items"]>(tabItems.items);
-	useEffect(() => {
-		tabItemsRef.current = tabItems.items;
-	}, [tabItems]);
-	const anchorTopListRef = useRef<{ key: string; offsetTop: number }[]>([]);
 
-	const updateActiveKey = useCallback((scrollTop: number) => {
-		const anchorTopList = anchorTopListRef.current;
-		if (anchorTopList.length === 0) {
-			return;
-		}
+	const tabItemsKey = useMemo(
+		() => (tabItems.items ?? []).map((item) => item.key).join("|"),
+		[tabItems.items],
+	);
 
-		let targetKey = "";
-		for (const anchor of anchorTopList) {
-			if (anchor.offsetTop <= scrollTop) {
-				targetKey = anchor.key;
-			} else {
-				break;
+	const scrollToKey = useCallback(
+		(key: string) => {
+			const target = document.getElementById(key);
+			const scrollbar = scrollbarRef.current;
+			const scrollerElement = scrollbar?.scrollerElement;
+			if (!target || !scrollbar) {
+				return false;
 			}
-		}
 
-		if (!targetKey) {
-			return;
-		}
+			const scrollState = scrollbar.getScrollState(true);
+			const maxScrollTop = Math.max(
+				0,
+				scrollState.contentScrollHeight - scrollState.clientHeight,
+			);
+			const targetScrollTop = scrollerElement
+				? scrollState.scrollTop +
+					target.getBoundingClientRect().top -
+					scrollerElement.getBoundingClientRect().top
+				: target.offsetTop;
+			const nextScrollTop = clampScrollTop(targetScrollTop, maxScrollTop);
 
-		setActiveKey(targetKey);
-	}, []);
-	const updateActiveKeyDebounce = useMemo(
-		() => debounce(updateActiveKey, 256),
-		[updateActiveKey],
+			if (scrollerElement) {
+				scrollerElement.scrollTo({
+					top: nextScrollTop,
+					behavior: "smooth",
+				});
+			} else {
+				scrollbar.scrollTop = nextScrollTop;
+			}
+
+			return true;
+		},
+		[scrollbarRef],
 	);
+
 	useEffect(() => {
-		if (!document) {
-			return;
-		}
-
 		const tabs = tabItems.items;
-		if (!tabs || tabs.length === 0) {
+		const firstTabKey = tabs?.[0]?.key?.toString();
+		if (!firstTabKey) {
+			setActiveKey(undefined);
 			return;
 		}
-		setActiveKey(tabs[0].key as string);
 
-		anchorTopListRef.current = tabs.map((item) => {
-			const element = document.getElementById(item.key as string);
-			return {
-				key: item.key as string,
-				offsetTop: element
-					? element.offsetTop - element.clientHeight
-					: Number.MAX_SAFE_INTEGER,
-			};
+		const tabKeys = new Set(tabs?.map((item) => item.key?.toString()));
+		setActiveKey((prevKey) => {
+			if (prevKey && tabKeys.has(prevKey)) {
+				return prevKey;
+			}
+
+			return firstTabKey;
 		});
-
-		updateActiveKeyDebounce(0);
-	}, [tabItems, updateActiveKeyDebounce]);
-
-	useImperativeHandle(
-		actionRef,
-		() => ({
-			updateActiveKey: updateActiveKeyDebounce,
-		}),
-		[updateActiveKeyDebounce],
-	);
+	}, [tabItems.items]);
 
 	return (
 		<div
@@ -92,16 +80,14 @@ export const PageNav: React.FC<{
 			style={{ display: tabItems.hideTabs ? "none" : undefined }}
 		>
 			<Tabs
+				key={`${tabItemsKey}:${activeKey ?? ""}`}
 				activeKey={activeKey}
 				items={tabItems.items}
 				size="small"
 				onChange={(key) => {
-					const target = document.getElementById(key);
-					if (!target) {
-						return;
+					if (scrollToKey(key)) {
+						setActiveKey(key);
 					}
-					target.scrollIntoView({ behavior: "smooth" });
-					setActiveKey(key);
 				}}
 			/>
 

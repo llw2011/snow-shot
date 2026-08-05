@@ -81,7 +81,7 @@ export type ExcalidrawEventOnChangeParams = {
 	};
 };
 
-export type ExcalidrawEventOnPointerDownParams = {
+type ExcalidrawEventOnPointerDownParams = {
 	event: "onPointerDown";
 	params: {
 		activeTool: AppState["activeTool"];
@@ -89,7 +89,7 @@ export type ExcalidrawEventOnPointerDownParams = {
 	};
 };
 
-export type ExcalidrawEventOnPointerUpParams = {
+type ExcalidrawEventOnPointerUpParams = {
 	event: "onPointerUp";
 	params: {
 		activeTool: AppState["activeTool"];
@@ -100,7 +100,7 @@ export type ExcalidrawEventOnPointerUpParams = {
 /**
  * 开始新一次绘制时发送
  */
-export type ExcalidrawEventOnDrawParams = {
+type ExcalidrawEventOnDrawParams = {
 	event: "onDraw";
 	params: undefined;
 };
@@ -108,7 +108,7 @@ export type ExcalidrawEventOnDrawParams = {
 /**
  * Watermark 文本更新时发生
  */
-export type ExcalidrawEventOnWatermarkTextChangeParams = {
+type ExcalidrawEventOnWatermarkTextChangeParams = {
 	event: "onWatermarkTextChange";
 	params: {
 		text: string;
@@ -138,7 +138,7 @@ export enum ExcalidrawEventCallbackType {
 	ChangeFontSize = "ChangeFontSize",
 }
 
-export type ExcalidrawEventCallbackFontSizeParams = {
+type ExcalidrawEventCallbackFontSizeParams = {
 	fontSize: number;
 	drawState?: DrawState;
 };

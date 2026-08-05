@@ -29,11 +29,12 @@ export const ThemeSkin = () => {
 	}, [currentTheme]);
 
 	const backgroundImageUrl = useMemo(() => {
-		if (!themeSkinSettings?.skinPath) {
+		const skinPath = themeSkinSettings?.skinPath.trim();
+		if (!skinPath) {
 			return null;
 		}
 
-		return convertFileSrc(themeSkinSettings.skinPath);
+		return convertFileSrc(skinPath);
 	}, [themeSkinSettings?.skinPath]);
 
 	const backgroundPosition = useMemo(() => {
@@ -90,15 +91,10 @@ export const ThemeSkin = () => {
 			return "transparent";
 		}
 
-		let backgroundColor = token.colorBgContainer;
-		if (isDarkMode) {
-			backgroundColor = "#001529";
-		}
-
-		return Color(backgroundColor)
+		return Color(token.colorBgLayout)
 			.alpha(0.83 * maskOpacity)
 			.toString();
-	}, [themeSkinSettings, token.colorBgContainer, maskOpacity, isDarkMode]);
+	}, [themeSkinSettings, token.colorBgLayout, maskOpacity]);
 
 	const levelOneBackgroundColor = useMemo(() => {
 		if (!themeSkinSettings) {
@@ -124,25 +120,42 @@ export const ThemeSkin = () => {
 		if (!themeSkinSettings) {
 			return "transparent";
 		}
-		return Color(token.colorPrimaryBg)
+		return Color(token.colorBgContainer)
+			.mix(Color(token.colorPrimary), 0.13)
 			.alpha(0.64 * maskOpacity)
 			.toString();
-	}, [themeSkinSettings, token.colorPrimaryBg, maskOpacity]);
+	}, [
+		themeSkinSettings,
+		token.colorBgContainer,
+		token.colorPrimary,
+		maskOpacity,
+	]);
 
-	// 如果没有设置皮肤路径，不显示任何内容
+	// 自定义 CSS 可以脱离背景图片单独生效。
 	if (!backgroundImageUrl) {
-		return null;
+		if (!customCss.trim()) {
+			return null;
+		}
+
+		return (
+			<>
+				{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
+				<style dangerouslySetInnerHTML={{ __html: customCss }} />
+			</>
+		);
 	}
 
 	return (
 		<div
 			className="global-skin-container"
 			style={{
-				position: "fixed",
+				position: "absolute",
 				top: 0,
 				left: 0,
 				right: 0,
 				bottom: 0,
+				zIndex: 0,
+				pointerEvents: "none",
 			}}
 		>
 			<div
@@ -161,19 +174,25 @@ export const ThemeSkin = () => {
 				}}
 			/>
 
-			{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
-			{customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
-
 			<style jsx global>
 				{`
 
                     .global-skin-container {
                         background-color: ${token.colorBgLayout};
+                        overflow: hidden;
+                    }
+
+                    .ant-app .menu-layout-wrap {
+                        background: transparent !important;
                     }
                         
 
 					.ant-app .menu-layout-wrap .ant-layout {
 						background-color: transparent;
+					}
+
+					.ant-app .menu-layout-wrap .content-wrap {
+						background: transparent !important;
 					}
 
                     .ant-app .menu-layout-wrap .ant-layout-header {
@@ -182,7 +201,7 @@ export const ThemeSkin = () => {
                     }
 
                     .ant-app .menu-layout-wrap .ant-layout-sider {
-                        background-color: ${siderMenuBackgroundColor};
+                        background-color: ${siderMenuBackgroundColor} !important;
                         backdrop-filter: blur(${maskBlur}px);
                     }
 
@@ -226,6 +245,9 @@ export const ThemeSkin = () => {
                     }
 				`}
 			</style>
+
+			{/** biome-ignore lint/security/noDangerouslySetInnerHtml: 提供自定义 CSS */}
+			{customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
 		</div>
 	);
 };

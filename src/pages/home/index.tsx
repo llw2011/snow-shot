@@ -1,6 +1,6 @@
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { Space, Spin, Tooltip, theme } from "antd";
-import { useCallback, useContext } from "react";
+import { Spin, Tooltip, theme } from "antd";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { CheckPermissions } from "@/components/checkPermissions";
 import { ContentWrap } from "@/components/contentWrap";
@@ -12,12 +12,17 @@ import { ResetSettingsButton } from "@/components/resetSettingsButton";
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
-import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
+import {
+	AppSettingsActionContext,
+	AppSettingsPublisher,
+} from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { usePlatform } from "@/hooks/usePlatform";
+import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import {
 	type AppSettingsData,
 	AppSettingsGroup,
@@ -28,6 +33,7 @@ import {
 	type AppFunctionConfig,
 	AppFunctionGroup,
 } from "@/types/components/appFunction";
+import { canUseOcr } from "@/utils/ocr";
 import {
 	convertShortcutKeyStatusToButtonColor,
 	convertShortcutKeyStatusToTip,
@@ -64,10 +70,25 @@ export const HomePage = () => {
 		appSettingsLoading,
 		appFunctionSettings,
 		shortcutKeyStatus,
-		disableShortcutKeyRef,
+		setShortcutInputActive,
 	} = useContext(GlobalShortcutContext);
+	useEffect(() => {
+		return () => {
+			setShortcutInputActive(false);
+		};
+	}, [setShortcutInputActive]);
 
 	const { isReadyStatus } = usePluginServiceContext();
+	const [currentAppSettings, setCurrentAppSettings] =
+		useState<AppSettingsData>();
+	useStateSubscriber(AppSettingsPublisher, setCurrentAppSettings);
+	const ocrReady = currentAppSettings
+		? canUseOcr(
+				currentAppSettings,
+				isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+				isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+			)
+		: false;
 	return (
 		<ContentWrap className="home-wrap">
 			<CheckPermissions />
@@ -204,17 +225,13 @@ export const HomePage = () => {
 					}
 
 					return (
-						<div key={`${group}`} style={{ marginBottom: token.marginLG }}>
+						<div className="home-command-group" key={`${group}`}>
 							{groupTitle}
 							<Spin
 								key={`${group}`}
 								spinning={updateShortcutKeyStatusLoading || appSettingsLoading}
 							>
-								<Space
-									direction="vertical"
-									size="middle"
-									style={{ display: "flex" }}
-								>
+								<div className="home-command-list">
 									{configs
 										.filter((config) => {
 											if (
@@ -228,7 +245,7 @@ export const HomePage = () => {
 												config.configKey === AppFunction.ScreenshotOcr ||
 												config.configKey === AppFunction.ScreenshotOcrTranslate
 											) {
-												return isReadyStatus?.(PLUGIN_ID_RAPID_OCR);
+												return ocrReady;
 											}
 
 											return true;
@@ -276,7 +293,10 @@ export const HomePage = () => {
 											}
 
 											return (
-												<div key={`${group}-${key}`}>
+												<div
+													className="home-command-item"
+													key={`${group}-${key}`}
+												>
 													<FunctionButton
 														label={config.title}
 														icon={config.icon}
@@ -292,14 +312,14 @@ export const HomePage = () => {
 																color: statusColor,
 																children,
 																onClick: () => {
-																	disableShortcutKeyRef.current = true;
+																	setShortcutInputActive(true);
 																},
 															}}
 															onCancel={() => {
-																disableShortcutKeyRef.current = false;
+																setShortcutInputActive(false);
 															}}
 															onKeyChange={async (value) => {
-																disableShortcutKeyRef.current = false;
+																setShortcutInputActive(false);
 																updateAppSettings(
 																	AppSettingsGroup.AppFunction,
 																	{
@@ -320,11 +340,46 @@ export const HomePage = () => {
 												</div>
 											);
 										})}
-								</Space>
+								</div>
 							</Spin>
 						</div>
 					);
 				})}
+			<style jsx>{`
+                :global(.home-wrap) {
+                    padding-top: ${token.paddingXS}px;
+                }
+
+                .home-command-group {
+                    margin-bottom: ${token.margin}px;
+                    padding: ${token.paddingSM}px;
+                    border: 1px solid var(--snow-shot-hairline-soft);
+                    border-radius: ${token.borderRadius}px;
+                    background: var(--snow-shot-command-group-bg);
+                    box-shadow: var(--snow-shot-card-shadow);
+                }
+
+                .home-command-group :global(.components_group-title) {
+                    margin-bottom: ${token.marginSM}px !important;
+                    padding: 0 ${token.paddingXXS}px;
+                }
+
+                .home-command-list {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: ${token.paddingXS}px;
+                }
+
+                .home-command-item {
+                    min-width: 0;
+                }
+
+                @media (max-width: 760px) {
+                    .home-command-list {
+                        grid-template-columns: minmax(0, 1fr);
+                    }
+                }
+            `}</style>
 		</ContentWrap>
 	);
 };

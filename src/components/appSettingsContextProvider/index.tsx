@@ -3,10 +3,12 @@ import {
 	type Window as AppWindow,
 	getCurrentWindow,
 } from "@tauri-apps/api/window";
-import { ConfigProvider, type ThemeConfig, theme } from "antd";
+import { App as AntdApp, ConfigProvider, type ThemeConfig, theme } from "antd";
 import enUS from "antd/es/locale/en_US";
 import zhCN from "antd/es/locale/zh_CN";
 import zhTW from "antd/es/locale/zh_TW";
+import type { MappingAlgorithm } from "antd/es/theme/interface";
+import Color from "color";
 import { debounce, isEqual, trim } from "es-toolkit";
 import React, {
 	useCallback,
@@ -16,13 +18,36 @@ import React, {
 	useState,
 } from "react";
 import { IntlProvider } from "react-intl";
-import { createDrawWindow } from "@/commands";
+import { createDrawWindow } from "@/commands/core";
 import { createDir, textFileRead, textFileWrite } from "@/commands/file";
+import {
+	nativeRuntimeBindDraw,
+	nativeRuntimeSettingsReady,
+} from "@/commands/nativeAction";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
-import { defaultAppSettingsData } from "@/constants/appSettings";
+import {
+	defaultAppSettingsData,
+	HARDENED_CUSTOM_MODEL_PREFIX,
+	HARDENED_GLM_OCR_CHAT_API_CONFIG,
+	HARDENED_GLM_OCR_CUSTOM_MODEL,
+	HARDENED_QWEN35_CHAT_API_CONFIG,
+	HARDENED_QWEN35_CUSTOM_MODEL,
+	HARDENED_QWEN35_LEGACY_API_MODELS,
+	HARDENED_QWEN35_TRANSLATION_API_CONFIG,
+} from "@/constants/appSettings";
 import { defaultCommonKeyEventSettings } from "@/constants/commonKeyEvent";
 import { defaultDrawToolbarKeyEventSettings } from "@/constants/drawToolbarKeyEvent";
-import { PLUGIN_ID_RAPID_OCR } from "@/constants/pluginService";
+import {
+	PLUGIN_ID_GLM_OCR,
+	PLUGIN_ID_RAPID_OCR,
+} from "@/constants/pluginService";
+import {
+	colorWithAlpha,
+	createThemeCssVariables,
+	getAppThemeRuntime,
+	isAppThemePreset,
+	resolveThemePrimaryColor,
+} from "@/constants/themePresets";
 import { AppContext } from "@/contexts/appContext";
 import {
 	AppSettingsActionContext,
@@ -41,13 +66,13 @@ import {
 	AppSettingsGroup,
 	AppSettingsLanguage,
 	AppSettingsTheme,
-	type CloudSaveUrlFormat,
-	CloudSaveUrlType,
 	type DoubleClickAction,
 	ExtraToolList,
 	type HdrColorAlgorithm,
 	type HistoryValidDuration,
 	OcrDetectAfterAction,
+	OcrModel,
+	TranslationApiType,
 	type TrayIconClickAction,
 	type TrayIconDefaultIcon,
 	type VideoMaxSize,
@@ -68,10 +93,336 @@ import { DrawState } from "@/types/draw";
 import { ImageFormat } from "@/types/utils/file";
 import { getConfigDirPath } from "@/utils/environment";
 import { appError, appWarn, formatErrorDetails } from "@/utils/log";
+import { canUseOcr } from "@/utils/ocr";
+
+const preserveReadableThemeColors: MappingAlgorithm = (token, mapToken) => {
+	const current = mapToken ?? theme.defaultAlgorithm(token);
+	const stateTarget = Color(current.colorBgLayout).isDark()
+		? Color("#FFFFFF")
+		: Color("#000000");
+	const createStateColor = (value: string, weight: number) => {
+		try {
+			const source = Color(value);
+			if (source.hex() === stateTarget.hex()) {
+				return source.mix(Color(current.colorBgLayout), weight / 2).hex();
+			}
+			return source.mix(stateTarget, weight).hex();
+		} catch {
+			return value;
+		}
+	};
+	const primaryHover = createStateColor(token.colorPrimary, 0.18);
+	const primaryActive = createStateColor(token.colorPrimary, 0.32);
+	const infoHover = createStateColor(token.colorInfo, 0.18);
+	const infoActive = createStateColor(token.colorInfo, 0.32);
+	const successHover = createStateColor(token.colorSuccess, 0.18);
+	const successActive = createStateColor(token.colorSuccess, 0.32);
+	const warningHover = createStateColor(token.colorWarning, 0.18);
+	const warningActive = createStateColor(token.colorWarning, 0.32);
+	const errorHover = createStateColor(token.colorError, 0.18);
+	const errorActive = createStateColor(token.colorError, 0.32);
+	return {
+		...current,
+		colorPrimary: token.colorPrimary,
+		colorPrimaryHover: primaryHover,
+		colorPrimaryActive: primaryActive,
+		colorPrimaryBg: colorWithAlpha(token.colorPrimary, 0.12),
+		colorPrimaryBgHover: colorWithAlpha(token.colorPrimary, 0.2),
+		colorPrimaryBorder: colorWithAlpha(token.colorPrimary, 0.42),
+		colorPrimaryBorderHover: colorWithAlpha(token.colorPrimary, 0.58),
+		colorPrimaryText: token.colorPrimary,
+		colorPrimaryTextHover: primaryHover,
+		colorPrimaryTextActive: primaryActive,
+		colorLink: token.colorPrimary,
+		colorLinkHover: primaryHover,
+		colorLinkActive: primaryActive,
+		colorInfo: token.colorInfo,
+		colorInfoHover: infoHover,
+		colorInfoActive: infoActive,
+		colorInfoText: token.colorInfo,
+		colorInfoTextHover: infoHover,
+		colorInfoTextActive: infoActive,
+		colorSuccess: token.colorSuccess,
+		colorSuccessHover: successHover,
+		colorSuccessActive: successActive,
+		colorSuccessText: token.colorSuccess,
+		colorSuccessTextHover: successHover,
+		colorSuccessTextActive: successActive,
+		colorWarning: token.colorWarning,
+		colorWarningHover: warningHover,
+		colorWarningActive: warningActive,
+		colorWarningText: token.colorWarning,
+		colorWarningTextHover: warningHover,
+		colorWarningTextActive: warningActive,
+		colorError: token.colorError,
+		colorErrorHover: errorHover,
+		colorErrorActive: errorActive,
+		colorErrorText: token.colorError,
+		colorErrorTextHover: errorHover,
+		colorErrorTextActive: errorActive,
+	};
+};
 
 const getFilePath = async (group: AppSettingsGroup) => {
 	const configDirPath = await getConfigDirPath();
 	return `${configDirPath}/${group}.json`;
+};
+
+const isLegacyQwenFlashModel = (model: unknown) =>
+	model === "qwen-flash" || model === "snow_shot_custom_qwen-flash";
+
+const isAppSettingsTheme = (value: unknown): value is AppSettingsTheme =>
+	value === AppSettingsTheme.Light ||
+	value === AppSettingsTheme.Dark ||
+	value === AppSettingsTheme.System;
+
+type ChatApiConfig =
+	AppSettingsData[AppSettingsGroup.FunctionChat]["chatApiConfigList"][number];
+type TranslationApiConfig =
+	AppSettingsData[AppSettingsGroup.FunctionTranslation]["translationApiConfigList"][number];
+
+const normalizeCustomModelValue = (model: unknown) => {
+	const modelName = `${model ?? ""}`;
+	return modelName.startsWith(HARDENED_CUSTOM_MODEL_PREFIX)
+		? modelName.slice(HARDENED_CUSTOM_MODEL_PREFIX.length)
+		: modelName;
+};
+
+const getCustomTranslationType = (apiModel: unknown) =>
+	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
+
+const getCustomChatModelType = (apiModel: unknown) =>
+	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
+
+const getApiConfigType = (
+	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
+) => (config && "api_type" in config ? config.api_type : undefined);
+
+const isOpenAiCompatibleTranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+) =>
+	config?.api_type === undefined ||
+	config.api_type === TranslationApiType.OpenAiCompatible;
+
+const isGlmOcrApiConfig = (
+	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
+) =>
+	getApiConfigType(config) !== TranslationApiType.DeepL &&
+	(normalizeCustomModelValue(config?.api_model) ===
+		HARDENED_GLM_OCR_CHAT_API_CONFIG.api_model ||
+		`${config?.model_name ?? ""}` ===
+			HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name);
+
+const isQwen35ChatApiConfig = (config: Partial<ChatApiConfig> | undefined) =>
+	[HARDENED_QWEN35_CHAT_API_CONFIG.api_model]
+		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
+		.includes(normalizeCustomModelValue(config?.api_model)) ||
+	`${config?.model_name ?? ""}` === HARDENED_QWEN35_CHAT_API_CONFIG.model_name;
+
+const isQwen35TranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+) =>
+	isOpenAiCompatibleTranslationApiConfig(config) &&
+	([HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model]
+		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
+		.includes(normalizeCustomModelValue(config?.api_model)) ||
+		`${config?.model_name ?? ""}` ===
+			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
+
+const normalizeQwen35ChatApiConfig = (config: ChatApiConfig): ChatApiConfig =>
+	isQwen35ChatApiConfig(config)
+		? {
+				...config,
+				api_uri: config.api_uri || HARDENED_QWEN35_CHAT_API_CONFIG.api_uri,
+				api_key: config.api_key || HARDENED_QWEN35_CHAT_API_CONFIG.api_key,
+				api_model: HARDENED_QWEN35_CHAT_API_CONFIG.api_model,
+				model_name:
+					config.model_name || HARDENED_QWEN35_CHAT_API_CONFIG.model_name,
+				support_thinking:
+					typeof config.support_thinking === "boolean"
+						? config.support_thinking
+						: HARDENED_QWEN35_CHAT_API_CONFIG.support_thinking,
+				support_vision:
+					typeof config.support_vision === "boolean"
+						? config.support_vision
+						: HARDENED_QWEN35_CHAT_API_CONFIG.support_vision,
+			}
+		: config;
+
+const normalizeQwen35TranslationApiConfig = (
+	config: TranslationApiConfig,
+): TranslationApiConfig =>
+	isQwen35TranslationApiConfig(config)
+		? {
+				...config,
+				api_uri:
+					config.api_uri || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_uri,
+				api_key:
+					config.api_key || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_key,
+				api_model: HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model,
+				model_name:
+					config.model_name ||
+					HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name,
+			}
+		: config;
+
+const normalizeChatApiConfig = (
+	config: Partial<ChatApiConfig> | undefined,
+	fallback?: ChatApiConfig,
+): ChatApiConfig =>
+	normalizeQwen35ChatApiConfig({
+		api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+		api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+		api_model: normalizeCustomModelValue(
+			config?.api_model ?? fallback?.api_model,
+		),
+		model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
+		support_thinking:
+			typeof config?.support_thinking === "boolean"
+				? config.support_thinking
+				: (fallback?.support_thinking ?? false),
+		support_vision:
+			typeof config?.support_vision === "boolean"
+				? config.support_vision
+				: (fallback?.support_vision ?? false),
+	});
+
+const normalizeTranslationApiConfig = (
+	config: Partial<TranslationApiConfig> | undefined,
+	fallback?: TranslationApiConfig,
+): TranslationApiConfig | undefined => {
+	const apiModel = normalizeCustomModelValue(
+		config?.api_model ?? fallback?.api_model,
+	);
+	const modelName = `${config?.model_name ?? fallback?.model_name ?? ""}`;
+	const deeplPreferQualityOptimized =
+		typeof config?.deepl_prefer_quality_optimized === "boolean"
+			? config.deepl_prefer_quality_optimized
+			: (fallback?.deepl_prefer_quality_optimized ?? false);
+
+	if (config?.api_type === TranslationApiType.DeepL) {
+		return {
+			api_type: TranslationApiType.DeepL,
+			api_uri: `${config.api_uri ?? fallback?.api_uri ?? ""}`,
+			api_key: `${config.api_key ?? fallback?.api_key ?? ""}`,
+			api_model: apiModel,
+			model_name: modelName,
+			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
+		};
+	}
+
+	if (
+		config?.api_type === TranslationApiType.OpenAiCompatible ||
+		config?.api_type === undefined
+	) {
+		return normalizeQwen35TranslationApiConfig({
+			api_type: TranslationApiType.OpenAiCompatible,
+			api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+			api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+			api_model: apiModel,
+			model_name: modelName,
+			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
+		});
+	}
+
+	return undefined;
+};
+
+const getTranslationApiConfigType = (config: TranslationApiConfig) =>
+	config.api_type === TranslationApiType.OpenAiCompatible
+		? getCustomTranslationType(config.api_model)
+		: config.api_type;
+
+const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
+	const qwen35Config = configList.find(isQwen35TranslationApiConfig);
+	if (qwen35Config?.api_model) {
+		return getCustomTranslationType(qwen35Config.api_model);
+	}
+
+	const openAiConfig = configList.find(
+		(config) =>
+			config.api_type === TranslationApiType.OpenAiCompatible &&
+			!!normalizeCustomModelValue(config.api_model),
+	);
+	if (openAiConfig?.api_model) {
+		return getCustomTranslationType(openAiConfig.api_model);
+	}
+
+	if (
+		configList.some((config) => config.api_type === TranslationApiType.DeepL)
+	) {
+		return TranslationApiType.DeepL;
+	}
+
+	return HARDENED_QWEN35_CUSTOM_MODEL;
+};
+
+const getFallbackChatModel = (configList: ChatApiConfig[]) => {
+	const qwen35Config = configList.find(isQwen35ChatApiConfig);
+	if (qwen35Config?.api_model) {
+		return getCustomChatModelType(qwen35Config.api_model);
+	}
+
+	const openAiConfig = configList.find(
+		(config) => !!normalizeCustomModelValue(config.api_model),
+	);
+	if (openAiConfig?.api_model) {
+		return getCustomChatModelType(openAiConfig.api_model);
+	}
+
+	return HARDENED_QWEN35_CUSTOM_MODEL;
+};
+
+const normalizeChatModel = (
+	chatModel: unknown,
+	configList: ChatApiConfig[],
+) => {
+	const fallbackChatModel = getFallbackChatModel(configList);
+	const normalizedModel = normalizeCustomModelValue(chatModel);
+	const shouldUseFallback =
+		typeof chatModel !== "string" ||
+		isLegacyQwenFlashModel(chatModel) ||
+		HARDENED_QWEN35_LEGACY_API_MODELS.includes(normalizedModel) ||
+		chatModel === HARDENED_GLM_OCR_CUSTOM_MODEL;
+
+	if (shouldUseFallback) {
+		return fallbackChatModel;
+	}
+
+	if (
+		configList.some(
+			(config) => getCustomChatModelType(config.api_model) === chatModel,
+		)
+	) {
+		return chatModel;
+	}
+
+	return configList.length > 0 ? fallbackChatModel : chatModel;
+};
+
+const normalizeTranslationType = (
+	translationType: unknown,
+	configList: TranslationApiConfig[],
+) => {
+	const fallbackTranslationType = getFallbackTranslationType(configList);
+	const shouldUseFallback =
+		typeof translationType === "number" ||
+		isLegacyQwenFlashModel(translationType) ||
+		translationType === HARDENED_GLM_OCR_CUSTOM_MODEL;
+
+	if (shouldUseFallback || typeof translationType !== "string") {
+		return fallbackTranslationType;
+	}
+
+	if (
+		configList.some(
+			(config) => getTranslationApiConfigType(config) === translationType,
+		)
+	) {
+		return translationType;
+	}
+
+	return configList.length > 0 ? fallbackTranslationType : translationType;
 };
 
 const AppSettingsContextProviderCore: React.FC<{
@@ -212,10 +563,13 @@ const AppSettingsContextProviderCore: React.FC<{
 					| AppSettingsData[typeof group]
 					| undefined;
 				settings = {
-					theme:
-						typeof newSettings?.theme === "string"
-							? newSettings.theme
-							: (prevSettings?.theme ?? AppSettingsTheme.System),
+					theme: isAppSettingsTheme(newSettings?.theme)
+						? newSettings.theme
+						: (prevSettings?.theme ?? defaultAppSettingsData[group].theme),
+					themePreset: isAppThemePreset(newSettings?.themePreset)
+						? newSettings.themePreset
+						: (prevSettings?.themePreset ??
+							defaultAppSettingsData[group].themePreset),
 					mainColor:
 						typeof newSettings?.mainColor === "string"
 							? newSettings.mainColor
@@ -331,11 +685,19 @@ const AppSettingsContextProviderCore: React.FC<{
 						typeof newSettings?.menuCollapsed === "boolean"
 							? newSettings.menuCollapsed
 							: (prevSettings?.menuCollapsed ?? false),
-					chatModel:
-						typeof newSettings?.chatModel === "string"
-							? newSettings.chatModel
-							: (prevSettings?.chatModel ??
-								defaultAppSettingsData[group].chatModel),
+					chatModel: normalizeChatModel(
+						(() => {
+							const chatModel =
+								typeof newSettings?.chatModel === "string"
+									? newSettings.chatModel
+									: (prevSettings?.chatModel ??
+										defaultAppSettingsData[group].chatModel);
+
+							return chatModel;
+						})(),
+						appSettingsRef.current[AppSettingsGroup.FunctionChat]
+							.chatApiConfigList,
+					),
 					chatModelEnableThinking:
 						typeof newSettings?.chatModelEnableThinking === "boolean"
 							? newSettings.chatModelEnableThinking
@@ -545,11 +907,20 @@ const AppSettingsContextProviderCore: React.FC<{
 				const settingKeys: DrawToolbarKeyEventKey[] = Object.keys(
 					defaultDrawToolbarKeyEventSettings,
 				).filter((key) => {
-					if (
-						key === DrawToolbarKeyEventKey.OcrDetectTool ||
-						key === DrawToolbarKeyEventKey.OcrTranslateTool
-					) {
-						return isReady?.(PLUGIN_ID_RAPID_OCR);
+					if (key === DrawToolbarKeyEventKey.OcrDetectTool) {
+						return canUseOcr(
+							appSettingsRef.current,
+							isReady?.(PLUGIN_ID_GLM_OCR),
+							isReady?.(PLUGIN_ID_RAPID_OCR),
+						);
+					}
+
+					if (key === DrawToolbarKeyEventKey.OcrTranslateTool) {
+						return canUseOcr(
+							appSettingsRef.current,
+							isReady?.(PLUGIN_ID_GLM_OCR),
+							isReady?.(PLUGIN_ID_RAPID_OCR),
+						);
 					}
 
 					return true;
@@ -765,13 +1136,32 @@ const AppSettingsContextProviderCore: React.FC<{
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
+				const legacyGlmOcrApiConfig =
+					appSettingsRef.current[
+						AppSettingsGroup.FunctionChat
+					].chatApiConfigList.find(isGlmOcrApiConfig);
 
 				settings = {
-					ocrModel:
-						typeof newSettings?.ocrModel === "string"
-							? newSettings.ocrModel
-							: (prevSettings?.ocrModel ??
-								defaultAppSettingsData[group].ocrModel),
+					ocrModel: (() => {
+						if (typeof newSettings?.ocrModel === "string") {
+							switch (newSettings.ocrModel) {
+								case OcrModel.GlmOcr:
+								case OcrModel.RapidOcrV4:
+								case OcrModel.RapidOcrV5:
+									return newSettings.ocrModel;
+							}
+						}
+
+						return (
+							prevSettings?.ocrModel ?? defaultAppSettingsData[group].ocrModel
+						);
+					})(),
+					glmOcrApiConfig: normalizeChatApiConfig(
+						newSettings?.glmOcrApiConfig,
+						prevSettings?.glmOcrApiConfig ??
+							legacyGlmOcrApiConfig ??
+							defaultAppSettingsData[group].glmOcrApiConfig,
+					),
 					htmlVisionModel:
 						typeof newSettings?.htmlVisionModel === "string"
 							? newSettings.htmlVisionModel
@@ -794,23 +1184,20 @@ const AppSettingsContextProviderCore: React.FC<{
 					| AppSettingsData[typeof group]
 					| undefined;
 
+				const chatApiConfigList = Array.isArray(newSettings?.chatApiConfigList)
+					? newSettings.chatApiConfigList
+					: (prevSettings?.chatApiConfigList ??
+						defaultAppSettingsData[group].chatApiConfigList);
+
 				settings = {
 					autoCreateNewSession:
 						typeof newSettings?.autoCreateNewSession === "boolean"
 							? newSettings.autoCreateNewSession
 							: (prevSettings?.autoCreateNewSession ??
 								defaultAppSettingsData[group].autoCreateNewSession),
-					chatApiConfigList: Array.isArray(newSettings?.chatApiConfigList)
-						? newSettings.chatApiConfigList.map((item) => ({
-								api_uri: `${item.api_uri ?? ""}`,
-								api_key: `${item.api_key ?? ""}`,
-								api_model: `${item.api_model ?? ""}`,
-								model_name: `${item.model_name ?? ""}`,
-								support_thinking: !!item.support_thinking,
-								support_vision: !!item.support_vision,
-							}))
-						: (prevSettings?.chatApiConfigList ??
-							defaultAppSettingsData[group].chatApiConfigList),
+					chatApiConfigList: chatApiConfigList
+						.map((item) => normalizeChatApiConfig(item))
+						.filter((item) => !isGlmOcrApiConfig(item)),
 					autoCreateNewSessionOnCloseWindow:
 						typeof newSettings?.autoCreateNewSessionOnCloseWindow === "boolean"
 							? newSettings.autoCreateNewSessionOnCloseWindow
@@ -847,11 +1234,55 @@ const AppSettingsContextProviderCore: React.FC<{
 							: (prevSettings?.cacheTranslationType ??
 								defaultAppSettingsData[group].cacheTranslationType),
 				};
+
+				settings.cacheTranslationType = normalizeTranslationType(
+					settings.cacheTranslationType,
+					appSettingsRef.current[AppSettingsGroup.FunctionTranslation]
+						.translationApiConfigList,
+				);
 			} else if (group === AppSettingsGroup.FunctionTranslation) {
 				newSettings = newSettings as AppSettingsData[typeof group];
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
+				const defaultTranslationApiConfigInitialized =
+					typeof newSettings?.defaultTranslationApiConfigInitialized ===
+					"boolean"
+						? newSettings.defaultTranslationApiConfigInitialized
+						: (prevSettings?.defaultTranslationApiConfigInitialized ?? false);
+				const previousTranslationApiConfigList =
+					prevSettings?.translationApiConfigList;
+				const newTranslationApiConfigList = Array.isArray(
+					newSettings?.translationApiConfigList,
+				)
+					? newSettings.translationApiConfigList
+					: (previousTranslationApiConfigList ??
+						defaultAppSettingsData[group].translationApiConfigList);
+				const shouldPreservePreviousTranslationApiConfig =
+					Array.isArray(newSettings?.translationApiConfigList) &&
+					previousTranslationApiConfigList?.length ===
+						newTranslationApiConfigList.length;
+				let translationApiConfigList = newTranslationApiConfigList
+					.map((item, index) =>
+						normalizeTranslationApiConfig(
+							item,
+							shouldPreservePreviousTranslationApiConfig
+								? previousTranslationApiConfigList[index]
+								: undefined,
+						),
+					)
+					.filter((item): item is TranslationApiConfig => !!item)
+					.filter((item) => !isGlmOcrApiConfig(item));
+
+				if (
+					!defaultTranslationApiConfigInitialized &&
+					!translationApiConfigList.some(isQwen35TranslationApiConfig)
+				) {
+					translationApiConfigList = [
+						HARDENED_QWEN35_TRANSLATION_API_CONFIG,
+						...translationApiConfigList,
+					];
+				}
 
 				settings = {
 					translationSystemPrompt:
@@ -864,20 +1295,31 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.optimizeAiTranslationLayout
 							: (prevSettings?.optimizeAiTranslationLayout ??
 								defaultAppSettingsData[group].optimizeAiTranslationLayout),
-					translationApiConfigList: Array.isArray(
-						newSettings?.translationApiConfigList,
-					)
-						? newSettings.translationApiConfigList.map((item) => ({
-								api_uri: `${item.api_uri ?? ""}`,
-								api_key: `${item.api_key ?? ""}`,
-								api_type: item.api_type,
-								deepl_prefer_quality_optimized:
-									typeof item.deepl_prefer_quality_optimized === "boolean"
-										? item.deepl_prefer_quality_optimized
-										: false,
-							}))
-						: (prevSettings?.translationApiConfigList ??
-							defaultAppSettingsData[group].translationApiConfigList),
+					translationMaxTokens:
+						typeof newSettings?.translationMaxTokens === "number"
+							? Math.min(Math.max(newSettings.translationMaxTokens, 512), 8192)
+							: (prevSettings?.translationMaxTokens ??
+								defaultAppSettingsData[group].translationMaxTokens),
+					translationTemperature:
+						typeof newSettings?.translationTemperature === "number"
+							? Math.min(Math.max(newSettings.translationTemperature, 0), 2)
+							: (prevSettings?.translationTemperature ??
+								defaultAppSettingsData[group].translationTemperature),
+					translationTopP:
+						typeof newSettings?.translationTopP === "number"
+							? Math.min(Math.max(newSettings.translationTopP, 0), 1)
+							: (prevSettings?.translationTopP ??
+								defaultAppSettingsData[group].translationTopP),
+					translationTimeoutMs:
+						typeof newSettings?.translationTimeoutMs === "number"
+							? Math.min(
+									Math.max(newSettings.translationTimeoutMs, 5000),
+									300000,
+								)
+							: (prevSettings?.translationTimeoutMs ??
+								defaultAppSettingsData[group].translationTimeoutMs),
+					translationApiConfigList,
+					defaultTranslationApiConfigInitialized: true,
 					sourceLanguage:
 						typeof newSettings?.sourceLanguage === "string"
 							? newSettings.sourceLanguage
@@ -900,6 +1342,11 @@ const AppSettingsContextProviderCore: React.FC<{
 							: (prevSettings?.translationType ??
 								defaultAppSettingsData[group].translationType),
 				};
+
+				settings.translationType = normalizeTranslationType(
+					settings.translationType,
+					settings.translationApiConfigList,
+				);
 			} else if (group === AppSettingsGroup.FunctionScreenshot) {
 				newSettings = newSettings as AppSettingsData[typeof group];
 				const prevSettings = appSettingsRef.current[group] as
@@ -919,16 +1366,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.shortcutCanleTip
 							: (prevSettings?.shortcutCanleTip ??
 								defaultAppSettingsData[group].shortcutCanleTip),
-					cloudSaveUrlFormat:
-						typeof newSettings?.cloudSaveUrlFormat === "string"
-							? (newSettings.cloudSaveUrlFormat as CloudSaveUrlFormat)
-							: (prevSettings?.cloudSaveUrlFormat ??
-								defaultAppSettingsData[group].cloudSaveUrlFormat),
-					cloudProxyUrl:
-						typeof newSettings?.cloudProxyUrl === "string"
-							? newSettings.cloudProxyUrl
-							: (prevSettings?.cloudProxyUrl ??
-								defaultAppSettingsData[group].cloudProxyUrl),
 					autoSaveOnCopy:
 						typeof newSettings?.autoSaveOnCopy === "boolean"
 							? newSettings.autoSaveOnCopy
@@ -947,48 +1384,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.copyImageFileToClipboard
 							: (prevSettings?.copyImageFileToClipboard ??
 								defaultAppSettingsData[group].copyImageFileToClipboard),
-					saveToCloud:
-						typeof newSettings?.saveToCloud === "boolean"
-							? newSettings.saveToCloud
-							: (prevSettings?.saveToCloud ?? false),
-					cloudSaveUrlType:
-						typeof newSettings?.cloudSaveUrlType === "string"
-							? (newSettings.cloudSaveUrlType as CloudSaveUrlType)
-							: (prevSettings?.cloudSaveUrlType ?? CloudSaveUrlType.S3),
-					s3AccessKeyId:
-						typeof newSettings?.s3AccessKeyId === "string"
-							? newSettings.s3AccessKeyId
-							: (prevSettings?.s3AccessKeyId ??
-								defaultAppSettingsData[group].s3AccessKeyId),
-					s3SecretAccessKey:
-						typeof newSettings?.s3SecretAccessKey === "string"
-							? newSettings.s3SecretAccessKey
-							: (prevSettings?.s3SecretAccessKey ??
-								defaultAppSettingsData[group].s3SecretAccessKey),
-					s3Region:
-						typeof newSettings?.s3Region === "string"
-							? newSettings.s3Region
-							: (prevSettings?.s3Region ??
-								defaultAppSettingsData[group].s3Region),
-					s3Endpoint:
-						typeof newSettings?.s3Endpoint === "string"
-							? newSettings.s3Endpoint
-							: (prevSettings?.s3Endpoint ??
-								defaultAppSettingsData[group].s3Endpoint),
-					s3BucketName:
-						typeof newSettings?.s3BucketName === "string"
-							? newSettings.s3BucketName
-							: (prevSettings?.s3BucketName ??
-								defaultAppSettingsData[group].s3BucketName),
-					s3PathPrefix:
-						typeof newSettings?.s3PathPrefix === "string"
-							? newSettings.s3PathPrefix
-							: (prevSettings?.s3PathPrefix ??
-								defaultAppSettingsData[group].s3PathPrefix),
-					s3ForcePathStyle:
-						typeof newSettings?.s3ForcePathStyle === "boolean"
-							? newSettings.s3ForcePathStyle
-							: (prevSettings?.s3ForcePathStyle ?? false),
 					saveFileDirectory:
 						typeof newSettings?.saveFileDirectory === "string"
 							? newSettings.saveFileDirectory
@@ -1056,11 +1451,6 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.videoRecordFileNameFormat
 							: (prevSettings?.videoRecordFileNameFormat ??
 								defaultAppSettingsData[group].videoRecordFileNameFormat),
-					uploadToCloudSaveUrlFormat:
-						typeof newSettings?.uploadToCloudSaveUrlFormat === "string"
-							? newSettings.uploadToCloudSaveUrlFormat
-							: (prevSettings?.uploadToCloudSaveUrlFormat ??
-								defaultAppSettingsData[group].uploadToCloudSaveUrlFormat),
 				};
 			} else if (group === AppSettingsGroup.FunctionFullScreenDraw) {
 				newSettings = newSettings as AppSettingsData[typeof group];
@@ -1414,40 +1804,26 @@ const AppSettingsContextProviderCore: React.FC<{
 				`[reloadAppSettings] create dir ${await getConfigDirPath()} failed`,
 				error,
 			);
-			return;
+			return false;
 		}
 
-		await Promise.all(
-			(groups as AppSettingsGroup[]).map(async (group) => {
-				let fileContent = "";
-				try {
-					// 创建文件夹成功的话，文件不存在，则不读取
-					fileContent = await textFileRead(await getFilePath(group));
-				} catch (error) {
-					appWarn(
-						`[reloadAppSettings] read file ${await getFilePath(group)} failed: ${JSON.stringify(error)}`,
-					);
-				}
+		const loadAppSettingsGroup = async (group: AppSettingsGroup) => {
+			let fileContent = "";
+			try {
+				// 创建文件夹成功的话，文件不存在，则不读取
+				fileContent = await textFileRead(await getFilePath(group));
+			} catch (error) {
+				appWarn(
+					`[reloadAppSettings] read file ${await getFilePath(group)} failed: ${JSON.stringify(error)}`,
+				);
+			}
 
-				const saveToFile = appWindowRef.current?.label === "main";
+			const saveToFile = appWindowRef.current?.label === "main";
 
-				if (!fileContent) {
-					settings[group] = updateAppSettings(
-						group,
-						defaultAppSettingsData[group],
-						false,
-						saveToFile,
-						false,
-						true,
-						true,
-						// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
-					) as any;
-					return Promise.resolve();
-				}
-
+			if (!fileContent) {
 				settings[group] = updateAppSettings(
 					group,
-					fileContent,
+					defaultAppSettingsData[group],
 					false,
 					saveToFile,
 					false,
@@ -1455,30 +1831,80 @@ const AppSettingsContextProviderCore: React.FC<{
 					true,
 					// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
 				) as any;
-			}),
+				return;
+			}
+
+			settings[group] = updateAppSettings(
+				group,
+				fileContent,
+				false,
+				saveToFile,
+				false,
+				true,
+				true,
+				// biome-ignore lint/suspicious/noExplicitAny: any is used to avoid type errors
+			) as any;
+		};
+
+		const cacheGroup = AppSettingsGroup.Cache;
+		const translationCacheGroup = AppSettingsGroup.FunctionTranslationCache;
+		const deferredGroups = [cacheGroup, translationCacheGroup];
+		await Promise.all(
+			(groups as AppSettingsGroup[])
+				.filter((group) => !deferredGroups.includes(group))
+				.map(loadAppSettingsGroup),
 		);
+		await loadAppSettingsGroup(cacheGroup);
+		await loadAppSettingsGroup(translationCacheGroup);
 
 		if (isEqual(appSettingsRef.current, settings)) {
 			setAppSettings(settings);
 		}
 
 		setAppSettingsLoadingPublisher(false);
+		return true;
 	}, [setAppSettingsLoadingPublisher, updateAppSettings, setAppSettings]);
 
 	const initedAppSettings = useRef(false);
+	const appSettingsBootstrapActiveRef = useRef(false);
 	useEffect(() => {
-		if (initedAppSettings.current) {
-			return;
-		}
-		initedAppSettings.current = true;
+		appSettingsBootstrapActiveRef.current = true;
+		if (!initedAppSettings.current) {
+			initedAppSettings.current = true;
 
-		reloadAppSettings().then(() => {
-			if (appWindowRef.current?.label === "main") {
-				releaseDrawPage(true).then(() => {
-					createDrawWindow();
-				});
-			}
-		});
+			void (async () => {
+				const settingsLoaded = await reloadAppSettings();
+				if (
+					!appSettingsBootstrapActiveRef.current ||
+					!settingsLoaded ||
+					appWindowRef.current?.label !== "main"
+				) {
+					return;
+				}
+
+				await nativeRuntimeSettingsReady();
+				if (!appSettingsBootstrapActiveRef.current) {
+					return;
+				}
+				await releaseDrawPage(true);
+				if (!appSettingsBootstrapActiveRef.current) {
+					return;
+				}
+				const drawWindowLabel = await createDrawWindow();
+				if (appSettingsBootstrapActiveRef.current) {
+					await nativeRuntimeBindDraw(drawWindowLabel);
+				}
+			})().catch((error) => {
+				appError(
+					"[AppSettingsContextProvider] runtime bootstrap failed",
+					error,
+				);
+			});
+		}
+
+		return () => {
+			appSettingsBootstrapActiveRef.current = false;
+		};
 	}, [reloadAppSettings]);
 
 	const [, antdLocale] = useMemo(() => {
@@ -1513,6 +1939,50 @@ const AppSettingsContextProviderCore: React.FC<{
 					: appSettingsTheme,
 		};
 	}, [appSettingsTheme, currentSystemTheme]);
+	const currentThemeRuntime = useMemo(
+		() =>
+			getAppThemeRuntime(
+				appSettings[AppSettingsGroup.Common].themePreset,
+				appContextValue.currentTheme,
+			),
+		[
+			appContextValue.currentTheme,
+			appSettings[AppSettingsGroup.Common].themePreset,
+		],
+	);
+	const hasCustomBackground =
+		appSettings[AppSettingsGroup.ThemeSkin].skinPath.trim().length > 0;
+	const themeAlgorithms = useMemo(() => {
+		const algorithms = [
+			appContextValue.currentTheme === AppSettingsTheme.Dark
+				? theme.darkAlgorithm
+				: theme.defaultAlgorithm,
+		];
+		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
+			algorithms.push(theme.compactAlgorithm);
+		}
+		algorithms.push(preserveReadableThemeColors);
+		return algorithms;
+	}, [
+		appContextValue.currentTheme,
+		appSettings[AppSettingsGroup.Common].enableCompactLayout,
+	]);
+	const currentPrimaryColor = useMemo(
+		() =>
+			resolveThemePrimaryColor(
+				appSettings[AppSettingsGroup.Common].mainColor,
+				currentThemeRuntime,
+				(value) =>
+					theme.getDesignToken({
+						algorithm: themeAlgorithms,
+						token: {
+							...currentThemeRuntime.antTokens,
+							colorPrimary: value,
+						},
+					}).colorPrimary,
+			),
+		[appSettings, currentThemeRuntime, themeAlgorithms],
+	);
 
 	useEffect(() => {
 		const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -1573,48 +2043,126 @@ const AppSettingsContextProviderCore: React.FC<{
 	}, []);
 
 	const antdTheme = useMemo((): ThemeConfig => {
-		const algorithms = [
-			appContextValue.currentTheme === AppSettingsTheme.Dark
-				? theme.darkAlgorithm
-				: theme.defaultAlgorithm,
-		];
-		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
-			algorithms.push(theme.compactAlgorithm);
-		}
-
 		return {
-			algorithm: algorithms,
+			algorithm: themeAlgorithms,
 			token: {
-				colorPrimary: appSettings[AppSettingsGroup.Common].mainColor,
+				...currentThemeRuntime.antTokens,
+				colorTextSecondary: hasCustomBackground
+					? currentThemeRuntime.palette.ink
+					: currentThemeRuntime.palette.body,
+				colorTextTertiary: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
+				colorTextQuaternary: hasCustomBackground
+					? currentThemeRuntime.palette.muted
+					: currentThemeRuntime.palette.ash,
+				colorTextPlaceholder: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
+				colorTextDisabled: hasCustomBackground
+					? currentThemeRuntime.palette.muted
+					: currentThemeRuntime.palette.ash,
+				colorIcon: hasCustomBackground
+					? currentThemeRuntime.palette.body
+					: currentThemeRuntime.palette.muted,
+				colorPrimary: currentPrimaryColor,
+				colorPrimaryBg: colorWithAlpha(currentPrimaryColor, 0.12),
+				colorPrimaryBgHover: colorWithAlpha(currentPrimaryColor, 0.2),
+				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
+				colorLink: currentPrimaryColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
+				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
+					? 32
+					: 36,
+				fontFamily: "var(--snow-shot-font-ui)",
+				fontSize: 14,
+				lineHeight: 1.5,
+				motionDurationFast: "0.12s",
+				motionDurationMid: "0.18s",
+			},
+			components: {
+				App: {
+					fontSize: 14,
+					lineHeight: 1.5,
+				},
+				Badge: {
+					textFontSize: 12,
+					textFontSizeSM: 12,
+				},
+				Button: {
+					primaryColor: currentThemeRuntime.palette.canvas,
+					dangerColor: currentThemeRuntime.palette.canvas,
+					contentFontSize: 14,
+				},
+				Menu: {
+					itemColor: currentThemeRuntime.palette.body,
+					itemHoverColor: currentThemeRuntime.palette.ink,
+					itemSelectedColor: currentThemeRuntime.palette.ink,
+					subMenuItemSelectedColor: currentThemeRuntime.palette.ink,
+					itemSelectedBg: colorWithAlpha(currentPrimaryColor, 0.13),
+					popupBg: currentThemeRuntime.palette.surfaceElevated,
+				},
+				Switch: {
+					handleBg: currentThemeRuntime.palette.canvas,
+				},
+				Tabs: {
+					itemActiveColor: currentThemeRuntime.palette.ink,
+					itemHoverColor: currentThemeRuntime.palette.ink,
+					itemSelectedColor: currentThemeRuntime.palette.ink,
+				},
 			},
 		};
 	}, [
-		appContextValue.currentTheme,
 		appSettings[AppSettingsGroup.Common].enableCompactLayout,
 		appSettings[AppSettingsGroup.Common].borderRadius,
-		appSettings[AppSettingsGroup.Common].mainColor,
+		currentPrimaryColor,
+		currentThemeRuntime,
+		hasCustomBackground,
+		themeAlgorithms,
 	]);
 
 	useEffect(() => {
-		document.body.className =
-			appContextValue.currentTheme === AppSettingsTheme.Dark
-				? "app-dark"
-				: "app-light";
-	}, [appContextValue.currentTheme]);
+		const isDarkMode = appContextValue.currentTheme === AppSettingsTheme.Dark;
+		const root = document.documentElement;
+		const cssVariables = createThemeCssVariables(
+			currentThemeRuntime,
+			currentPrimaryColor,
+			appSettings[AppSettingsGroup.Common].borderRadius,
+			hasCustomBackground,
+		);
+
+		root.dataset.snowTheme = appSettings[AppSettingsGroup.Common].themePreset;
+		root.dataset.snowThemeMode = isDarkMode ? "dark" : "light";
+		root.style.colorScheme = isDarkMode ? "dark" : "light";
+		for (const [name, value] of Object.entries(cssVariables)) {
+			root.style.setProperty(name, value);
+		}
+
+		document.body.classList.toggle("app-dark", isDarkMode);
+		document.body.classList.toggle("app-light", !isDarkMode);
+	}, [
+		appContextValue.currentTheme,
+		appSettings[AppSettingsGroup.Common].borderRadius,
+		appSettings[AppSettingsGroup.Common].themePreset,
+		currentPrimaryColor,
+		currentThemeRuntime,
+		hasCustomBackground,
+	]);
 
 	return (
 		<AppSettingsActionContext.Provider value={appSettingsContextValue}>
 			<ConfigProvider theme={antdTheme} locale={antdLocale}>
-				<IntlProvider
-					locale={appSettings[AppSettingsGroup.Common].language}
-					messages={messages[appSettings[AppSettingsGroup.Common].language]}
-					defaultLocale={AppSettingsLanguage.ZHHans}
-				>
-					<AppContext.Provider value={appContextValue}>
-						{children}
-					</AppContext.Provider>
-				</IntlProvider>
+				<AntdApp>
+					<IntlProvider
+						locale={appSettings[AppSettingsGroup.Common].language}
+						messages={messages[appSettings[AppSettingsGroup.Common].language]}
+						defaultLocale={AppSettingsLanguage.ZHHans}
+					>
+						<AppContext.Provider value={appContextValue}>
+							{children}
+						</AppContext.Provider>
+					</IntlProvider>
+				</AntdApp>
 			</ConfigProvider>
 		</AppSettingsActionContext.Provider>
 	);

@@ -70,13 +70,12 @@ export const SendQueueMessageList: React.FC<{
 			<style jsx>
 				{`
                     .send-queue-btn-text {
-                        color: ${token.colorTextSecondary};
-                        opacity: 0.42;
-                        transition: opacity ${token.motionDurationFast} ${token.motionEaseInOut};
+                        color: ${token.colorTextTertiary};
+                        transition: color ${token.motionDurationFast} ${token.motionEaseInOut};
                     }
 
                     .send-queue-container :global(.ant-btn:hover) .send-queue-btn-text {
-                        opacity: 1;
+                        color: ${token.colorText};
                     }
                 `}
 			</style>

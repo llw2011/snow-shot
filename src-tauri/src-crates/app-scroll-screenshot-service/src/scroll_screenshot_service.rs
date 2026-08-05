@@ -431,10 +431,6 @@ impl ScrollScreenshotService {
 
         new_scroll_index.corners = image_corners.to_vec();
 
-        let mut index_params = HNSWParams::<f32>::default();
-        index_params.ef_search = 32;
-        index_params.ef_build = 16;
-
         new_scroll_index
             .descriptors
             .iter()

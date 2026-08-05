@@ -2,9 +2,13 @@ use half::prelude::f16;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use snow_shot_app_shared::ElementRect;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, sync_channel};
+use std::thread;
+use std::time::Duration;
 use windows::Win32::Foundation::HWND;
-use windows_capture::capture::{Context, GraphicsCaptureApiError, GraphicsCaptureApiHandler};
+use windows_capture::capture::{
+    CaptureControl, Context, GraphicsCaptureApiError, GraphicsCaptureApiHandler,
+};
 use windows_capture::frame::Frame;
 use windows_capture::graphics_capture_api::{self, InternalCaptureControl};
 use windows_capture::monitor::Monitor;
@@ -23,8 +27,37 @@ static SUPPORTS_WITHOUT_BORDER: AtomicBool = AtomicBool::new(true);
 /// 默认值为 true，当遇到 HDR 捕获错误时会设置为 false
 static SUPPORT_HDR_IMAGE: AtomicBool = AtomicBool::new(true);
 
+const CAPTURE_FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(5);
+const CAPTURE_START_TIMEOUT: Duration = Duration::from_secs(5);
+const RECOVERY_LOG_TARGET: &str = "snow-shot-recovery";
+
+type CapturedFrame = (Vec<u8>, usize, usize);
+type CaptureMessage = Result<CapturedFrame, String>;
+type Capturer = CaptureControl<WindowsCaptureImage, String>;
+
+#[derive(Debug)]
+enum CaptureStartError {
+    Api(GraphicsCaptureApiError<String>),
+    Timeout,
+    Disconnected,
+    Spawn(String),
+}
+
+impl std::fmt::Display for CaptureStartError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Api(error) => write!(formatter, "{error:?}"),
+            Self::Timeout => formatter.write_str("capture startup timed out"),
+            Self::Disconnected => formatter.write_str("capture startup worker disconnected"),
+            Self::Spawn(error) => {
+                write!(formatter, "failed to spawn capture startup worker: {error}")
+            }
+        }
+    }
+}
+
 struct CaptureFlags {
-    on_frame_arrived: Sender<(Vec<u8>, usize, usize)>,
+    on_frame_arrived: SyncSender<CaptureMessage>,
     crop_area: Option<ElementRect>,
 }
 
@@ -59,7 +92,16 @@ impl GraphicsCaptureApiHandler for WindowsCaptureImage {
         };
 
         // Rgba16F 每个像素占用 8 个字节
-        let mut origin_image = frame.buffer().unwrap();
+        let mut origin_image = match frame.buffer() {
+            Ok(buffer) => buffer,
+            Err(error) => {
+                let error = format!(
+                    "[WindowsCaptureImage::on_frame_arrived] failed to access frame buffer: {error:?}"
+                );
+                let _ = capture_info.on_frame_arrived.send(Err(error.clone()));
+                return Err(error);
+            }
+        };
 
         let origin_image_width = origin_image.width() as usize;
         let origin_image_height = origin_image.height() as usize;
@@ -112,11 +154,11 @@ impl GraphicsCaptureApiHandler for WindowsCaptureImage {
 
         match capture_info
             .on_frame_arrived
-            .send((pixels, crop_width, crop_height))
+            .send(Ok((pixels, crop_width, crop_height)))
         {
             Ok(()) => Ok(()),
             Err(_) => {
-                log::error!("[WindowsCaptureImage::on_frame_arrived] failed to send pixels");
+                log::error!(target: RECOVERY_LOG_TARGET, "[WindowsCaptureImage::on_frame_arrived] failed to send pixels");
 
                 Err(format!(
                     "[WindowsCaptureImage::on_frame_arrived] failed to send pixels"
@@ -230,19 +272,116 @@ pub fn write_rgba16f_linear_to_rgba8(
     }
 }
 
+fn receive_first_frame_and_stop<E>(
+    receiver: Receiver<CaptureMessage>,
+    timeout: Duration,
+    stop_capture: impl FnOnce() -> Result<(), E>,
+) -> Result<CapturedFrame, String>
+where
+    E: std::fmt::Debug,
+{
+    let frame_result = match receiver.recv_timeout(timeout) {
+        Ok(frame) => frame,
+        Err(RecvTimeoutError::Timeout) => Err(format!(
+            "[windows_capture_image::capture_monitor_image] timed out waiting for the first frame after {} ms",
+            timeout.as_millis()
+        )),
+        Err(RecvTimeoutError::Disconnected) => Err(
+            "[windows_capture_image::capture_monitor_image] capture ended before the first frame arrived"
+                .to_string(),
+        ),
+    };
+
+    // Disconnect before cleanup. A fast producer may already be delivering a
+    // second frame; keeping the bounded receiver alive here could let a later
+    // callback block in send while stop waits for that callback to return.
+    drop(receiver);
+
+    // Always request capture cleanup, including after a timeout. The production
+    // callback schedules stop/join off the caller so a broken graphics stack
+    // cannot turn cleanup into another unbounded wait.
+    let stop_result = stop_capture();
+    let result = match (frame_result, stop_result) {
+        (Ok(frame), Ok(())) => Ok(frame),
+        (Ok(_), Err(stop_error)) => Err(format!(
+            "[windows_capture_image::capture_monitor_image] failed to stop capture after receiving the first frame: {stop_error:?}"
+        )),
+        (Err(frame_error), Ok(())) => Err(frame_error),
+        (Err(frame_error), Err(stop_error)) => Err(format!(
+            "{frame_error}; additionally failed to stop capture: {stop_error:?}"
+        )),
+    };
+    if let Err(error) = &result {
+        log::warn!(target: RECOVERY_LOG_TARGET, "{error}");
+    }
+    result
+}
+
+fn stop_capture_in_background(capturer: Capturer) -> Result<(), String> {
+    // Signal first so any frame callback that races with the stop request exits
+    // without doing more work. The dependency's stop() also joins and can hang
+    // in a damaged D3D/session state, so never run it on the calling thread.
+    capturer.halt_handle().store(true, Ordering::Release);
+    thread::Builder::new()
+        .name("snow-shot-hdr-cleanup".to_owned())
+        .spawn(move || {
+            if let Err(error) = capturer.stop() {
+                log::warn!(target: RECOVERY_LOG_TARGET, "[windows_capture_image] background capture cleanup failed: {error:?}");
+            }
+        })
+        .map(|_| ())
+        .map_err(|error| format!("failed to schedule capture cleanup: {error}"))
+}
+
+fn start_capture_bounded(
+    start: impl FnOnce() -> Result<Capturer, GraphicsCaptureApiError<String>> + Send + 'static,
+) -> Result<Capturer, CaptureStartError> {
+    start_capture_bounded_with_timeout(start, CAPTURE_START_TIMEOUT)
+}
+
+fn start_capture_bounded_with_timeout(
+    start: impl FnOnce() -> Result<Capturer, GraphicsCaptureApiError<String>> + Send + 'static,
+    timeout: Duration,
+) -> Result<Capturer, CaptureStartError> {
+    let (sender, receiver) = sync_channel(1);
+    thread::Builder::new()
+        .name("snow-shot-hdr-start".to_owned())
+        .spawn(move || {
+            let result = start();
+            if let Err(late_result) = sender.send(result)
+                && let Ok(capturer) = late_result.0
+            {
+                let _ = stop_capture_in_background(capturer);
+            }
+        })
+        .map_err(|error| CaptureStartError::Spawn(error.to_string()))?;
+
+    match receiver.recv_timeout(timeout) {
+        Ok(Ok(capturer)) => Ok(capturer),
+        Ok(Err(error)) => Err(CaptureStartError::Api(error)),
+        Err(RecvTimeoutError::Timeout) => Err(CaptureStartError::Timeout),
+        Err(RecvTimeoutError::Disconnected) => Err(CaptureStartError::Disconnected),
+    }
+}
+
 /// 处理捕获的图像数据
 fn process_captured_image(
-    receiver: std::sync::mpsc::Receiver<(Vec<u8>, usize, usize)>,
+    receiver: Receiver<CaptureMessage>,
+    capturer: CaptureControl<WindowsCaptureImage, String>,
     monitor: &MonitorInfo,
     color_format: ColorFormat,
 ) -> Result<image::DynamicImage, String> {
-    let (rgba16f_image, image_width, image_height) = match receiver.recv() {
-        Ok(image) => image,
-        Err(e) => {
-            return Err(format!(
-                "[windows_capture_image::process_captured_image] failed to receive image: {:?}",
-                e
-            ));
+    let capture_result =
+        receive_first_frame_and_stop(receiver, CAPTURE_FIRST_FRAME_TIMEOUT, || {
+            stop_capture_in_background(capturer)
+        });
+    let (rgba16f_image, image_width, image_height) = match capture_result {
+        Ok(frame) => frame,
+        Err(error) => {
+            // A wedged graphics session should fail over to the normal SDR path
+            // for the rest of this process instead of leaking one helper per try.
+            SUPPORT_HDR_IMAGE.store(false, Ordering::Release);
+            return Err(error);
         }
     };
 
@@ -318,7 +457,7 @@ pub fn capture_monitor_image(
         ));
     }
 
-    let (sender, receiver) = channel();
+    let (sender, receiver) = sync_channel(1);
 
     // 根据全局标志选择边框设置
     let draw_border_setting = if SUPPORTS_WITHOUT_BORDER.load(Ordering::Relaxed) {
@@ -334,8 +473,8 @@ pub fn capture_monitor_image(
         None => None,
     };
 
-    let start_result: Result<(), GraphicsCaptureApiError<String>> = match window {
-        Some(window) => {
+    let start_result = match window {
+        Some(window) => start_capture_bounded(move || {
             let settings = Settings::new(
                 window,
                 CursorCaptureSettings::WithoutCursor,
@@ -350,9 +489,9 @@ pub fn capture_monitor_image(
                 },
             );
 
-            WindowsCaptureImage::start(settings)
-        }
-        None => {
+            WindowsCaptureImage::start_free_threaded(settings)
+        }),
+        None => start_capture_bounded(move || {
             let settings = Settings::new(
                 capture_monitor,
                 CursorCaptureSettings::WithoutCursor,
@@ -367,22 +506,22 @@ pub fn capture_monitor_image(
                 },
             );
 
-            WindowsCaptureImage::start(settings)
-        }
+            WindowsCaptureImage::start_free_threaded(settings)
+        }),
     };
 
     // 尝试启动捕获器
 
     match start_result {
-        Ok(_capturer) => {
+        Ok(capturer) => {
             // 启动成功，处理捕获的图像
-            process_captured_image(receiver, monitor, color_format)
+            process_captured_image(receiver, capturer, monitor, color_format)
         }
         Err(e) => match e {
-            GraphicsCaptureApiError::GraphicsCaptureApiError(
+            CaptureStartError::Api(GraphicsCaptureApiError::GraphicsCaptureApiError(
                 graphics_capture_api::Error::BorderConfigUnsupported,
-            ) => {
-                log::warn!(
+            )) => {
+                log::warn!(target: RECOVERY_LOG_TARGET,
                     "[windows_capture_image::capture_monitor_image] BorderConfigUnsupported detected, falling back to Default border setting"
                 );
 
@@ -390,14 +529,14 @@ pub fn capture_monitor_image(
                 SUPPORTS_WITHOUT_BORDER.store(false, Ordering::Relaxed);
 
                 // 使用 Default 设置重试
-                let (retry_sender, retry_receiver) = channel();
+                let (retry_sender, retry_receiver) = sync_channel(1);
 
-                let start_result: Result<(), GraphicsCaptureApiError<String>> = match window {
-                    Some(window) => {
+                let start_result = match window {
+                    Some(window) => start_capture_bounded(move || {
                         let settings = Settings::new(
                             window,
                             CursorCaptureSettings::WithoutCursor,
-                            draw_border_setting,
+                            DrawBorderSettings::Default,
                             SecondaryWindowSettings::Default,
                             MinimumUpdateIntervalSettings::Default,
                             DirtyRegionSettings::Default,
@@ -408,13 +547,13 @@ pub fn capture_monitor_image(
                             },
                         );
 
-                        WindowsCaptureImage::start(settings)
-                    }
-                    None => {
+                        WindowsCaptureImage::start_free_threaded(settings)
+                    }),
+                    None => start_capture_bounded(move || {
                         let settings = Settings::new(
-                            capture_monitor.clone(),
+                            capture_monitor,
                             CursorCaptureSettings::WithoutCursor,
-                            draw_border_setting,
+                            DrawBorderSettings::Default,
                             SecondaryWindowSettings::Default,
                             MinimumUpdateIntervalSettings::Default,
                             DirtyRegionSettings::Default,
@@ -425,27 +564,27 @@ pub fn capture_monitor_image(
                             },
                         );
 
-                        WindowsCaptureImage::start(settings)
-                    }
+                        WindowsCaptureImage::start_free_threaded(settings)
+                    }),
                 };
 
                 // 重试启动捕获器
                 match start_result {
-                    Ok(_capturer) => {
+                    Ok(capturer) => {
                         // 重试成功，处理捕获的图像
-                        process_captured_image(retry_receiver, monitor, color_format)
+                        process_captured_image(retry_receiver, capturer, monitor, color_format)
                     }
                     Err(retry_e) => {
                         // 重试失败，标记系统不支持 HDR 图像捕获
                         SUPPORT_HDR_IMAGE.store(false, Ordering::Relaxed);
 
-                        log::error!(
-                            "[windows_capture_image::capture_monitor_image] HDR image capture failed after retry, marking as unsupported: {:?}",
+                        log::error!(target: RECOVERY_LOG_TARGET,
+                            "[windows_capture_image::capture_monitor_image] HDR image capture failed after retry, marking as unsupported: {}",
                             retry_e
                         );
 
                         Err(format!(
-                            "[windows_capture_image::capture_monitor_image] failed to start capturer after retry: {:?}",
+                            "[windows_capture_image::capture_monitor_image] failed to start capturer after retry: {}",
                             retry_e
                         ))
                     }
@@ -455,16 +594,67 @@ pub fn capture_monitor_image(
                 // 标记系统不支持 HDR 图像捕获，后续请求将直接返回错误
                 SUPPORT_HDR_IMAGE.store(false, Ordering::Relaxed);
 
-                log::error!(
-                    "[windows_capture_image::capture_monitor_image] HDR image capture failed, marking as unsupported: {:?}",
+                log::error!(target: RECOVERY_LOG_TARGET,
+                    "[windows_capture_image::capture_monitor_image] HDR image capture failed, marking as unsupported: {}",
                     e
                 );
 
                 Err(format!(
-                    "[windows_capture_image::capture_monitor_image] failed to start capturer: {:?}",
+                    "[windows_capture_image::capture_monitor_image] failed to start capturer: {}",
                     e
                 ))
             }
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_frame_timeout_stops_capture_and_rejects_late_frame() {
+        let (sender, receiver) = sync_channel(1);
+        let mut stopped = false;
+
+        let error = receive_first_frame_and_stop(receiver, Duration::ZERO, || {
+            stopped = true;
+            Ok::<(), ()>(())
+        })
+        .unwrap_err();
+
+        assert!(error.contains("timed out waiting for the first frame"));
+        assert!(stopped);
+        assert!(sender.send(Ok((vec![0; 8], 1, 1))).is_err());
+    }
+
+    #[test]
+    fn first_frame_success_still_stops_capture() {
+        let (sender, receiver) = sync_channel(1);
+        sender.send(Ok((vec![0; 8], 1, 1))).unwrap();
+        let mut stopped = false;
+
+        let frame = receive_first_frame_and_stop(receiver, Duration::ZERO, || {
+            assert!(sender.send(Ok((vec![0; 8], 1, 1))).is_err());
+            stopped = true;
+            Ok::<(), ()>(())
+        })
+        .unwrap();
+
+        assert_eq!(frame, (vec![0; 8], 1, 1));
+        assert!(stopped);
+    }
+
+    #[test]
+    fn capture_startup_wait_is_bounded() {
+        let result = start_capture_bounded_with_timeout(
+            || {
+                thread::sleep(Duration::from_millis(20));
+                Err(GraphicsCaptureApiError::FailedToInitWinRT)
+            },
+            Duration::from_millis(1),
+        );
+
+        assert!(matches!(result, Err(CaptureStartError::Timeout)));
     }
 }

@@ -69,6 +69,7 @@ export type ChatApiConfig = {
 };
 
 export enum TranslationApiType {
+	OpenAiCompatible = "translation_api_openai_compatible",
 	DeepL = "translation_api_deepl",
 }
 
@@ -76,6 +77,8 @@ export type TranslationApiConfig = {
 	api_type: TranslationApiType;
 	api_uri: string;
 	api_key: string;
+	api_model?: string;
+	model_name?: string;
 	deepl_prefer_quality_optimized?: boolean;
 };
 
@@ -139,10 +142,6 @@ export enum TrayIconClickAction {
 	Screenshot = "screenshot",
 }
 
-export enum CloudSaveUrlType {
-	S3 = "s3",
-}
-
 export enum TrayIconDefaultIcon {
 	Default = "default",
 	Light = "light",
@@ -150,11 +149,6 @@ export enum TrayIconDefaultIcon {
 	SnowDefault = "snow-default",
 	SnowLight = "snow-light",
 	SnowDark = "snow-dark",
-}
-
-export enum CloudSaveUrlFormat {
-	Origin = "origin",
-	Markdown = "markdown",
 }
 
 export enum DoubleClickAction {
@@ -191,6 +185,15 @@ export enum AppSettingsTheme {
 	System = "system",
 }
 
+export enum AppThemePreset {
+	Obsidian = "obsidian",
+	Aurora = "aurora",
+	Prism = "prism",
+	Matrix = "matrix",
+	Chromatic = "chromatic",
+	Glacier = "glacier",
+}
+
 export enum ColorPickerShowMode {
 	Always = 0,
 	BeyondSelectRect = 1,
@@ -198,6 +201,7 @@ export enum ColorPickerShowMode {
 }
 
 export enum OcrModel {
+	GlmOcr = "GlmOcr",
 	RapidOcrV4 = "RapidOcrV4",
 	RapidOcrV5 = "RapidOcrV5",
 }
@@ -210,6 +214,7 @@ export enum KeyDisplayDirection {
 export type AppSettingsData = {
 	[AppSettingsGroup.Common]: {
 		theme: AppSettingsTheme;
+		themePreset: AppThemePreset;
 		/** 主色 */
 		mainColor: string;
 		/** 圆角 */
@@ -379,6 +384,8 @@ export type AppSettingsData = {
 	[AppSettingsGroup.FunctionOcr]: {
 		/** 文本识别模型 */
 		ocrModel: OcrModel;
+		/** GLM OCR API 配置 */
+		glmOcrApiConfig: ChatApiConfig;
 		/** 将图片转为 HTML 的视觉理解模型 */
 		htmlVisionModel: string;
 		/** 图片转为 HTML 的 System 提示词 */
@@ -389,8 +396,13 @@ export type AppSettingsData = {
 	[AppSettingsGroup.FunctionTranslation]: {
 		/** 优化 AI 翻译的排版 */
 		optimizeAiTranslationLayout: boolean;
+		translationMaxTokens: number;
+		translationTemperature: number;
+		translationTopP: number;
+		translationTimeoutMs: number;
 		translationSystemPrompt: string;
 		translationApiConfigList: TranslationApiConfig[];
+		defaultTranslationApiConfigInitialized: boolean;
 		sourceLanguage: string;
 		targetLanguage: string;
 		translationDomain: TranslationDomain;
@@ -419,28 +431,6 @@ export type AppSettingsData = {
 		doubleClickAction: DoubleClickAction;
 		/** 复制图片文件到剪贴板 */
 		copyImageFileToClipboard: boolean;
-		/** 保存到云端 */
-		saveToCloud: boolean;
-		/** 云端链接格式 */
-		cloudSaveUrlFormat: CloudSaveUrlFormat;
-		/** 云端资源代理网址 */
-		cloudProxyUrl: string;
-		/** 云端保存协议 */
-		cloudSaveUrlType: CloudSaveUrlType;
-		/** S3 访问密钥 ID */
-		s3AccessKeyId: string;
-		/** S3 访问密钥 */
-		s3SecretAccessKey: string;
-		/** S3 区域 */
-		s3Region: string;
-		/** S3 端点 */
-		s3Endpoint: string;
-		/** S3 桶名 */
-		s3BucketName: string;
-		/** S3 路径前缀 */
-		s3PathPrefix: string;
-		/** S3 强制路径样式 */
-		s3ForcePathStyle: boolean;
 		/** 保存文件路径 */
 		saveFileDirectory: string;
 		/** 保存文件格式 */
@@ -465,8 +455,6 @@ export type AppSettingsData = {
 		fullScreenFileNameFormat: string;
 		/** 视频录制文件名格式 */
 		videoRecordFileNameFormat: string;
-		/** 上传到云端文件名格式 */
-		uploadToCloudSaveUrlFormat: string;
 	};
 	[AppSettingsGroup.FunctionFixedContent]: {
 		/** 以鼠标为中心缩放 */

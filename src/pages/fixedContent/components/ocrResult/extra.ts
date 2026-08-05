@@ -1,7 +1,20 @@
 import type { GlobalToken } from "antd";
+import Color from "color";
 import { OcrResultType } from ".";
 
 const domParser = new DOMParser();
+const getColorScheme = (token: GlobalToken | undefined) => {
+	if (!token) {
+		return "light dark";
+	}
+
+	try {
+		return Color(token.colorBgContainer).isDark() ? "dark" : "light";
+	} catch {
+		return "light dark";
+	}
+};
+
 export const getOcrResultIframeSrcDoc = (
 	textContent: string,
 	ocrResultType: OcrResultType,
@@ -47,7 +60,7 @@ export const getOcrResultIframeSrcDoc = (
         `;
 	}
 
-	return `<head><meta name="color-scheme" content="light dark"></meta></head>
+	return `<head><meta name="color-scheme" content="${getColorScheme(token)}"></meta></head>
                                 <body>${textContent}</body>
                         <style>
                             html {

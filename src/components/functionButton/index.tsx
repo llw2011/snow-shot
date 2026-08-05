@@ -15,10 +15,14 @@ export const FunctionButton: React.FC<{
 	return (
 		<div style={{ position: "relative" }}>
 			<Button
+				className="snow-command-button"
 				size="large"
 				loading={loading}
 				block
-				style={{ paddingRight: 0 }}
+				style={{
+					overflow: "hidden",
+					paddingRight: children ? 190 : token.padding,
+				}}
 				onClick={async () => {
 					setLoading(true);
 					await onClick?.();
@@ -28,7 +32,7 @@ export const FunctionButton: React.FC<{
 				<Flex
 					justify="flex-start"
 					align="center"
-					style={{ width: "100%", height: "100%" }}
+					style={{ width: "100%", height: "100%", minWidth: 0 }}
 				>
 					<IconLabel icon={icon} label={label} />
 				</Flex>

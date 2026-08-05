@@ -1,4 +1,4 @@
-import { CloseOutlined, EditOutlined } from "@ant-design/icons";
+﻿import { CloseOutlined, EditOutlined } from "@ant-design/icons";
 import type { ExcalidrawElement } from "@mg-chao/excalidraw/element/types";
 import { PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { Menu, type MenuItemOptions, Submenu } from "@tauri-apps/api/menu";
@@ -24,19 +24,21 @@ import React, {
 } from "react";
 import { isHotkeyPressed, useHotkeys } from "react-hotkeys-hook";
 import { FormattedMessage, useIntl } from "react-intl";
-import { getMousePosition, saveFile } from "@/commands";
 import {
 	getCurrentMonitorInfo,
+	getMousePosition,
 	type MonitorInfo,
 	setCurrentWindowAlwaysOnTop,
 	setWindowRect,
 	startFreeDrag,
 } from "@/commands/core";
+import { saveFile } from "@/commands/file";
 import { showMainWindow } from "@/commands/videoRecord";
 import { OcrTranslateIcon } from "@/components/icons";
 import { INIT_CONTAINER_KEY } from "@/components/imageLayer/actions";
 import {
 	PLUGIN_ID_AI_CHAT,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -55,10 +57,7 @@ import { useStateRef } from "@/hooks/useStateRef";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { useTempInfo } from "@/hooks/useTempInfo";
 import { useTextScaleFactor } from "@/hooks/useTextScaleFactor";
-import {
-	copyToClipboard as copyToClipboardDrawAction,
-	saveCanvasToCloud,
-} from "@/pages/draw/actions";
+import { copyToClipboard as copyToClipboardDrawAction } from "@/pages/draw/actions";
 import type { SelectRectParams } from "@/pages/draw/components/selectLayer";
 import {
 	type CaptureBoundingBoxInfo,
@@ -77,6 +76,7 @@ import { generateImageFileName } from "@/utils/file";
 import { formatKey } from "@/utils/format";
 import { appError } from "@/utils/log";
 import { MousePosition } from "@/utils/mousePosition";
+import { canUseOcr } from "@/utils/ocr";
 import { TweenAnimation } from "@/utils/tweenAnimation";
 import { closeWindowComplete } from "@/utils/window";
 import { zIndexs } from "@/utils/zIndex";
@@ -118,15 +118,15 @@ export type FixedContentInitDrawParams = {
 	selectRectParams: SelectRectParams;
 };
 
-export type FixedContentInitHtmlParams = {
+type FixedContentInitHtmlParams = {
 	htmlContent: string;
 };
 
-export type FixedContentInitTextParams = {
+type FixedContentInitTextParams = {
 	textContent: string;
 };
 
-export type FixedContentInitImageParams = {
+type FixedContentInitImageParams = {
 	imageContent: ArrayBuffer | ImageSharedBufferData | Blob | string;
 };
 
@@ -141,7 +141,7 @@ export type FixedContentActionType = {
 	initDrawPreload: (width: number, height: number) => Promise<void>;
 };
 
-export enum FixedContentType {
+enum FixedContentType {
 	DrawCanvas = "drawCanvas",
 	Html = "html",
 	Text = "text",
@@ -167,7 +167,7 @@ export type FixedContentWindowSize = {
 	height: number;
 };
 
-export enum FixedContentScrollAction {
+enum FixedContentScrollAction {
 	Zoom = "zoom",
 	RotateX = "rotateX",
 	RotateY = "rotateY",
@@ -180,8 +180,8 @@ export type FixedContentProcessImageConfig = {
 	verticalFlip: boolean;
 };
 
-export const SCALE_WINDOW_MAX_SCALE = 300;
-export const SCALE_WINDOW_MIN_SCALE = 20;
+const SCALE_WINDOW_MAX_SCALE = 300;
+const SCALE_WINDOW_MIN_SCALE = 20;
 
 const FixedContentCoreInner: React.FC<{
 	actionRef: React.RefObject<FixedContentActionType | undefined>;
@@ -217,9 +217,6 @@ const FixedContentCoreInner: React.FC<{
 		AppSettingsPublisher,
 		useCallback((settings: AppSettingsData) => {
 			setFixedBorderColor(settings[AppSettingsGroup.FixedContent].borderColor);
-			setEnableSaveToCloud(
-				settings[AppSettingsGroup.FunctionScreenshot].saveToCloud,
-			);
 			setHotkeys(settings[AppSettingsGroup.CommonKeyEvent]);
 			setEnableTrayIcon(
 				settings[AppSettingsGroup.CommonTrayIcon].enableTrayIcon,
@@ -261,8 +258,6 @@ const FixedContentCoreInner: React.FC<{
 		x: 100,
 		y: 100,
 	});
-
-	const [enableSaveToCloud, setEnableSaveToCloud] = useState(false);
 	const [fixedContentType, setFixedContentType, fixedContentTypeRef] =
 		useStateRef<FixedContentType | undefined>(undefined);
 	const [showBorder, setShowBorder] = useState(true);
@@ -796,8 +791,11 @@ const FixedContentCoreInner: React.FC<{
 
 			if (
 				!(
-					isReady?.(PLUGIN_ID_RAPID_OCR) &&
-					getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
+					canUseOcr(
+						getAppSettings(),
+						isReady?.(PLUGIN_ID_GLM_OCR),
+						isReady?.(PLUGIN_ID_RAPID_OCR),
+					) && getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
 				) &&
 				!params.allOcrResult
 			) {
@@ -859,7 +857,11 @@ const FixedContentCoreInner: React.FC<{
 					setEnableSelectText(true);
 					ocrResultActionRef.current.setEnable(true);
 				} else if (
-					isReady?.(PLUGIN_ID_RAPID_OCR) &&
+					canUseOcr(
+						getAppSettings(),
+						isReady?.(PLUGIN_ID_GLM_OCR),
+						isReady?.(PLUGIN_ID_RAPID_OCR),
+					) &&
 					getAppSettings()[AppSettingsGroup.FunctionFixedContent].autoOcr
 				) {
 					ocrResultActionRef.current?.init({
@@ -1627,27 +1629,6 @@ const FixedContentCoreInner: React.FC<{
 		};
 	}, []);
 
-	const onSaveToCloud = useCallback(async () => {
-		const imageCanvas = await renderToCanvas();
-
-		if (!imageCanvas) {
-			return;
-		}
-
-		const hideLoading = message.loading(
-			<FormattedMessage id="draw.saveToCloud.loading" />,
-		);
-
-		const result = await saveCanvasToCloud(imageCanvas, getAppSettings());
-		if (typeof result === "object" && "error" in result) {
-			message.error(<FormattedMessage id="draw.saveToCloud.error" />);
-		} else {
-			writeTextToClipboard(result);
-		}
-
-		hideLoading();
-	}, [getAppSettings, message, renderToCanvas]);
-
 	const createRightClickMenu = useCallback(async (): Promise<
 		| {
 				mainMenu: Menu | undefined;
@@ -1874,17 +1855,11 @@ const FixedContentCoreInner: React.FC<{
 					enabled: !isThumbnail,
 					action: saveToFile,
 				},
-				...(enableSaveToCloud
-					? [
-							{
-								id: `${appWindow.label}-saveToCloudTool`,
-								text: intl.formatMessage({ id: "draw.saveToCloudTool" }),
-								action: onSaveToCloud,
-							},
-						]
-					: []),
-				isReadyStatus(PLUGIN_ID_RAPID_OCR) ||
-				getSelectTextMode(fixedContentType) !== "ocr"
+				canUseOcr(
+					getAppSettings(),
+					isReadyStatus(PLUGIN_ID_GLM_OCR),
+					isReadyStatus(PLUGIN_ID_RAPID_OCR),
+				) || getSelectTextMode(fixedContentType) !== "ocr"
 					? {
 							id: `${appWindow.label}-ocrTool`,
 							text:
@@ -2096,9 +2071,8 @@ const FixedContentCoreInner: React.FC<{
 		switchVisionModelHtml,
 		switchVisionModelMarkdown,
 		enableVisionModelMarkdown,
-		enableSaveToCloud,
-		onSaveToCloud,
 		enableTrayIcon,
+		getAppSettings,
 	]);
 
 	const onWheel = useCallback(
@@ -3021,7 +2995,7 @@ const FixedContentCoreInner: React.FC<{
                     color: ${token.colorWhite};
                     padding: ${token.paddingXXS}px ${token.paddingSM}px;
                     border-top-right-radius: ${token.borderRadius}px;
-                    font-size: ${token.fontSizeSM}px;
+                    font-size: 12px;
                     z-index: ${zIndexs.FixedToScreen_ScaleInfo};
                     transition: opacity ${token.motionDurationFast} ${token.motionEaseInOut};
                     display: ${isThumbnail || enableDraw || enableSelectText ? "none" : "block"};

@@ -22,19 +22,24 @@ import {
 	AppSettingsFixedContentInitialPosition,
 	AppSettingsGroup,
 } from "@/types/appSettings";
+import { appWarn } from "@/utils/log";
 import { setWindowRect, showWindow } from "@/utils/window";
 import {
 	getImageBufferFromSharedBuffer,
 	type ImageSharedBufferData,
 } from "../draw/tools";
-import {
-	type FixedContentActionType,
-	FixedContentCore,
-} from "./components/fixedContentCore";
+import type { FixedContentActionType } from "./components/fixedContentCore";
 
-export const FixedContentPage: React.FC = () => {
+type FixedContentCoreComponent =
+	typeof import("./components/fixedContentCore")["FixedContentCore"];
+type FixedContentInitParams = Parameters<FixedContentActionType["init"]>[0];
+type FixedContentActivation = { targetUrl?: string };
+
+const FixedContentActivePage: React.FC<{
+	FixedContentCore: FixedContentCoreComponent;
+	targetUrl?: string;
+}> = ({ FixedContentCore, targetUrl }) => {
 	const fixedContentActionRef = useRef<FixedContentActionType>(undefined);
-
 	const initedRef = useRef(false);
 
 	const [windowInitialPosition, setWindowInitialPosition] = useState<
@@ -48,166 +53,133 @@ export const FixedContentPage: React.FC = () => {
 		}, []),
 	);
 
-	const [enableIdlePage, setEnableIdlePage] = useState(false);
-	useEffect(() => {
-		if (enableIdlePage) {
-			return;
-		}
-
-		setEnableIdlePage(true);
-	}, [enableIdlePage]);
-
-	const init = useCallback(async (targetUrl?: string) => {
-		let urlParams: URLSearchParams;
-		if (targetUrl) {
-			urlParams = new URL(targetUrl, window.location.origin).searchParams;
-		} else {
-			urlParams = new URLSearchParams(window.location.search);
-		}
-
-		if (urlParams.get("idle_page") === "true") {
-			setEnableIdlePage(true);
-			return;
-		}
-
-		if (urlParams.get("scroll_screenshot") === "true") {
-			// 可能通过 SharedBuffer 传递
-			const imageSharedBufferPromise =
-				getImageBufferFromSharedBuffer("scroll_screenshot");
-			let imageData: ArrayBuffer | ImageSharedBufferData | undefined =
-				await scrollScreenshotGetImageData();
-			scrollScreenshotClear();
-			if (
-				imageData &&
-				imageData.byteLength === 1 &&
-				new Uint8Array(imageData)[0] === 1
-			) {
-				imageData = await imageSharedBufferPromise;
+	const initFixedContent = useCallback(
+		async (params: FixedContentInitParams) => {
+			const fixedContentAction = fixedContentActionRef.current;
+			if (!fixedContentAction) {
+				throw new Error("Fixed content action is not ready");
 			}
 
-			if (!imageData) {
-				getCurrentWindow().close();
+			await fixedContentAction.init(params);
+		},
+		[],
+	);
+
+	const init = useCallback(
+		async (targetUrl?: string) => {
+			const urlParams = targetUrl
+				? new URL(targetUrl, window.location.origin).searchParams
+				: new URLSearchParams(window.location.search);
+
+			if (urlParams.get("scroll_screenshot") === "true") {
+				// 可能通过 SharedBuffer 传递
+				const imageSharedBufferPromise = getImageBufferFromSharedBuffer(
+					"scroll_screenshot",
+				).catch((error) => {
+					appWarn(
+						"[FixedContentPage] read scroll screenshot shared buffer failed",
+						error,
+					);
+					return undefined;
+				});
+				let imageData: ArrayBuffer | ImageSharedBufferData | undefined =
+					await scrollScreenshotGetImageData();
+				await scrollScreenshotClear();
+				if (
+					imageData &&
+					imageData.byteLength === 1 &&
+					new Uint8Array(imageData)[0] === 1
+				) {
+					imageData = await imageSharedBufferPromise;
+				}
+
+				if (!imageData) {
+					await getCurrentWindow().close();
+					return;
+				}
+
+				await initFixedContent({ imageContent: imageData });
 				return;
 			}
 
-			fixedContentActionRef.current?.init({ imageContent: imageData });
-		} else {
-			let hasInit = false;
-
+			let initParams: FixedContentInitParams | undefined;
 			const imageSharedBufferPromise = getImageBufferFromSharedBuffer(
 				"read_image_from_clipboard",
-			);
+			).catch((error) => {
+				appWarn(
+					"[FixedContentPage] read clipboard shared buffer failed",
+					error,
+				);
+				return undefined;
+			});
 
 			await setReadClipboardState(true);
-
 			try {
-				await readImageFromClipboard()
-					.then(async (result) => {
-						if (hasInit) {
-							return;
-						}
+				let imageData: ArrayBuffer | ImageSharedBufferData | undefined =
+					await readImageFromClipboard().catch(() => undefined);
+				if (
+					imageData &&
+					imageData.byteLength === 1 &&
+					new Uint8Array(imageData)[0] === 1
+				) {
+					imageData = await imageSharedBufferPromise;
+				}
+				if (imageData) {
+					initParams = { imageContent: imageData };
+				}
 
-						let imageData: ArrayBuffer | ImageSharedBufferData | undefined =
-							result;
-						if (
-							imageData &&
-							imageData.byteLength === 1 &&
-							new Uint8Array(imageData)[0] === 1
-						) {
-							imageData = await imageSharedBufferPromise;
-						}
+				if (!initParams) {
+					const htmlContent = await extraClipboard
+						.readHtml()
+						.catch(() => undefined);
+					if (htmlContent !== undefined) {
+						initParams = { htmlContent };
+					}
+				}
 
-						if (!imageData) {
-							return;
-						}
+				if (!initParams) {
+					const textContent = await extraClipboard
+						.readText()
+						.catch(() => undefined);
+					if (textContent !== undefined) {
+						initParams = { textContent };
+					}
+				}
 
-						hasInit = true;
-						fixedContentActionRef.current?.init({
-							imageContent: imageData,
-						});
-					})
-					.catch(() => {});
-
-				await extraClipboard
-					.readHtml()
-					.then((htmlContent) => {
-						if (hasInit) {
-							return;
-						}
-
-						hasInit = true;
-						fixedContentActionRef.current?.init({ htmlContent });
-					})
-					.catch(() => {});
-
-				await extraClipboard
-					.readText()
-					.then((textContent) => {
-						if (hasInit) {
-							return;
-						}
-
-						hasInit = true;
-						fixedContentActionRef.current?.init({ textContent });
-					})
-					.catch(() => {});
-
-				await extraClipboard
-					.readFilesURIs()
-					.then((fileUris) => {
-						if (hasInit) {
-							return;
-						}
-
-						let imageFileUri: string | undefined;
-						for (const fileUri of fileUris) {
-							if (
-								fileUri.endsWith(".png") ||
-								fileUri.endsWith(".jpg") ||
-								fileUri.endsWith(".jpeg") ||
-								fileUri.endsWith(".webp")
-							) {
-								imageFileUri = fileUri;
-								break;
-							}
-						}
-
-						if (!imageFileUri) {
-							return;
-						}
-
-						hasInit = true;
-						fixedContentActionRef.current?.init({
+				if (!initParams) {
+					const fileUris = await extraClipboard
+						.readFilesURIs()
+						.catch(() => undefined);
+					const imageFileUri = fileUris?.find(
+						(fileUri) =>
+							fileUri.endsWith(".png") ||
+							fileUri.endsWith(".jpg") ||
+							fileUri.endsWith(".jpeg") ||
+							fileUri.endsWith(".webp"),
+					);
+					if (imageFileUri) {
+						initParams = {
 							imageContent: convertFileSrc(imageFileUri),
-						});
-					})
-					.catch(() => {});
-			} catch {
-				await setReadClipboardState(false);
+						};
+					}
+				}
+			} finally {
+				await setReadClipboardState(false).catch((error) => {
+					appWarn(
+						"[FixedContentPage] reset clipboard read state failed",
+						error,
+					);
+				});
 			}
 
-			if (hasInit) {
+			if (!initParams) {
+				await getCurrentWindow().close();
 				return;
 			}
 
-			getCurrentWindow().close();
-		}
-	}, []);
-
-	const router = useRouter();
-	useIdlePage(
-		enableIdlePage,
-		useCallback(
-			(url) => {
-				if (url.startsWith("/fixedContent")) {
-					init(url);
-					setEnableIdlePage(false);
-				} else {
-					router.navigate({ to: url });
-				}
-			},
-			[init, router],
-		),
+			await initFixedContent(initParams);
+		},
+		[initFixedContent],
 	);
 
 	useEffect(() => {
@@ -216,9 +188,18 @@ export const FixedContentPage: React.FC = () => {
 		}
 
 		initedRef.current = true;
-
-		init();
-	}, [init]);
+		void init(targetUrl).catch((error) => {
+			appWarn("[FixedContentPage] initialize fixed content failed", error);
+			void getCurrentWindow()
+				.close()
+				.catch((closeError) => {
+					appWarn(
+						"[FixedContentPage] close failed fixed content window failed",
+						closeError,
+					);
+				});
+		});
+	}, [init, targetUrl]);
 
 	const [loadParams, setLoadParams] = useState<
 		| {
@@ -233,7 +214,7 @@ export const FixedContentPage: React.FC = () => {
 		| undefined
 	>();
 	const onHtmlTextImageLoad = useCallback(
-		async (
+		(
 			container:
 				| { width: number; height: number }
 				| null
@@ -252,12 +233,9 @@ export const FixedContentPage: React.FC = () => {
 			return;
 		}
 
-		const { container } = loadParams;
-
-		const initialScale = loadParams.initialScale ?? 1;
-
-		(async () => {
+		const updateWindow = async () => {
 			const appWindow = getCurrentWindow();
+			const { container } = loadParams;
 
 			if (!container) {
 				return;
@@ -265,6 +243,7 @@ export const FixedContentPage: React.FC = () => {
 
 			const monitorInfo =
 				loadParams.monitorInfo ?? (await getCurrentMonitorInfo());
+			const initialScale = loadParams.initialScale ?? 1;
 
 			let width = 0;
 			let height = 0;
@@ -301,11 +280,15 @@ export const FixedContentPage: React.FC = () => {
 					max_x: windowX + windowWidth,
 					max_y: windowY + windowHeight,
 				});
-				showWindow();
+				await showWindow();
 			} else {
 				await appWindow.close();
 			}
-		})();
+		};
+
+		void updateWindow().catch((error) => {
+			appWarn("[FixedContentPage] position fixed content window failed", error);
+		});
 	}, [loadParams, windowInitialPosition]);
 
 	return (
@@ -318,4 +301,94 @@ export const FixedContentPage: React.FC = () => {
 			/>
 		</TextScaleFactorContextProvider>
 	);
+};
+
+const FixedContentActiveLoader: React.FC<FixedContentActivation> = ({
+	targetUrl,
+}) => {
+	const [FixedContentCore, setFixedContentCore] =
+		useState<FixedContentCoreComponent>();
+
+	useEffect(() => {
+		let disposed = false;
+
+		void import("./components/fixedContentCore")
+			.then((module) => {
+				if (!disposed) {
+					setFixedContentCore(() => module.FixedContentCore);
+				}
+			})
+			.catch((error) => {
+				if (disposed) {
+					return;
+				}
+
+				appWarn("[FixedContentPage] load fixed content core failed", error);
+				void getCurrentWindow()
+					.close()
+					.catch((closeError) => {
+						appWarn(
+							"[FixedContentPage] close unloaded fixed content window failed",
+							closeError,
+						);
+					});
+			});
+
+		return () => {
+			disposed = true;
+		};
+	}, []);
+
+	if (!FixedContentCore) {
+		return null;
+	}
+
+	return (
+		<FixedContentActivePage
+			FixedContentCore={FixedContentCore}
+			targetUrl={targetUrl}
+		/>
+	);
+};
+
+const FixedContentIdleShell: React.FC<{
+	onActivate: (targetUrl: string) => void;
+}> = ({ onActivate }) => {
+	const router = useRouter();
+	useIdlePage(
+		true,
+		useCallback(
+			(url) => {
+				if (url.startsWith("/fixedContent")) {
+					onActivate(url);
+					return;
+				}
+
+				void router.navigate({ to: url }).catch((error) => {
+					appWarn("[FixedContentPage] navigate hot load page failed", error);
+				});
+			},
+			[onActivate, router],
+		),
+	);
+
+	return null;
+};
+
+export const FixedContentPage: React.FC = () => {
+	const [activation, setActivation] = useState<FixedContentActivation | null>(
+		() =>
+			new URLSearchParams(window.location.search).get("idle_page") === "true"
+				? null
+				: {},
+	);
+	const activate = useCallback((targetUrl: string) => {
+		setActivation({ targetUrl });
+	}, []);
+
+	if (!activation) {
+		return <FixedContentIdleShell onActivate={activate} />;
+	}
+
+	return <FixedContentActiveLoader targetUrl={activation.targetUrl} />;
 };

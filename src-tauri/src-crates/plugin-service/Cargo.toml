@@ -5,13 +5,15 @@ edition = "2024"
 
 [dependencies]
 log = { workspace = true }
-reqwest = { workspace = true, features = ["stream"] }
+reqwest = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 futures-lite = { workspace = true }
 tokio-util = { workspace = true }
-futures-util = { workspace = true }
+
 dashmap = { workspace = true }
 tauri = { workspace = true }
 
 async_zip = { version = "0.0.18", features = ["tokio", "xz"] }
+sha2 = "0.10"
+hex = "0.4"

@@ -1,11 +1,13 @@
 import type { GlobalToken } from "antd";
+import Color from "color";
 import type { FixedContentProcessImageConfig } from ".";
 
 export const getHtmlContent = (token: GlobalToken, bodyContent: string) => {
+	const colorScheme = Color(token.colorBgContainer).isDark() ? "dark" : "light";
 	return `
       <html>
                   <head>
-                  <meta name="color-scheme" content="light dark"></meta>
+                  <meta name="color-scheme" content="${colorScheme}"></meta>
                   <style>
                         body {
                             width: fit-content;
@@ -202,7 +204,7 @@ export const getStyleProps = (
 	};
 };
 
-export const getTransformProps = (
+const getTransformProps = (
 	width: number,
 	height: number,
 	processImageConfig: FixedContentProcessImageConfig,

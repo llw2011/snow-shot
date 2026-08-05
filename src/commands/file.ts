@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Base64 } from "js-base64";
+import type { ImageFormat } from "@/types/utils/file";
 
 export const writeFile = async (
 	filePath: string,
@@ -8,6 +9,20 @@ export const writeFile = async (
 	const result = await invoke<void>("write_file", data, {
 		headers: {
 			"x-file-path": Base64.encode(filePath),
+		},
+	});
+	return result;
+};
+
+export const saveFile = async (
+	filePath: string,
+	data: ArrayBuffer | Uint8Array,
+	fileType: ImageFormat,
+) => {
+	const result = await invoke<void>("save_file", data, {
+		headers: {
+			"x-file-path": Base64.encode(filePath),
+			"x-file-type": Base64.encode(fileType),
 		},
 	});
 	return result;
@@ -62,10 +77,5 @@ export const getAppConfigDir = async () => {
 
 export const getAppConfigBaseDir = async () => {
 	const result = await invoke<string>("get_app_config_base_dir");
-	return result;
-};
-
-export const isPortableApp = async () => {
-	const result = await invoke<boolean>("is_portable_app");
 	return result;
 };

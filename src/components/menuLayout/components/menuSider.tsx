@@ -14,9 +14,8 @@ type MenuItem = ItemType<MenuItemType>;
 
 const MenuSiderCore: React.FC<{
 	menuItems: MenuItem[];
-	darkMode: boolean;
 	pathname: string;
-}> = ({ menuItems, darkMode, pathname }) => {
+}> = ({ menuItems, pathname }) => {
 	const { token } = theme.useToken();
 	const [collapsed, setCollapsed] = useState(false);
 	useAppSettingsLoad(
@@ -50,8 +49,10 @@ const MenuSiderCore: React.FC<{
 
 	return (
 		<Sider
-			theme={darkMode ? "dark" : "light"}
+			className="snow-shot-sider"
 			collapsed={collapsed}
+			width={212}
+			collapsedWidth={72}
 			collapsible
 			onCollapse={(value) => {
 				setCollapsed(value);
@@ -66,24 +67,29 @@ const MenuSiderCore: React.FC<{
 		>
 			<div className="menu-sider-wrap">
 				{currentPlatform === "macos" && (
-					<div className="macos-title-bar-margin app-tauri-drag-region"></div>
+					<div
+						data-tauri-drag-region
+						className="macos-title-bar-margin app-tauri-drag-region"
+					></div>
 				)}
 
 				{currentPlatform !== "macos" && (
-					<div className="logo-wrap">
-						<div className="logo-text">
-							{collapsed ? (
-								<>
-									<div className="logo-text-highlight">S</div>
-									<div>now</div>
-								</>
-							) : (
-								<>
-									<div className="logo-text-highlight">Snow</div>
-									<div>Shot</div>
-								</>
-							)}
+					<div
+						data-tauri-drag-region
+						className={`logo-wrap app-tauri-drag-region ${collapsed ? "collapsed" : ""}`}
+					>
+						<div
+							data-tauri-drag-region
+							className="logo-mark"
+							aria-hidden="true"
+						>
+							<div data-tauri-drag-region className="logo-mark-core" />
 						</div>
+						{!collapsed && (
+							<div data-tauri-drag-region className="logo-text">
+								Snow Shot
+							</div>
+						)}
 					</div>
 				)}
 				<RSC>
@@ -91,7 +97,6 @@ const MenuSiderCore: React.FC<{
 						defaultSelectedKeys={[menuItems[0]?.key?.toString() ?? "/"]}
 						selectedKeys={[pathname]}
 						mode="inline"
-						theme={darkMode ? "dark" : "light"}
 						items={menuItems}
 						defaultOpenKeys={menuItems
 							.map((item) => item?.key as string)
@@ -101,31 +106,80 @@ const MenuSiderCore: React.FC<{
 			</div>
 			<style jsx>{`
                 .logo-wrap {
-                    margin-top: 16px;
-                    margin-bottom: 10px;
-                    font-weight: 600;
-                    font-size: 21px;
-                    text-align: center;
-                    font-style: italic;
+                    min-height: 58px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 14px 16px 10px;
+                    color: var(--snow-shot-ink);
+                    user-select: none;
+                }
+
+                .logo-wrap.collapsed {
+                    justify-content: center;
+                    padding-inline: 0;
+                }
+
+                .logo-mark {
+                    position: relative;
+                    width: 30px;
+                    height: 30px;
+                    flex: 0 0 auto;
+                    border: 1px solid var(--snow-shot-hairline-strong);
+                    border-radius: 8px;
+                    background: var(--snow-shot-logo-bg);
+                    box-shadow:
+                        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                        var(--snow-shot-glow);
+                }
+
+                .logo-mark::before,
+                .logo-mark::after {
+                    content: "";
+                    position: absolute;
+                    border: 1px solid var(--snow-shot-ink);
+                    opacity: 0.86;
+                }
+
+                .logo-mark::before {
+                    top: 7px;
+                    left: 7px;
+                    width: 11px;
+                    height: 11px;
+                    border-right: 0;
+                    border-bottom: 0;
+                    border-radius: 3px 0 0 0;
+                }
+
+                .logo-mark::after {
+                    right: 7px;
+                    bottom: 7px;
+                    width: 11px;
+                    height: 11px;
+                    border-left: 0;
+                    border-top: 0;
+                    border-radius: 0 0 3px 0;
+                }
+
+                .logo-mark-core {
+                    position: absolute;
+                    left: 12px;
+                    top: 12px;
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 999px;
+                    background: var(--snow-shot-ink);
+                    box-shadow:
+                        -6px -4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 62%, transparent),
+                        6px 4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 42%, transparent);
                 }
 
                 .logo-wrap .logo-text {
-                    color: var(--snow-shot-text-color);
-                    display: inline-block;
-                    padding: 0px 12px;
-                }
-
-                :global(body) {
-                    --snow-shot-purple-color: ${darkMode ? token["purple-7"] : token["purple-5"]};
-                    --snow-shot-text-color: ${darkMode ? "#fff" : "#000"};
-                }
-
-                .logo-wrap .logo-text .logo-text-highlight {
-                    color: var(--snow-shot-purple-color);
-                }
-
-                .logo-wrap .logo-text div {
-                    display: inline;
+                    color: var(--snow-shot-ink);
+                    font-size: 15px;
+                    font-weight: 600;
+                    letter-spacing: 0;
+                    line-height: 1;
                 }
 
                 .macos-title-bar-margin {
@@ -141,6 +195,10 @@ const MenuSiderCore: React.FC<{
 
                 .menu-sider-wrap :global(.ScrollbarsCustom-Wrapper) {
                     inset: 0 0 0 0 !important;
+                }
+
+                .menu-sider-wrap :global(.ant-menu-inline) {
+                    padding-bottom: ${token.padding}px;
                 }
 
                 .menu-wrap {

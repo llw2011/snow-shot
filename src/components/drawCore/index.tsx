@@ -7,7 +7,6 @@ import type {
 	ExcalidrawInitialDataState,
 	ExcalidrawProps,
 	ExcalidrawPropsCustomOptions,
-	ToolType,
 } from "@mg-chao/excalidraw/types";
 import React, {
 	lazy,
@@ -90,43 +89,6 @@ const getNextValueInList = <T,>(
 		// 如果当前值不在列表中
 		return isIncrease ? valueList[0] : valueList[valueList.length - 1];
 	}
-};
-
-export const convertToolTypeToDrawState = (
-	toolType: ToolType,
-): DrawState | undefined => {
-	switch (toolType) {
-		case "hand":
-			return DrawState.Idle;
-		case "selection":
-			return DrawState.Select;
-		case "rectangle":
-			return DrawState.Rect;
-		case "diamond":
-			return DrawState.Diamond;
-		case "ellipse":
-			return DrawState.Ellipse;
-		case "arrow":
-			return DrawState.Arrow;
-		case "line":
-			return DrawState.Line;
-		case "freedraw":
-			return DrawState.Pen;
-		case "text":
-			return DrawState.Text;
-		case "blur":
-			return DrawState.Blur;
-		case "blur_freedraw":
-			return DrawState.BlurFreeDraw;
-		case "watermark":
-			return DrawState.Watermark;
-		case "highlight":
-			return DrawState.Highlight;
-		case "eraser":
-			return DrawState.Eraser;
-	}
-
-	return undefined;
 };
 
 const storageKey = "global";

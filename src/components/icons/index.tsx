@@ -1,6 +1,5 @@
 import Icon from "@ant-design/icons";
 import type { IconComponentProps } from "@ant-design/icons/lib/components/Icon";
-import { theme } from "antd";
 
 /**
  * 黑暗模式图标
@@ -99,7 +98,7 @@ const ScreenshotSVG = () => (
 		></path>
 		<path
 			d="M804.588308 731.411692h82.274461V173.725538a36.588308 36.588308 0 0 0-36.588307-36.588307H292.627692v82.313846h512v512z"
-			fill="var(--snow-shot-purple-color)"
+			fill="var(--snow-shot-primary)"
 			p-id="17188"
 		></path>
 	</svg>
@@ -107,27 +106,6 @@ const ScreenshotSVG = () => (
 
 export const ScreenshotIcon = (props: IconComponentProps) => (
 	<Icon component={ScreenshotSVG} {...props} />
-);
-
-const ArrowMoveSvg = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M1021.504 531.776c-1.6-3.904-3.968-7.424-6.912-10.368l-128-128c-12.48-12.48-32.768-12.48-45.248 0-12.48 12.48-12.48 32.768 0 45.248L914.752 512 576 512 576 173.248l73.344 73.344c12.48 12.48 32.768 12.48 45.248 0 12.48-12.48 12.48-32.768 0-45.248l-128-128C566.528 73.28 566.336 73.216 566.272 73.152 563.392 70.336 560 68.032 556.224 66.496 552.32 64.832 548.16 64 544 64 543.936 64 543.936 64 543.872 64 539.776 64 535.68 64.896 531.776 66.496 528 68.032 524.608 70.336 521.728 73.152 521.6 73.216 521.472 73.28 521.344 73.344l-128 128c-12.48 12.48-12.48 32.768 0 45.248 12.48 12.48 32.768 12.48 45.248 0L512 173.248 512 512 173.248 512l73.344-73.344c12.48-12.48 12.48-32.768 0-45.248-12.48-12.48-32.768-12.48-45.248 0l-128 128C73.28 521.472 73.216 521.664 73.152 521.728 70.336 524.608 68.032 528 66.496 531.776 64.832 535.68 64 539.84 64 544c0 0.064 0 0.064 0 0.128C64 548.224 64.896 552.32 66.496 556.224c1.536 3.776 3.84 7.168 6.656 10.048C73.216 566.4 73.28 566.528 73.344 566.656l128 128c12.48 12.48 32.768 12.48 45.248 0 12.48-12.48 12.48-32.768 0-45.248L173.248 576 512 576l0 338.752-73.344-73.344c-12.48-12.48-32.768-12.48-45.248 0-12.48 12.48-12.48 32.768 0 45.248l128 128c2.944 2.944 6.464 5.312 10.368 6.912C535.68 1023.104 539.776 1024 543.872 1024c0.064 0 0.064 0 0.128 0 4.16 0 8.32-0.832 12.224-2.496 3.904-1.6 7.424-3.968 10.368-6.912l128-128c12.48-12.48 12.48-32.768 0-45.248-12.48-12.48-32.768-12.48-45.248 0L576 914.752 576 576l338.752 0-73.344 73.344c-12.48 12.48-12.48 32.768 0 45.248 12.48 12.48 32.768 12.48 45.248 0l128-128c2.944-2.944 5.312-6.464 6.912-10.368C1023.104 552.32 1024 548.224 1024 544.128c0-0.064 0-0.064 0-0.128C1024 539.84 1023.168 535.68 1021.504 531.776z"
-			p-id="5186"
-		></path>
-	</svg>
-);
-
-export const ArrowMoveIcon = (props: IconComponentProps) => (
-	<Icon component={ArrowMoveSvg} {...props} />
 );
 
 const PenSVG = () => (
@@ -172,27 +150,6 @@ export const ArrowSelectIcon = (props: IconComponentProps) => (
 	<Icon component={ArrowSelectSVG} {...props} />
 );
 
-const CircleRectSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M992.005004 1024H352.104589a31.995021 31.995021 0 0 1-31.995021-31.995021v-289.586933A351.945229 351.945229 0 1 1 702.418071 320.109543H992.005004a31.995021 31.995021 0 0 1 31.995021 31.995021v639.900415a31.995021 31.995021 0 0 1-31.995021 31.995021zM384.099609 638.172044A288.339127 288.339127 0 0 0 638.172069 384.099585H384.099609v254.072459zM352.104589 64.149377a287.955187 287.955187 0 0 0-31.995021 574.022667V352.104564a31.995021 31.995021 0 0 1 31.995021-31.995021h286.06748A288.275137 288.275137 0 0 0 352.104589 64.149377z m607.905394 319.950208h-257.591912A352.297174 352.297174 0 0 1 384.099609 702.418046V960.009958h575.910374V384.099585z"
-			p-id="15179"
-		></path>
-	</svg>
-);
-
-export const CircleRectIcon = (props: IconComponentProps) => (
-	<Icon component={CircleRectSVG} {...props} />
-);
-
 const CircleSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
@@ -235,66 +192,6 @@ export const RectIcon = (props: IconComponentProps) => (
 	<Icon component={RectSvg} {...props} />
 );
 
-const LockWidthHeightSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path d="M738.688 64.192c-51.072-2.432-100.608 17.728-138.24 55.36L505.344 214.848c-39.424 36.8-59.84 86.656-57.152 137.856a32 32 0 1 0 63.872-3.2c-1.728-33.024 9.984-62.784 36.864-87.936a34.368 34.368 0 0 0 0.768-0.768l96-96c26.368-26.304 56.96-38.272 89.856-36.736 32.96 1.6 69.44 17.28 104.896 52.736 35.52 35.52 51.84 72.704 53.632 105.792 1.792 33.088-9.792 63.04-36.736 88.256a34.304 34.304 0 0 0-0.896 0.704l-96 96c-26.368 26.368-56.128 38.656-89.408 38.656a32 32 0 1 0 0 64c49.984 0 97.6-20.352 134.656-57.408l95.232-95.232a175.872 175.872 0 0 0 57.152-138.496c-2.816-51.392-27.904-103.04-72.384-147.52-44.544-44.48-95.936-68.928-147.008-71.36z m-69.12 254.656a32 32 0 0 0-22.016 9.6l-320 320a32 32 0 1 0 45.248 45.248l320-320a32 32 0 0 0-23.232-54.848z m-315.52 129.344a175.552 175.552 0 0 0-139.2 56.96L119.552 600.512c-37.632 37.632-57.792 87.04-55.36 138.112 2.432 51.072 26.88 102.592 71.36 147.136 44.544 44.48 96.256 69.44 147.648 72.256a175.488 175.488 0 0 0 138.368-56.96l95.232-95.296c37.056-37.056 57.408-84.672 57.408-134.656a32 32 0 1 0-64 0c0 33.28-12.288 63.04-38.656 89.408l-96 96a25.024 25.024 0 0 0-0.704 0.768c-25.28 26.944-55.04 38.656-88.128 36.864-33.088-1.792-70.4-18.112-105.92-53.632-35.456-35.456-51.008-71.936-52.608-104.896-1.536-32.896 10.24-63.488 36.608-89.856l96-96a33.024 33.024 0 0 0 0.768-0.768c25.344-27.136 55.424-38.848 88.768-36.864a32 32 0 1 0 3.712-63.872z"></path>
-	</svg>
-);
-
-export const LockWidthHeightIcon = (props: IconComponentProps) => (
-	<Icon component={LockWidthHeightSVG} {...props} />
-);
-
-const FillSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M173.2 18.8C148.2-6.2 107.8-6.2 82.8 18.8s-25 65.6 0 90.6l162.6 162.6-184.2 184.2c-75 75-75 196.6 0 271.6l235 235c75 75 196.6 75 271.6 0l380.8-381c56.2-56.2 56.2-147.4 0-203.6L645.8 75.4c-56.2-56.2-147.4-56.2-203.6 0l-106.2 106L173.2 18.8zM336 362.6l98.8 98.8c25 25 65.6 25 90.6 0s25-65.6 0-90.6L426.6 272l106.2-106.2c6.2-6.2 16.4-6.2 22.6 0l302.8 302.8c6.2 6.2 6.2 16.4 0 22.6L773.4 576H135c2.8-10.8 8.4-20.8 16.8-29.2l184.2-184.2z"
-			p-id="32608"
-		></path>
-	</svg>
-);
-
-const LockAngleSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M286.656 516.8a331.52 331.52 0 0 1 206.976 131.968 328.576 328.576 0 0 1 57.792 238.72l-390.656-1.216 125.888-369.472z m354.752 370.88a417.024 417.024 0 0 0-74.816-290.88 421.184 421.184 0 0 0-250.752-165.568L428.288 101.12 319.232 64 0 1001.024l989.824 3.008 0.384-115.264-348.8-1.088z"
-			p-id="1496"
-		></path>
-	</svg>
-);
-
-export const LockAngleIcon = (props: IconComponentProps) => (
-	<Icon component={LockAngleSVG} {...props} />
-);
-
-export const FillIcon = (props: IconComponentProps) => (
-	<Icon component={FillSVG} {...props} />
-);
-
 const RadiusSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
@@ -314,85 +211,6 @@ const RadiusSVG = () => (
 
 export const RadiusIcon = (props: IconComponentProps) => (
 	<Icon component={RadiusSVG} {...props} />
-);
-
-const MosaicSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M847.127273 954.181818H176.872727c-69.818182 0-130.327273-55.854545-130.327272-130.327273V195.490909c0-69.818182 55.854545-130.327273 130.327272-130.327273h674.909091c69.818182 0 130.327273 55.854545 130.327273 130.327273v628.363636c-4.654545 74.472727-60.509091 130.327273-134.981818 130.327273zM176.872727 139.636364c-32.581818 0-60.509091 27.927273-60.509091 55.854545v628.363636c0 32.581818 27.927273 55.854545 55.854546 55.854546h674.909091c32.581818 0 55.854545-27.927273 55.854545-55.854546V195.490909c0-32.581818-27.927273-55.854545-55.854545-55.854545H176.872727z"
-			p-id="1520"
-		></path>
-		<path
-			d="M232.727273 232.727273h139.636363v139.636363H232.727273zM372.363636 372.363636h139.636364v139.636364H372.363636zM512 232.727273h139.636364v139.636363h-139.636364zM651.636364 372.363636h139.636363v139.636364h-139.636363z"
-			p-id="1521"
-		></path>
-		<path
-			d="M232.727273 512h139.636363v139.636364H232.727273zM372.363636 651.636364h139.636364v139.636363H372.363636zM512 512h139.636364v139.636364h-139.636364zM651.636364 651.636364h139.636363v139.636363h-139.636363z"
-			p-id="1522"
-		></path>
-	</svg>
-);
-
-export const MosaicIcon = (props: IconComponentProps) => (
-	<Icon component={MosaicSVG} {...props} />
-);
-
-const BlurSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M134.4 593.066667C133.12 348.586667 366.08 145.066667 466.346667 68.693333a75.52 75.52 0 0 1 91.306666 0c100.266667 77.653333 333.226667 283.733333 331.946667 524.8 0 207.786667-169.386667 377.173333-377.6 377.173334-208.213333 0-377.6-169.386667-377.6-377.6z m370.773333-473.173334C433.066667 174.933333 197.546667 371.626667 198.826667 593.066667c0 173.226667 140.8 313.6 313.6 313.6s313.6-140.373333 313.6-313.173334c1.28-218.453333-234.666667-417.706667-307.2-473.6a12.373333 12.373333 0 0 0-6.826667-2.56c-2.133333 0-4.693333 0.853333-6.826667 2.56z"
-			p-id="5056"
-		></path>
-		<path
-			d="M480 938.666667V85.333333c0-17.493333 14.506667-32 32-32s32 14.506667 32 32v853.333334c0 17.493333-14.506667 32-32 32s-32-14.506667-32-32z"
-			p-id="5057"
-		></path>
-		<path
-			d="M482.986667 823.04a31.744 31.744 0 0 1 14.933333-42.666667l328.533333-159.573333c15.786667-7.68 34.986667-0.853333 42.666667 14.933333 7.68 15.786667 1.28 34.986667-14.933333 42.666667l-328.533334 159.573333c-4.266667 1.706667-8.96 2.986667-13.653333 2.986667-11.946667 0-23.466667-6.826667-29.013333-17.92zM482.986667 609.706667a31.744 31.744 0 0 1 14.933333-42.666667l314.453333-152.746667c15.786667-7.68 34.986667-1.28 42.666667 14.933334 7.68 16.213333 1.28 34.986667-14.933333 42.666666l-314.453334 152.746667c-4.266667 1.706667-8.96 2.986667-13.653333 2.986667-11.946667 0-23.466667-6.826667-29.013333-17.92zM482.986667 396.373333a31.744 31.744 0 0 1 14.933333-42.666666l214.613333-104.106667c15.786667-7.68 34.986667-0.853333 42.666667 14.933333 7.68 15.786667 1.28 34.986667-14.933333 42.666667l-214.613334 104.106667c-4.266667 1.706667-8.96 2.986667-13.653333 2.986666-11.946667 0-23.466667-6.826667-29.013333-17.92z"
-			p-id="5058"
-		></path>
-	</svg>
-);
-
-export const BlurIcon = (props: IconComponentProps) => (
-	<Icon component={BlurSVG} {...props} />
-);
-
-const DrawRectSvg = () => (
-	<svg
-		viewBox="0 0 1168 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M1092.613972 829.466683v-635.314555a93.327708 93.327708 0 1 0-118.104976-118.104976H194.469785a93.327708 93.327708 0 1 0-118.104975 118.104976v635.314555a93.327708 93.327708 0 1 0 118.104975 118.104976h780.039211a93.327708 93.327708 0 1 0 118.104976-118.104976zM1062.944782 62.959672a43.074327 43.074327 0 1 1-43.074327 43.074327 43.074327 43.074327 0 0 1 43.074327-43.074327z m-999.98511 43.074327a43.074327 43.074327 0 1 1 43.074327 43.074327 43.074327 43.074327 0 0 1-43.074327-43.074327z m43.074327 855.006329a43.074327 43.074327 0 1 1 43.074327-43.074327 43.074327 43.074327 0 0 1-43.074327 43.074327z m868.474997-72.679986H194.469785a93.708897 93.708897 0 0 0-58.830127-58.830127v-635.314555a93.708897 93.708897 0 0 0 58.830127-58.830128h780.039211a93.708897 93.708897 0 0 0 58.830128 58.830128v635.314555a93.708897 93.708897 0 0 0-58.830128 58.830127z m88.435786 72.679986a43.074327 43.074327 0 1 1 43.074327-43.074327 43.074327 43.074327 0 0 1-43.074327 43.074327z"
-			p-id="9101"
-		></path>
-	</svg>
-);
-
-export const DrawRectIcon = (props: IconComponentProps) => (
-	<Icon component={DrawRectSvg} {...props} />
 );
 
 const TextSVG = () => (
@@ -458,49 +276,7 @@ export const EraserIcon = (props: IconComponentProps) => (
 	<Icon component={EraserSVG} {...props} />
 );
 
-export const DrawArrowSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M959.7 511.9c-8.7-3.7-213.7-91.8-309.1-151.6l49.2 117.5H64v68.5h635.8l-49.2 117.3c94.6-59.3 297-146.4 308.8-151.5l0.5-0.1s-0.1 0-0.2-0.1h0.2-0.2z"
-			p-id="18110"
-		></path>
-	</svg>
-);
-
-export const DrawArrowIcon = (props: IconComponentProps) => (
-	<Icon component={DrawArrowSVG} {...props} />
-);
-
-export const DrawLineSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M904 476H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8z"
-			p-id="19068"
-		></path>
-	</svg>
-);
-
-export const DrawLineIcon = (props: IconComponentProps) => (
-	<Icon component={DrawLineSVG} {...props} />
-);
-
-export const KeyboardSVG = () => (
+const KeyboardSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -521,26 +297,11 @@ export const KeyboardIcon = (props: IconComponentProps) => (
 	<Icon component={KeyboardSVG} {...props} />
 );
 
-export const KeyboardGrayIcon = (props: IconComponentProps) => {
-	const { token } = theme.useToken();
-	return (
-		<div className="keyboard-icon-wrap">
-			<Icon component={KeyboardSVG} {...props} />
-			<style jsx>{`
-                .keyboard-icon-wrap {
-                    opacity: 0.42;
-                    transition: opacity ${token.motionDurationMid} ${token.motionEaseInOut};
-                }
+export const KeyboardGrayIcon = (props: IconComponentProps) => (
+	<Icon component={KeyboardSVG} {...props} />
+);
 
-                :global(.ant-btn):hover .keyboard-icon-wrap {
-                    opacity: 1;
-                }
-            `}</style>
-		</div>
-	);
-};
-
-export const ResetSvg = () => (
+const ResetSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -561,7 +322,7 @@ export const ResetIcon = (props: IconComponentProps) => (
 	<Icon component={ResetSvg} {...props} />
 );
 
-export const MouseSvg = () => (
+const MouseSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -580,27 +341,6 @@ export const MouseSvg = () => (
 
 export const MouseIcon = (props: IconComponentProps) => (
 	<Icon component={MouseSvg} {...props} />
-);
-
-const StraightLineSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M810.666667 42.666667c-93.866667 0-170.666667 76.8-170.666667 170.666666 0 29.866667 8.533333 59.733333 25.6 85.333334L298.666667 665.6c-25.6-17.066667-55.466667-25.6-85.333334-25.6-93.866667 0-170.666667 76.8-170.666666 170.666667s76.8 170.666667 170.666666 170.666666 170.666667-76.8 170.666667-170.666666c0-29.866667-8.533333-59.733333-25.6-85.333334L725.333333 358.4c25.6 17.066667 55.466667 25.6 85.333334 25.6 93.866667 0 170.666667-76.8 170.666666-170.666667s-76.8-170.666667-170.666666-170.666666zM213.333333 896c-46.933333 0-85.333333-38.4-85.333333-85.333333s38.4-85.333333 85.333333-85.333334 85.333333 38.4 85.333334 85.333334-38.4 85.333333-85.333334 85.333333zM810.666667 298.666667c-46.933333 0-85.333333-38.4-85.333334-85.333334s38.4-85.333333 85.333334-85.333333 85.333333 38.4 85.333333 85.333333-38.4 85.333333-85.333333 85.333334z"
-			p-id="2629"
-		></path>
-	</svg>
-);
-
-export const StraightLineIcon = (props: IconComponentProps) => (
-	<Icon component={StraightLineSVG} {...props} />
 );
 
 const DiamondSVG = () => (
@@ -732,7 +472,7 @@ const SelectTextSVG = () => (
 		></path>
 		<path
 			d="M630.710857 343.186286a36.571429 36.571429 0 0 1 0 73.142857h-89.965714v251.904a36.571429 36.571429 0 0 1-72.996572 0l-0.146285-251.904H378.88a36.571429 36.571429 0 0 1 0-73.142857h251.904z"
-			fill="#4096ff"
+			fill="var(--snow-shot-primary)"
 			p-id="2527"
 		></path>
 	</svg>
@@ -754,7 +494,7 @@ const TranslationSVG = () => (
 	>
 		<path
 			d="M90.352941 873.411765a60.235294 60.235294 0 0 0 60.235294 60.235294h632.470589a30.117647 30.117647 0 0 1 30.117647 30.117647v30.117647a30.117647 30.117647 0 0 1-30.117647 30.117647H120.470588a120.470588 120.470588 0 0 1-120.470588-120.470588V120.470588a120.470588 120.470588 0 0 1 120.470588-120.470588h783.058824a120.470588 120.470588 0 0 1 120.470588 120.470588v150.588236a30.117647 30.117647 0 0 1-30.117647 30.117647h-30.117647a30.117647 30.117647 0 0 1-30.117647-30.117647V150.588235a60.235294 60.235294 0 0 0-60.235294-60.235294H150.588235a60.235294 60.235294 0 0 0-60.235294 60.235294v722.82353z m843.294118-331.294118v-90.352941a30.117647 30.117647 0 0 1 30.117647-30.117647h30.117647a30.117647 30.117647 0 0 1 30.117647 30.117647v90.352941h150.588235a30.117647 30.117647 0 0 1 30.117647 30.117647v240.941177a30.117647 30.117647 0 0 1-30.117647 30.117647h-150.588235v150.588235a30.117647 30.117647 0 0 1-30.117647 30.117647h-30.117647a30.117647 30.117647 0 0 1-30.117647-30.117647v-150.588235h-150.588235a30.117647 30.117647 0 0 1-30.117648-30.117647v-240.941177a30.117647 30.117647 0 0 1 30.117648-30.117647h150.588235z m0 90.352941h-90.352941v120.470588h90.352941v-120.470588z m90.352941 0v120.470588h90.352941v-120.470588h-90.352941z m-613.496471-120.470588h82.522353L451.764706 376.470588 410.503529 512z m-27.497411 90.352941l-30.147765 99.117177a30.117647 30.117647 0 0 1-28.822588 21.353411H283.045647a30.117647 30.117647 0 0 1-28.521412-39.845647l143.841883-421.647058A30.117647 30.117647 0 0 1 426.857412 240.941176h49.814588a30.117647 30.117647 0 0 1 28.491294 20.389648l143.841882 421.647058A30.117647 30.117647 0 0 1 620.483765 722.823529h-40.990118a30.117647 30.117647 0 0 1-28.822588-21.353411L520.523294 602.352941h-137.517176z"
-			fill="#2A2A2A"
+			fill="currentColor"
 			p-id="3612"
 		></path>
 	</svg>
@@ -847,7 +587,7 @@ const TopWindowSVG = () => (
 		></path>
 		<path
 			d="M60.634868 298.484737l436.50272 225.284851a30.265325 30.265325 0 0 0 29.412781 0L963.266225 298.484737a40.282722 40.282722 0 0 0 21.313609-36.872544 40.069586 40.069586 0 0 0-21.313609-36.659408L526.550369 3.504384a32.609822 32.609822 0 0 0-29.412781 0L60.634868 224.952785a41.348402 41.348402 0 0 0-21.313609 37.08568A40.708994 40.708994 0 0 0 60.634868 298.484737z"
-			fill="#4096ff"
+			fill="var(--snow-shot-primary)"
 			p-id="13207"
 		></path>
 	</svg>
@@ -1170,28 +910,7 @@ export const MicrophoneIcon = (props: IconComponentProps) => (
 	<Icon component={MicrophoneSVG} {...props} />
 );
 
-export const SystemAudioSVG = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M512 704a192 192 0 1 1 0-384 192 192 0 0 1 0 384zM512 0a512 512 0 1 1 0 1024A512 512 0 0 1 512 0z m0 896A384 384 0 1 0 512 128a384 384 0 0 0 0 768z"
-			p-id="3166"
-		></path>
-	</svg>
-);
-
-export const SystemAudioIcon = (props: IconComponentProps) => (
-	<Icon component={SystemAudioSVG} {...props} />
-);
-
-export const StopRecordSVG = () => (
+const StopRecordSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1212,7 +931,7 @@ export const StopRecordIcon = (props: IconComponentProps) => (
 	<Icon component={StopRecordSVG} {...props} />
 );
 
-export const ResumeRecordSVG = () => (
+const ResumeRecordSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1233,7 +952,7 @@ export const ResumeRecordIcon = (props: IconComponentProps) => (
 	<Icon component={ResumeRecordSVG} {...props} />
 );
 
-export const FolderSVG = () => (
+const FolderSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1258,7 +977,7 @@ export const FolderIcon = (props: IconComponentProps) => (
 	<Icon component={FolderSVG} {...props} />
 );
 
-export const FocusedWindowSVG = () => (
+const FocusedWindowSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1283,32 +1002,7 @@ export const FocusedWindowIcon = (props: IconComponentProps) => (
 	<Icon component={FocusedWindowSVG} {...props} />
 );
 
-export const ToolSvg = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M814.933333 1009.066667c-38.4 0-74.666667-14.933333-104.533333-42.666667l-258.133333-256 76.8-76.8 12.8 12.8 29.866666-29.866667 46.933334 46.933334-46.933334 46.933333 196.266667 196.266667c23.466667 23.466667 64 23.466667 89.6 0l53.333333-53.333334c25.6-25.6 25.6-64 0-89.6l-196.266666-196.266666-46.933334 46.933333-46.933333-46.933333 29.866667-29.866667-10.666667-14.933333 76.8-76.8 256 258.133333c57.6 57.6 57.6 151.466667 0 209.066667l-53.333333 53.333333c-29.866667 29.866667-66.133333 42.666667-104.533334 42.666667zM328.533333 490.666667l-85.333333-83.2-113.066667-59.733334L6.4 189.866667 196.266667 0l157.866666 123.733333 59.733334 115.2 89.6 87.466667-59.733334 61.866667-130.133333-130.133334 10.666667-8.533333-36.266667-70.4-85.333333-64-81.066667 81.066667 64 85.333333 70.4 36.266667 8.533333-10.666667 123.733334 123.733333z"
-			p-id="10021"
-		></path>
-		<path
-			d="M179.2 1009.066667c-29.866667 0-57.6-10.666667-81.066667-34.133334l-53.333333-53.333333c-44.8-44.8-44.8-117.333333 0-162.133333l452.266667-452.266667c-12.8-83.2 12.8-166.4 72.533333-226.133333C650.666667 0 772.266667-19.2 874.666667 34.133333l51.2 27.733334-149.333334 149.333333 32 32 149.333334-149.333333 27.733333 51.2c53.333333 102.4 34.133333 224-46.933333 305.066666-59.733333 59.733333-145.066667 85.333333-226.133334 72.533334L260.266667 977.066667c-21.333333 21.333333-51.2 32-81.066667 32z m576-917.333334c-44.8 0-89.6 17.066667-123.733333 51.2-44.8 44.8-61.866667 108.8-44.8 168.533334l6.4 23.466666L106.666667 821.333333c-10.666667 10.666667-10.666667 29.866667 0 40.533334l53.333333 53.333333c10.666667 10.666667 29.866667 10.666667 40.533333 0l486.4-486.4 23.466667 6.4c59.733333 17.066667 125.866667-2.133333 168.533333-44.8 38.4-38.4 57.6-93.866667 51.2-145.066667L810.666667 364.8 657.066667 213.333333l119.466666-119.466666c-6.4-2.133333-14.933333-2.133333-21.333333-2.133334z"
-			p-id="10022"
-		></path>
-	</svg>
-);
-
-export const ToolIcon = (props: IconComponentProps) => (
-	<Icon component={ToolSvg} {...props} />
-);
-
-export const ShadowSvg = () => (
+const ShadowSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1329,7 +1023,7 @@ export const ShadowIcon = (props: IconComponentProps) => (
 	<Icon component={ShadowSvg} {...props} />
 );
 
-export const WatermarkSVG = () => (
+const WatermarkSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1350,7 +1044,7 @@ export const WatermarkIcon = (props: IconComponentProps) => (
 	<Icon component={WatermarkSVG} {...props} />
 );
 
-export const PickColorSVG = () => (
+const PickColorSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1392,7 +1086,7 @@ export const FilterIcon = (props: IconComponentProps) => (
 	<Icon component={FilterIconSVG} {...props} />
 );
 
-export const FullScreenIconSvg = () => (
+const FullScreenIconSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1413,7 +1107,7 @@ export const FullScreenIcon = (props: IconComponentProps) => (
 	<Icon component={FullScreenIconSvg} {...props} />
 );
 
-export const HighlightSVG = () => (
+const HighlightSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1434,28 +1128,7 @@ export const HighlightIcon = (props: IconComponentProps) => (
 	<Icon component={HighlightSVG} {...props} />
 );
 
-const NoneSvg = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M512 85.333333c235.648 0 426.666667 191.018667 426.666667 426.666667s-191.018667 426.666667-426.666667 426.666667S85.333333 747.648 85.333333 512 276.352 85.333333 512 85.333333z m278.058667 193.834667L279.168 790.058667A362.666667 362.666667 0 0 0 790.058667 279.168zM512 149.333333a362.666667 362.666667 0 0 0-278.058667 595.498667L744.832 233.941333A361.216 361.216 0 0 0 512 149.333333z"
-			p-id="4640"
-		></path>
-	</svg>
-);
-
-export const NoneIcon = (props: IconComponentProps) => (
-	<Icon component={NoneSvg} {...props} />
-);
-
-export const PersonalizationSvg = () => (
+const PersonalizationSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1473,7 +1146,7 @@ export const PersonalizationIcon = (props: IconComponentProps) => (
 	<Icon component={PersonalizationSvg} {...props} />
 );
 
-export const DragWindowSvg = () => (
+const DragWindowSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1494,28 +1167,7 @@ export const DragWindowIcon = (props: IconComponentProps) => (
 	<Icon component={DragWindowSvg} {...props} />
 );
 
-export const SaveToCloudSvg = () => (
-	<svg
-		viewBox="0 0 1024 1024"
-		version="1.1"
-		xmlns="http://www.w3.org/2000/svg"
-		width="1em"
-		height="1em"
-		fill="currentColor"
-		aria-hidden="true"
-	>
-		<path
-			d="M554.688 500.352v256H469.312v-256h-128L512 314.24l170.688 186.24h-128zM1024 640.192C1024 782.912 919.872 896 787.648 896h-512C123.904 896 0 761.6 0 597.504 0 451.968 94.656 331.52 226.432 302.976 284.16 195.456 391.808 128 512 128c152.32 0 282.112 108.416 323.392 261.12C941.888 413.44 1024 519.04 1024 640.192z m-259.2-205.312c-24.448-129.024-128.896-222.72-252.8-222.72-97.28 0-183.04 57.344-224.64 147.456l-9.28 20.224-20.928 2.944c-103.36 14.4-178.368 104.32-178.368 214.72 0 117.952 88.832 214.4 196.928 214.4h512c88.32 0 157.504-75.136 157.504-171.712 0-88.064-65.92-164.928-144.96-171.776l-29.504-2.56-5.888-30.976z"
-			p-id="5209"
-		></path>
-	</svg>
-);
-
-export const SaveToCloudIcon = (props: IconComponentProps) => (
-	<Icon component={SaveToCloudSvg} {...props} />
-);
-
-export const FilterFreeDrawSvg = () => (
+const FilterFreeDrawSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1536,7 +1188,7 @@ export const FilterFreeDrawIcon = (props: IconComponentProps) => (
 	<Icon component={FilterFreeDrawSvg} {...props} />
 );
 
-export const LockAspectRatioSVG = () => (
+const LockAspectRatioSVG = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1557,7 +1209,7 @@ export const LockAspectRatioIcon = (props: IconComponentProps) => (
 	<Icon component={LockAspectRatioSVG} {...props} />
 );
 
-export const ThinkingSvg = () => (
+const ThinkingSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1578,7 +1230,7 @@ export const ThinkingIcon = (props: IconComponentProps) => (
 	<Icon component={ThinkingSvg} {...props} />
 );
 
-export const VisionModelHtmlSvg = () => (
+const VisionModelHtmlSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1599,7 +1251,7 @@ export const VisionModelHtmlIcon = (props: IconComponentProps) => (
 	<Icon component={VisionModelHtmlSvg} {...props} />
 );
 
-export const VisionMarkdownSvg = () => (
+const VisionMarkdownSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"
@@ -1620,7 +1272,7 @@ export const VisionMarkdownIcon = (props: IconComponentProps) => (
 	<Icon component={VisionMarkdownSvg} {...props} />
 );
 
-export const ResetCanvasSvg = () => (
+const ResetCanvasSvg = () => (
 	<svg
 		viewBox="0 0 1024 1024"
 		version="1.1"

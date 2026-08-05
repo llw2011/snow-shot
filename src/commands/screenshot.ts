@@ -14,11 +14,6 @@ export const switchAlwaysOnTop = async (windowId: number) => {
 	return result;
 };
 
-export const setDrawWindowStyle = async () => {
-	const result = await invoke("set_draw_window_style");
-	return result;
-};
-
 /**
  * 捕获焦点窗口
  * @param filePath 文件路径

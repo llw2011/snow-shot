@@ -38,6 +38,28 @@ Paragraph_2
 %%
 Paragraph_3`;
 
+export const structuredTranslationPrompt = `## Structured Multi-segment Request Rules (highest priority)
+For this request, ignore any earlier instruction that asks for %% separators.
+
+The user message is a JSON array of objects:
+[{"id":0,"text":"..."},{"id":1,"text":"..."}]
+
+Return ONLY a valid JSON array. Do not wrap it in markdown. Do not add explanations.
+Each output item must have exactly:
+- "id": the same numeric id from the input item
+- "translation": the translated text for that item
+
+Do not merge, split, reorder, omit, or add items. Preserve numbers, dates, units, code, brand names, and line breaks inside each item.`;
+
+export const strictStructuredTranslationPrompt = `## Strict Retry Rules (absolute priority)
+Your previous response did not pass JSON validation.
+
+Return ONLY a JSON array that can be parsed by JSON.parse().
+The array length must match the input array length.
+Every input id must appear exactly once.
+Each item must be {"id": number, "translation": string}.
+No markdown fences, no comments, no extra keys, no prose.`;
+
 export const SOURCE_LANGUAGE_ENV_VARIABLE = "{{SOURCE_LANGUAGE}}";
 export const TARGET_LANGUAGE_ENV_VARIABLE = "{{TARGET_LANGUAGE}}";
 export const TRANSLATION_DOMAIN_ENV_VARIABLE = "{{TRANSLATION_DOMAIN}}";

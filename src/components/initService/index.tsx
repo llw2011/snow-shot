@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { initUiElements } from "@/commands";
 import {
 	autoStartDisable,
 	autoStartEnable,
+	initUiElements,
 	setEnableProxy,
 	setRunLog,
 } from "@/commands/core";
@@ -18,6 +18,7 @@ import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 import { CaptureHistory } from "@/utils/captureHistory";
 import { appWarn } from "@/utils/log";
+import { isRapidOcrModel } from "@/utils/ocr";
 
 export const InitService = () => {
 	// 清除无效的截图历史
@@ -51,10 +52,12 @@ export const InitService = () => {
 			return;
 		}
 
+		const ocrModel = appSettings[AppSettingsGroup.FunctionOcr].ocrModel;
 		if (
+			isRapidOcrModel(ocrModel) &&
 			(!hasInitOcr.current ||
 				(prevAppSettings &&
-					(appSettings[AppSettingsGroup.FunctionOcr].ocrModel !==
+					(ocrModel !==
 						prevAppSettings[AppSettingsGroup.FunctionOcr].ocrModel ||
 						appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart !==
 							prevAppSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart ||
@@ -64,15 +67,19 @@ export const InitService = () => {
 								.ocrModelWriteToMemory))) &&
 			isReadyStatus(PLUGIN_ID_RAPID_OCR)
 		) {
-			hasInitOcr.current = true;
-
 			if (pluginConfigRef.current) {
-				ocrInit(
-					await pluginConfigRef.current.getPluginDirPath(PLUGIN_ID_RAPID_OCR),
-					appSettings[AppSettingsGroup.FunctionOcr].ocrModel,
-					appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart,
-					appSettings[AppSettingsGroup.SystemScreenshot].ocrModelWriteToMemory,
-				);
+				try {
+					await ocrInit(
+						await pluginConfigRef.current.getPluginDirPath(PLUGIN_ID_RAPID_OCR),
+						ocrModel,
+						appSettings[AppSettingsGroup.SystemScreenshot].ocrHotStart,
+						appSettings[AppSettingsGroup.SystemScreenshot]
+							.ocrModelWriteToMemory,
+					);
+					hasInitOcr.current = true;
+				} catch (error) {
+					appWarn("[InitService] init ocr failed", error);
+				}
 			} else {
 				appWarn("[InitService] pluginConfigRef.current is not set");
 			}
@@ -81,7 +88,9 @@ export const InitService = () => {
 		if (!hasClearedCaptureHistory.current) {
 			hasClearedCaptureHistory.current = true;
 
-			clearCaptureHistory(appSettings);
+			void clearCaptureHistory(appSettings).catch((error) => {
+				appWarn("[InitService] clear capture history failed", error);
+			});
 		}
 
 		if (
@@ -92,7 +101,11 @@ export const InitService = () => {
 		) {
 			hasInitEnableProxy.current = true;
 
-			setEnableProxy(appSettings[AppSettingsGroup.SystemNetwork].enableProxy);
+			void setEnableProxy(
+				appSettings[AppSettingsGroup.SystemNetwork].enableProxy,
+			).catch((error) => {
+				appWarn("[InitService] set proxy state failed", error);
+			});
 		}
 
 		if (
@@ -105,9 +118,13 @@ export const InitService = () => {
 			hasInitAutoStart.current = true;
 
 			if (appSettings[AppSettingsGroup.SystemCommon].autoStart) {
-				autoStartEnable();
+				void autoStartEnable().catch((error) => {
+					appWarn("[InitService] enable auto start failed", error);
+				});
 			} else {
-				autoStartDisable();
+				void autoStartDisable().catch((error) => {
+					appWarn("[InitService] disable auto start failed", error);
+				});
 			}
 		}
 
@@ -119,7 +136,11 @@ export const InitService = () => {
 		) {
 			hasInitRunLog.current = true;
 
-			setRunLog(appSettings[AppSettingsGroup.SystemCommon].runLog);
+			void setRunLog(appSettings[AppSettingsGroup.SystemCommon].runLog).catch(
+				(error) => {
+					appWarn("[InitService] set run log state failed", error);
+				},
+			);
 		}
 
 		if (
@@ -130,9 +151,11 @@ export const InitService = () => {
 		) {
 			hasInitHotLoadPage.current = true;
 
-			hotLoadPageInit(
+			void hotLoadPageInit(
 				appSettings[AppSettingsGroup.SystemCore].hotLoadPageCount,
-			);
+			).catch((error) => {
+				appWarn("[InitService] init hot load pages failed", error);
+			});
 		}
 	}, [
 		appSettings,
@@ -158,11 +181,15 @@ export const InitService = () => {
 		}
 		inited.current = true;
 
-		initUiElements();
+		void initUiElements().catch((error) => {
+			appWarn("[InitService] init UI elements failed", error);
+		});
 	}, []);
 
 	useEffect(() => {
-		initServices();
+		void initServices().catch((error) => {
+			appWarn("[InitService] init services failed", error);
+		});
 	}, [initServices]);
 
 	const hasInitVideoRecord = useRef(false);
@@ -175,10 +202,13 @@ export const InitService = () => {
 			hasInitVideoRecord.current = true;
 
 			if (pluginConfigRef.current) {
-				pluginConfigRef.current
+				void pluginConfigRef.current
 					.getPluginDirPath(PLUGIN_ID_FFMPEG)
 					.then((ffmpegPluginDir) => {
-						videoRecordInit(ffmpegPluginDir);
+						return videoRecordInit(ffmpegPluginDir);
+					})
+					.catch((error) => {
+						appWarn("[InitService] init video record failed", error);
 					});
 			} else {
 				appWarn("[InitService] pluginConfigRef.current is not set");

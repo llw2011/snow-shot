@@ -36,7 +36,10 @@ pub async fn create_webview_shared_buffer_channel(
         return Ok(false);
     }
 
-    match shared_buffer_service.create_channel(channel_id, webview, data_size) {
+    match shared_buffer_service
+        .create_channel(channel_id, webview, data_size)
+        .await
+    {
         Ok(_) => Ok(true),
         Err(e) => Err(e),
     }

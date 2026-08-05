@@ -2,14 +2,15 @@ pub mod core;
 pub mod file;
 pub mod global_state;
 pub mod hot_load_page;
-pub mod http_services;
 pub mod listen_key;
-pub mod ocr;
+pub mod native_action;
 pub mod plugin;
 pub mod screenshot;
 pub mod scroll_screenshot;
 pub mod video_record;
 pub mod webview;
+#[cfg(target_os = "windows")]
+mod windows_session;
 
 use snow_shot_app_services::listen_mouse_service;
 use snow_shot_tauri_commands_core::{FullScreenDrawWindowLabels, VideoRecordWindowLabels};
@@ -33,6 +34,30 @@ use snow_shot_app_services::video_record_service;
 use snow_shot_app_shared::EnigoManager;
 use snow_shot_global_state::{CaptureState, ReadClipboardState, WebViewSharedBufferState};
 use snow_shot_plugin_service::plugin_service;
+
+#[cfg(not(debug_assertions))]
+const RECOVERY_LOG_RECORD_LIMIT: usize = 1024;
+
+pub(crate) fn configure_main_window(main_window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    windows_session::install(main_window);
+
+    let window_clone = main_window.clone();
+    main_window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            if let Err(error) = window_clone.hide() {
+                log::error!("[configure_main_window] hide window error: {error:?}");
+            }
+
+            if let Err(error) = window_clone.emit("on-hide-main-window", ()) {
+                log::error!("[configure_main_window] emit hide event error: {error}");
+            }
+        }
+    });
+}
 
 #[cfg(feature = "dhat-heap")]
 pub static PROFILER: std::sync::LazyLock<Mutex<Option<dhat::Profiler>>> =
@@ -67,6 +92,8 @@ pub fn run() {
 
     let enable_run_log = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let enable_run_log_clone = enable_run_log.clone();
+    #[cfg(not(debug_assertions))]
+    let recovery_log_records = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
     let plugin_service = Arc::new(plugin_service::PluginService::new());
 
@@ -78,14 +105,15 @@ pub fn run() {
     let webview_shared_buffer_state = WebViewSharedBufferState::new(false);
 
     let read_clipboard_state = Mutex::new(ReadClipboardState { reading: false });
+    let draw_window_ready_state =
+        snow_shot_tauri_commands_screenshot::commands::DrawWindowReadyState::default();
 
     use tauri_plugin_log::{Target, TargetKind};
 
     // let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
 
-    // log 文件可能因为某些异常情况不断输出，造成日志文件过大
-    // 先在 release 下屏蔽日志输出
-    // 注意不要移除 log 插件的初始化,避免前端调用 log 时保存再次报错,持续循环报错
+    // Release 默认只保留不含用户内容的恢复诊断；详细日志仍由用户开关控制。
+    // 日志文件必须有界，避免异常循环持续占用磁盘。
     let log_targets: Vec<Target> = if cfg!(debug_assertions) {
         vec![
             Target::new(TargetKind::Stdout),
@@ -115,10 +143,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            let app_window = app.get_webview_window("main").expect("no main window");
-            app_window.show().unwrap();
-            app_window.unminimize().unwrap();
-            app_window.set_focus().unwrap();
+            native_action::handle_single_instance(app);
         }))
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_opener::init())
@@ -130,19 +155,23 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--auto_start"]),
         ))
-        .plugin(tauri_plugin_clipboard::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(native_action::handle_shortcut_event)
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::default()
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
+                .max_file_size(128 * 1024)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .targets(log_targets)
                 .level(log_level)
-                .filter(move |_| {
+                .filter(move |_metadata| {
                     #[cfg(debug_assertions)]
                     {
                         return true;
@@ -150,7 +179,13 @@ pub fn run() {
 
                     #[cfg(not(debug_assertions))]
                     {
-                        return enable_run_log.load(std::sync::atomic::Ordering::Relaxed);
+                        if enable_run_log.load(std::sync::atomic::Ordering::Relaxed) {
+                            return true;
+                        }
+                        return _metadata.target() == "snow-shot-recovery"
+                            && recovery_log_records
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                < RECOVERY_LOG_RECORD_LIMIT;
                     }
                 })
                 .build(),
@@ -160,45 +195,16 @@ pub fn run() {
                 .get_webview_window("main")
                 .expect("[lib::setup] no main window");
 
-            #[cfg(target_os = "windows")]
-            {
-                match main_window.set_decorations(false) {
-                    Ok(_) => (),
-                    Err(_) => {
-                        log::error!("[init_main_window] Failed to set decorations");
-                    }
-                }
-            }
-
             #[cfg(target_os = "macos")]
             {
                 // macOS 下不在 dock 显示
                 app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
             }
 
-            // 监听窗口关闭事件，拦截关闭按钮
-            let window_clone = main_window.clone();
-            main_window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-
-                    #[cfg(target_os = "windows")]
-                    {
-                        if let Err(e) = window_clone.hide() {
-                            log::error!("[setup] hide window error: {:?}", e);
-                        }
-                    }
-
-                    #[cfg(target_os = "macos")]
-                    {
-                        if let Err(e) = window_clone.hide() {
-                            log::error!("[setup] hide window error: {:?}", e);
-                        }
-                    }
-
-                    window_clone.emit("on-hide-main-window", ()).unwrap();
-                }
-            });
+            configure_main_window(&main_window);
+            if let Err(error) = native_action::ensure_main_tray_during_setup(app.handle()) {
+                log::error!(target: "snow-shot-recovery", "[lib::setup] failed to create native fallback tray: {error}");
+            }
 
             // 如果是调试模式，则显示窗口
             #[cfg(debug_assertions)]
@@ -228,74 +234,77 @@ pub fn run() {
         .manage(video_record_window_label)
         .manage(capture_state)
         .manage(read_clipboard_state)
+        .manage(draw_window_ready_state)
+        .manage(native_action::NativeActionState::default())
         .invoke_handler(tauri::generate_handler![
-            screenshot::capture_current_monitor,
-            screenshot::capture_all_monitors,
+            snow_shot_tauri_commands_screenshot::commands::capture_current_monitor,
+            snow_shot_tauri_commands_screenshot::commands::capture_all_monitors,
             screenshot::capture_focused_window,
-            screenshot::get_window_elements,
-            screenshot::init_ui_elements,
-            screenshot::get_element_from_position,
-            screenshot::init_ui_elements_cache,
-            screenshot::get_mouse_position,
-            screenshot::create_draw_window,
-            screenshot::switch_always_on_top,
-            screenshot::set_draw_window_style,
+            snow_shot_tauri_commands_screenshot::commands::get_window_elements,
+            snow_shot_tauri_commands_screenshot::commands::init_ui_elements,
+            snow_shot_tauri_commands_screenshot::commands::get_element_from_position,
+            snow_shot_tauri_commands_screenshot::commands::init_ui_elements_cache,
+            snow_shot_tauri_commands_screenshot::commands::get_mouse_position,
+            snow_shot_tauri_commands_screenshot::commands::create_draw_window,
+            snow_shot_tauri_commands_screenshot::commands::draw_window_ready,
+            snow_shot_tauri_commands_screenshot::commands::switch_always_on_top,
+            snow_shot_tauri_commands_screenshot::commands::set_draw_window_style,
             screenshot::capture_full_screen,
-            file::save_file,
-            file::write_file,
-            file::copy_file,
-            file::remove_file,
+            snow_shot_tauri_commands_file::commands::save_file,
+            snow_shot_tauri_commands_file::commands::write_file,
+            snow_shot_tauri_commands_file::commands::copy_file,
+            snow_shot_tauri_commands_file::commands::remove_file,
             file::create_dir,
             file::remove_dir,
             file::get_app_config_dir,
             file::get_app_config_base_dir,
             file::create_local_config_dir,
-            ocr::ocr_detect,
+            snow_shot_tauri_commands_ocr::commands::ocr_detect,
             #[cfg(target_os = "windows")]
-            ocr::ocr_detect_with_shared_buffer,
-            ocr::ocr_init,
-            ocr::ocr_release,
+            snow_shot_tauri_commands_ocr::commands::ocr_detect_with_shared_buffer,
+            snow_shot_tauri_commands_ocr::commands::ocr_init,
+            snow_shot_tauri_commands_ocr::commands::ocr_release,
             core::exit_app,
-            core::start_free_drag,
-            core::start_resize_window,
-            core::close_window_after_delay,
+            snow_shot_tauri_commands_core::commands::start_free_drag,
+            snow_shot_tauri_commands_core::commands::start_resize_window,
+            snow_shot_tauri_commands_core::commands::close_window_after_delay,
             core::get_selected_text,
-            core::set_enable_proxy,
-            core::scroll_through,
-            core::auto_scroll_through,
-            core::click_through,
-            core::create_fixed_content_window,
+            snow_shot_tauri_commands_core::commands::set_enable_proxy,
+            snow_shot_tauri_commands_core::commands::scroll_through,
+            snow_shot_tauri_commands_core::commands::auto_scroll_through,
+            snow_shot_tauri_commands_core::commands::click_through,
+            snow_shot_tauri_commands_core::commands::create_fixed_content_window,
             core::read_image_from_clipboard,
-            core::create_full_screen_draw_window,
-            core::close_full_screen_draw_window,
-            core::get_current_monitor_info,
+            snow_shot_tauri_commands_core::commands::create_full_screen_draw_window,
+            snow_shot_tauri_commands_core::commands::close_full_screen_draw_window,
+            snow_shot_tauri_commands_core::commands::get_current_monitor_info,
             core::get_monitors_bounding_box,
-            core::send_new_version_notification,
+            snow_shot_tauri_commands_core::commands::send_new_version_notification,
             core::create_video_record_window,
-            core::close_video_record_window,
-            core::has_video_record_window,
-            core::has_focused_full_screen_window,
-            core::set_current_window_always_on_top,
+            snow_shot_tauri_commands_core::commands::close_video_record_window,
+            snow_shot_tauri_commands_core::commands::has_video_record_window,
+            snow_shot_tauri_commands_core::commands::has_focused_full_screen_window,
+            snow_shot_tauri_commands_core::commands::set_current_window_always_on_top,
             core::auto_start_enable,
             core::auto_start_disable,
-            core::restart_with_admin,
-            core::write_bitmap_image_to_clipboard,
+            snow_shot_tauri_commands_core::commands::restart_with_admin,
+            snow_shot_tauri_commands_core::commands::write_bitmap_image_to_clipboard,
             #[cfg(target_os = "windows")]
-            core::write_bitmap_image_to_clipboard_with_shared_buffer,
-            core::retain_dir_files,
-            core::is_admin,
+            snow_shot_tauri_commands_core::commands::write_bitmap_image_to_clipboard_with_shared_buffer,
+            snow_shot_tauri_commands_core::commands::retain_dir_files,
+            snow_shot_tauri_commands_core::commands::is_admin,
             core::set_run_log,
-            core::set_exclude_from_capture,
-            core::show_main_window,
+            snow_shot_tauri_commands_core::commands::set_exclude_from_capture,
+            snow_shot_tauri_commands_core::commands::show_main_window,
             core::set_window_rect,
-            scroll_screenshot::scroll_screenshot_get_image_data,
-            scroll_screenshot::scroll_screenshot_init,
-            scroll_screenshot::scroll_screenshot_capture,
-            scroll_screenshot::scroll_screenshot_handle_image,
-            scroll_screenshot::scroll_screenshot_save_to_file,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_get_image_data,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_init,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_capture,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_handle_image,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_save_to_file,
             scroll_screenshot::scroll_screenshot_save_to_clipboard,
-            scroll_screenshot::scroll_screenshot_get_size,
-            scroll_screenshot::scroll_screenshot_clear,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_get_size,
+            snow_shot_tauri_commands_scroll_screenshot::commands::scroll_screenshot_clear,
             video_record::video_record_start,
             video_record::video_record_stop,
             video_record::video_record_pause,
@@ -317,22 +326,41 @@ pub fn run() {
             plugin::plugin_get_plugins_status,
             plugin::plugin_register_plugin,
             plugin::plugin_install_plugin,
+            plugin::plugin_install_local_plugin,
             plugin::plugin_uninstall_plugin,
             webview::create_webview_shared_buffer,
             webview::set_support_webview_shared_buffer,
             #[cfg(target_os = "windows")]
             webview::create_webview_shared_buffer_channel,
             #[cfg(target_os = "windows")]
-            core::write_image_pixels_to_clipboard_with_shared_buffer,
-            http_services::upload_to_s3,
+            snow_shot_tauri_commands_core::commands::write_image_pixels_to_clipboard_with_shared_buffer,
             hot_load_page::hot_load_page_init,
             hot_load_page::hot_load_page_add_page,
             global_state::set_capture_state,
             global_state::get_capture_state,
             global_state::set_read_clipboard_state,
             global_state::get_read_clipboard_state,
+            native_action::native_shortcut_register_action,
+            native_action::native_shortcut_reset_actions,
+            native_action::native_shortcut_set_disabled,
+            native_action::native_shortcut_set_input_active,
+            native_action::native_shortcut_set_full_screen_policy,
+            native_action::native_tray_set_click_action,
+            native_action::native_tray_set_enabled,
+            native_action::native_runtime_start,
+            native_action::native_runtime_ready,
+            native_action::native_main_runtime_probe_ack,
+            native_action::native_draw_runtime_ready,
+            native_action::native_draw_runtime_probe_ack,
+            native_action::native_runtime_bind_draw,
+            native_action::native_action_ack,
         ])
+        .on_menu_event(native_action::handle_menu_event)
+        .on_tray_icon_event(native_action::handle_tray_icon_event)
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                native_action::handle_window_destroyed(window.app_handle(), window.label());
+            }
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let window_label = window.label().to_owned();
 
@@ -363,7 +391,18 @@ pub fn run() {
         app_builder = app_builder.manage(shared_buffer_service);
     }
 
-    app_builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    let app = app_builder
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+    app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = event
+            && code.is_none()
+            && app
+                .state::<native_action::NativeActionState>()
+                .main_rebuild_active()
+        {
+            log::warn!(target: "snow-shot-recovery", "[native_action] prevented exit while rebuilding the main window");
+            api.prevent_exit();
+        }
+    });
 }

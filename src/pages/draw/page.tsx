@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { NonDeletedExcalidrawElement } from "@mg-chao/excalidraw/element/types";
 import {
@@ -16,19 +16,24 @@ import React, {
 	useState,
 } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-import { createDrawWindow, getMousePosition } from "@/commands";
 import {
 	closeWindowAfterDelay,
+	createDrawWindow,
 	createFixedContentWindow,
+	drawWindowReady,
 	getMonitorsBoundingBox,
+	getMousePosition,
 	setCurrentWindowAlwaysOnTop,
 } from "@/commands/core";
 import { setCaptureState } from "@/commands/globalSate";
 import { listenKeyStart, listenKeyStop } from "@/commands/listenKey";
+import {
+	nativeDrawRuntimeProbeAck,
+	nativeDrawRuntimeReady,
+} from "@/commands/nativeAction";
 import { captureAllMonitors, switchAlwaysOnTop } from "@/commands/screenshot";
 import {
 	scrollScreenshotClear,
-	scrollScreenshotGetImageData,
 	scrollScreenshotGetSize,
 	scrollScreenshotSaveToClipboard,
 	scrollScreenshotSaveToFile,
@@ -55,6 +60,7 @@ import {
 	releaseDrawPage,
 } from "@/functions/screenshot";
 import { sendErrorMessage } from "@/functions/sendMessage";
+import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { withStatePublisher } from "@/hooks/useStatePublisher";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { AppSettingsGroup, DoubleClickAction } from "@/types/appSettings";
@@ -103,7 +109,6 @@ import {
 	fixedToScreen,
 	getCanvas,
 	handleOcrDetect,
-	saveCanvasToCloud,
 	saveToFile,
 } from "./actions";
 import {
@@ -188,7 +193,8 @@ const DrawPageCore: React.FC<{
 		undefined,
 	);
 	const imageBlobUrlRef = useRef<string | undefined>(undefined);
-	const { addListener, removeListener } = useContext(EventListenerContext);
+	const { addListener, removeListener, listenersReady } =
+		useContext(EventListenerContext);
 
 	// 层级
 	const drawLayerWrapRef = useRef<HTMLDivElement>(null);
@@ -213,6 +219,45 @@ const DrawPageCore: React.FC<{
 
 	// 状态
 	const drawPageStateRef = useRef<DrawPageState>(DrawPageState.Init);
+	const [canvasReady, setCanvasReady] = useState(false);
+	const [appSettingsReady, setAppSettingsReady] = useState(false);
+	const [drawActionListenersReady, setDrawActionListenersReady] =
+		useState(false);
+	const drawRuntimeReadySentRef = useRef(false);
+	const drawRuntimeReadySendingRef = useRef(false);
+	useAppSettingsLoad(
+		useCallback(() => {
+			setAppSettingsReady(true);
+		}, []),
+	);
+	useEffect(() => {
+		if (
+			!canvasReady ||
+			!appSettingsReady ||
+			!listenersReady ||
+			!drawActionListenersReady ||
+			drawRuntimeReadySentRef.current ||
+			drawRuntimeReadySendingRef.current
+		) {
+			return;
+		}
+
+		drawRuntimeReadySendingRef.current = true;
+		void (async () => {
+			await nativeDrawRuntimeReady();
+			if (!(await drawWindowReady())) {
+				throw new Error("draw window readiness request is no longer pending");
+			}
+			drawRuntimeReadySentRef.current = true;
+			await releaseDrawPage();
+		})()
+			.catch((error) => {
+				appError("[DrawPageCore] draw runtime ready failed", error);
+			})
+			.finally(() => {
+				drawRuntimeReadySendingRef.current = false;
+			});
+	}, [appSettingsReady, canvasReady, drawActionListenersReady, listenersReady]);
 	const mousePositionRef = useRef<MousePosition>(new MousePosition(0, 0));
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
@@ -929,53 +974,6 @@ const DrawPageCore: React.FC<{
 		],
 	);
 
-	const onSaveToCloud = useCallback(async () => {
-		if (!getAppSettings()[AppSettingsGroup.FunctionScreenshot].saveToCloud) {
-			return;
-		}
-
-		if (
-			!selectLayerActionRef.current ||
-			!imageLayerActionRef.current ||
-			!drawLayerActionRef.current
-		) {
-			return;
-		}
-
-		let imageData: ArrayBuffer | HTMLCanvasElement | undefined;
-		if (getDrawState() === DrawState.ScrollScreenshot) {
-			imageData = await scrollScreenshotGetImageData(true);
-		} else {
-			imageData = await getCanvas(
-				selectLayerActionRef.current.getSelectRectParams(),
-				imageLayerActionRef.current,
-				drawLayerActionRef.current,
-			);
-		}
-
-		if (!imageData) {
-			return;
-		}
-
-		const hideLoading = message.loading(
-			<FormattedMessage id="draw.saveToCloud.loading" />,
-		);
-
-		try {
-			const result = await saveCanvasToCloud(imageData, getAppSettings());
-			if (typeof result === "object" && "error" in result) {
-				message.error(<FormattedMessage id="draw.saveToCloud.error" />);
-			} else {
-				writeTextToClipboard(result);
-				finishCapture();
-			}
-		} catch (error) {
-			appError("[DrawPageCore] S3 upload error", error);
-		}
-
-		hideLoading();
-	}, [finishCapture, getAppSettings, message, getDrawState]);
-
 	const onFixed = useCallback(async () => {
 		if (getDrawState() === DrawState.ScrollScreenshot) {
 			const scrollScreenshotSize = await scrollScreenshotGetSize();
@@ -1273,26 +1271,19 @@ const DrawPageCore: React.FC<{
 		message,
 	]);
 
-	const releaseExecuteScreenshotTimerRef = useRef<
-		| {
-				timer: NodeJS.Timeout | undefined;
-				type: ScreenshotType;
-		  }
-		| undefined
+	type ExecuteScreenshotPayload = {
+		type: ScreenshotType;
+		windowLabel?: string;
+		captureHistoryId?: string;
+	};
+	const pendingReleaseScreenshotRef = useRef<
+		ExecuteScreenshotPayload | undefined
 	>(undefined);
 
 	useEffect(() => {
 		// 监听截图命令
 		const listenerId = addListener("execute-screenshot", (args) => {
-			const payload = (
-				args as {
-					payload: {
-						type: ScreenshotType;
-						windowLabel?: string;
-						captureHistoryId?: string;
-					};
-				}
-			).payload;
+			const payload = (args as { payload: ExecuteScreenshotPayload }).payload;
 
 			// 防止循环调用
 			if (payload.windowLabel === appWindowRef.current?.label) {
@@ -1303,29 +1294,21 @@ const DrawPageCore: React.FC<{
 				return;
 			}
 
-			if (payload.type === ScreenshotType.CaptureFullScreen) {
-				captureHistoryActionRef.current?.captureFullScreen();
-				return;
-			}
-
 			if (drawPageStateRef.current === DrawPageState.Init) {
 				return;
 			} else if (drawPageStateRef.current === DrawPageState.Release) {
-				// 这时候可能窗口还在加载中，每隔一段时间触发下截图
-				if (releaseExecuteScreenshotTimerRef.current?.timer) {
-					clearInterval(releaseExecuteScreenshotTimerRef.current.timer);
-				}
-				releaseExecuteScreenshotTimerRef.current = {
-					timer: setInterval(() => {
-						executeScreenshotFunc(payload.type, appWindowRef.current?.label);
-					}, 128),
-					type: payload.type,
-				};
-
+				// The replacement draw page emits release-draw-page after its canvas and
+				// listeners are ready. Defer once to that event instead of polling it.
+				pendingReleaseScreenshotRef.current = payload;
 				return;
 			} else if (drawPageStateRef.current === DrawPageState.WaitRelease) {
 				// 重置为激活状态
 				drawPageStateRef.current = DrawPageState.Active;
+			}
+
+			if (payload.type === ScreenshotType.CaptureFullScreen) {
+				captureHistoryActionRef.current?.captureFullScreen();
+				return;
 			}
 
 			excuteScreenshot(payload.type, payload);
@@ -1342,20 +1325,44 @@ const DrawPageCore: React.FC<{
 				if (drawPageStateRef.current !== DrawPageState.Release) {
 					return;
 				}
-
-				if (releaseExecuteScreenshotTimerRef.current?.timer) {
-					clearInterval(releaseExecuteScreenshotTimerRef.current.timer);
-					executeScreenshotFunc(releaseExecuteScreenshotTimerRef.current.type);
-				}
 			}
 
-			getCurrentWindow().close();
+			const pendingScreenshot = pendingReleaseScreenshotRef.current;
+			pendingReleaseScreenshotRef.current = undefined;
+			void (async () => {
+				if (pendingScreenshot) {
+					await executeScreenshotFunc(
+						pendingScreenshot.type,
+						appWindowRef.current?.label,
+						pendingScreenshot.captureHistoryId,
+					);
+				}
+				await getCurrentWindow().close();
+			})().catch((error) => {
+				appError("[DrawPageCore] release draw handoff failed", error);
+			});
 		});
+
+		const runtimeProbeListenerId = addListener(
+			"native-draw-runtime-probe",
+			(args) => {
+				const { probeId, documentId } = (
+					args as {
+						payload: { probeId: number; documentId: string };
+					}
+				).payload;
+				void nativeDrawRuntimeProbeAck(probeId, documentId).catch((error) => {
+					appError("[DrawPageCore] draw runtime probe ack failed", error);
+				});
+			},
+		);
+		setDrawActionListenersReady(true);
 
 		return () => {
 			removeListener(listenerId);
 			removeListener(finishListenerId);
 			removeListener(releaseListenerId);
+			removeListener(runtimeProbeListenerId);
 		};
 	}, [addListener, excuteScreenshot, removeListener, finishCapture]);
 
@@ -1553,7 +1560,7 @@ const DrawPageCore: React.FC<{
 
 	const onInitCanvasReady = useCallback(async () => {
 		drawPageStateRef.current = DrawPageState.Active;
-		await releaseDrawPage();
+		setCanvasReady(true);
 	}, []);
 
 	return (
@@ -1587,7 +1594,6 @@ const DrawPageCore: React.FC<{
 						actionRef={drawToolbarActionRef}
 						onCancel={finishCapture}
 						onSave={onSave}
-						onSaveToCloud={onSaveToCloud}
 						onFixed={onFixed}
 						onCopyToClipboard={onCopyToClipboard}
 						onOcrDetect={onOcrDetect}

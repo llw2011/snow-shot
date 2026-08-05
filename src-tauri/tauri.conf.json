@@ -22,13 +22,10 @@
 				"title": "Snow Shot",
 				"width": 1024,
 				"center": true,
-				"decorations": true,
-				"titleBarStyle": "Overlay",
-				"hiddenTitle": true,
-				"trafficLightPosition": {
-					"x": 16,
-					"y": 16
-				},
+				"decorations": false,
+				"shadow": false,
+				"transparent": true,
+				"backgroundColor": "#00000000",
 				"visible": false,
 				"backgroundThrottling": "disabled",
 				"url": "/"

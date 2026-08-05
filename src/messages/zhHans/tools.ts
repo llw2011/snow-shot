@@ -21,6 +21,8 @@ export const tools = {
 	"tools.translation.replace": "替换",
 	"tools.translation.getSelectText.loading": "获取选中的文本中",
 	"tools.translation.getSelectText.failed": "获取失败",
+	"tools.translation.requestTimeout":
+		"本地翻译模型响应超时，请确认服务正在运行，或调大翻译超时时间",
 	"tools.chat.placeholder": "发消息",
 	"tools.chat.welcome.title": "👋 Hello, 有什么可以帮你的吗？",
 	"tools.chat.welcome.description":
@@ -34,14 +36,16 @@ export const tools = {
 	"tools.chat.newSession": "新对话",
 	"tools.chat.session.clear": "清空所有对话",
 	"tools.chat.session.clear.tip": "确定要清空所有对话吗？",
-	"tools.chat.reasoner": "推理",
+	"tools.chat.reasoner": "支持推理",
 	"tools.chat.custom": "自定义",
 	"tools.chat.official": "Snow Shot",
 	"tools.chat.thinking": "推理模式",
+	"tools.chat.thinking.unsupported": "当前模型不支持推理模式",
 	"tools.translation.type": "翻译服务",
 	"tools.translation.domain": "翻译领域",
 	"tools.translation.type.youdao": "有道翻译",
 	"tools.translation.type.deepseek": "DeepSeek",
+	"tools.translation.type.openAiCompatible": "AI / OpenAI 兼容",
 	"tools.translation.type.deepl": "DeepL 翻译",
 	"tools.translation.type.googleWeb": "Google 网页翻译",
 	"tools.translation.domain.general": "通用领域",
@@ -109,4 +113,6 @@ export const tools = {
 	"tools.captureHistory.deleteSelected.confirm": "确定要删除选中的所有记录吗？",
 	"tools.captureHistory.clearAll": "清空所有记录",
 	"tools.captureHistory.clearAll.confirm": "确定要清空所有记录吗？",
+	"tools.translation.noAvailableService":
+		"没有可用的翻译服务，请在设置中配置 AI 模型",
 };

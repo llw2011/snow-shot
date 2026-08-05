@@ -11,16 +11,7 @@ export const getCaptureState = async () => {
 	return result;
 };
 
-export type ReadClipboardState = {
-	reading: boolean;
-};
-
 export const setReadClipboardState = async (reading: boolean) => {
 	const result = await invoke<void>("set_read_clipboard_state", { reading });
-	return result;
-};
-
-export const getReadClipboardState = async () => {
-	const result = await invoke<ReadClipboardState>("get_read_clipboard_state");
 	return result;
 };

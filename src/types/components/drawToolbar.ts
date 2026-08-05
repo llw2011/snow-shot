@@ -27,7 +27,6 @@ export enum DrawToolbarKeyEventKey {
 	ColorPickerCopy = "colorPickerCopy",
 	SaveTool = "saveTool",
 	FastSaveTool = "fastSaveTool",
-	SaveToCloudTool = "saveToCloudTool",
 	ScrollScreenshotTool = "scrollScreenshotTool",
 	CopyTool = "copyTool",
 	FixedTool = "fixedTool",

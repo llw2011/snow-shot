@@ -222,30 +222,6 @@ export const settings = {
 		"截取当前具有焦点的窗口时复制到剪贴板",
 	"settings.functionSettings.screenshotSettings.fullScreenCopyToClipboard":
 		"截取全屏时复制到剪贴板",
-	"settings.functionSettings.screenshotSettings.saveToCloud": "保存到云端",
-	"settings.functionSettings.screenshotSettings.saveToCloud.tip":
-		"工具栏新增保存到云端按钮，快速保存到云端并复制结果到剪贴板",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.type":
-		"云端保存协议",
-	"settings.functionSettings.screenshotSettings.cloudProxyUrl":
-		"云端资源代理地址",
-	"settings.functionSettings.screenshotSettings.cloudProxyUrl.tip":
-		"填写后，将使用该地址替换实际云端资源链接中的地址",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.type.s3": "S3",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3AccessKeyId":
-		"Access key ID",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3SecretAccessKey":
-		"Secret access key",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Region":
-		"Region",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3BucketName":
-		"Bucket name",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Endpoint":
-		"Endpoint",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3PathPrefix":
-		"Path prefix",
-	"settings.functionSettings.screenshotSettings.cloudSaveUrl.s3ForcePathStyle":
-		"Force path style",
 	"settings.functionSettings.screenshotSettings.autoSaveFileMode":
 		"保存文件增强",
 	"settings.functionSettings.screenshotSettings.autoSaveFileMode.saveMode":
@@ -284,10 +260,6 @@ export const settings = {
 		"截取全屏文件名格式",
 	"settings.functionSettings.outputSettings.focusedWindowFileNameFormatPreview":
 		"截取当前具有焦点的窗口文件名预览",
-	"settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormat":
-		"上传到云端文件名格式",
-	"settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormatPreview":
-		"上传到云端文件名预览",
 	"settings.functionSettings.outputSettings.fullScreenFileNameFormatPreview":
 		"截取全屏文件名预览",
 	"settings.functionSettings.outputSettings.videoRecordFileNameFormat":
@@ -446,13 +418,41 @@ export const settings = {
 		"优化 AI 翻译的排版",
 	"settings.functionSettings.translationSettings.optimizeAiTranslationLayout.tip":
 		"文本识别翻译依赖翻译原文和翻译结果具有相同的排版关系，而 AI 的输出可能存在排版错误。开启后将尝试优化排版，但显示出的内容顺序可能与原文不一致",
+	"settings.functionSettings.translationSettings.maxTokens":
+		"翻译最大 Token 数",
+	"settings.functionSettings.translationSettings.maxTokens.tip":
+		"限制单次翻译请求中模型生成译文的最大 token 数；该设置只影响翻译，不影响 AI 对话",
+	"settings.functionSettings.translationSettings.temperature":
+		"翻译 Temperature",
+	"settings.functionSettings.translationSettings.temperature.tip":
+		"更低的值会让翻译更稳定；默认值为 0.2",
+	"settings.functionSettings.translationSettings.topP": "翻译 Top P",
+	"settings.functionSettings.translationSettings.topP.tip":
+		"限制采样候选范围；默认值为 0.9",
+	"settings.functionSettings.translationSettings.timeoutMs": "翻译超时时间",
+	"settings.functionSettings.translationSettings.timeoutMs.tip":
+		"单次翻译请求的超时时间，单位毫秒；该设置只限制请求等待时间，不负责取消旧请求",
 	"settings.functionSettings.translationSettings.apiConfig": "API 配置",
 	"settings.functionSettings.translationSettings.apiConfig.apiType": "翻译服务",
+	"settings.functionSettings.translationSettings.apiConfig.apiType.openAiCompatible":
+		"AI / OpenAI 兼容",
 	"settings.functionSettings.translationSettings.apiConfig.apiType.deepL":
 		"DeepL",
+	"settings.functionSettings.translationSettings.apiConfig.modelName":
+		"服务名称",
+	"settings.functionSettings.translationSettings.apiConfig.modelName.tip":
+		"显示在翻译服务下拉中的名称，例如：百度",
+	"settings.functionSettings.translationSettings.apiConfig.modelName.required":
+		"请输入服务名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel":
+		"模型名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.tip":
+		"OpenAI 兼容接口使用的模型名称",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.required":
+		"请输入模型名称",
 	"settings.functionSettings.translationSettings.apiConfig.apiUri": "API 地址",
 	"settings.functionSettings.translationSettings.apiConfig.apiUri.tip":
-		"请直接指向翻译接口，如：https://api-free.deepl.com/v2/translate",
+		"OpenAI 兼容服务请填写 base URL；DeepL 请直接指向翻译接口，如：https://api-free.deepl.com/v2/translate",
 	"settings.functionSettings.translationSettings.apiConfig.apiKey": "API Key",
 	"settings.functionSettings.translationSettings.apiConfig.apiKey.tip":
 		"注意该配置在本地明文保存（也不会上传到云端）",
@@ -493,6 +493,18 @@ export const settings = {
 	"settings.functionSettings.chatSettings.testChat": "测试 API 配置",
 	"settings.functionSettings.chatSettings.testPrompt":
 		'测试提示词: "Say "Hello, world!""',
+	"settings.functionSettings.chatSettings.testModelProbe.empty":
+		"聊天测试成功，但未读取到模型列表",
+	"settings.functionSettings.chatSettings.testModelProbe.matched":
+		"配置模型已在模型列表中找到：{model}",
+	"settings.functionSettings.chatSettings.testModelProbe.mapped":
+		"配置模型 {configuredModel} 不在模型列表中；服务已接受请求并映射为 {actualModel}",
+	"settings.functionSettings.chatSettings.testModelProbe.notListed":
+		"配置模型 {model} 不在模型列表中，但测试请求已成功",
+	"settings.functionSettings.chatSettings.testModelProbe.available":
+		"可用模型：{models}",
+	"settings.functionSettings.chatSettings.testModelProbe.failed":
+		"API 测试失败",
 	"settings.systemSettings.screenshotSettings": "截图",
 	"settings.systemSettings.screenshotSettings.tryGetElementByFocus":
 		"选取窗口元素增强",
@@ -507,10 +519,14 @@ export const settings = {
 	"settings.systemSettings.screenshotSettings.tryGetElementByFocus.always":
 		"保持启用",
 	"settings.systemSettings.screenshotSettings.ocrModel": "文本识别模型",
+	"settings.systemSettings.screenshotSettings.ocrModel.tip":
+		"当前选择就是截图 OCR 实际使用的后端。GLM OCR 调用用户配置的 OpenAI 兼容 API 服务；Rapid OCR V4/V5 在 Snow Shot 本机进程内加载 ONNX 模型执行，不启动独立服务，也没有端口。",
 	"settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV4":
-		"Rapid OCR V4",
+		"Rapid OCR V4（本机 ONNX）",
 	"settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV5":
-		"Rapid OCR V5",
+		"Rapid OCR V5（本机 ONNX）",
+	"settings.systemSettings.screenshotSettings.ocrModel.glmOcr":
+		"GLM OCR（API 服务）",
 	"settings.systemSettings.screenshotSettings.ocrHotStart": "文本识别热启动",
 	"settings.systemSettings.screenshotSettings.ocrHotStart.tip":
 		"预加载文本识别模型，提高文本识别的识别速度，但会提高内存占用",
@@ -588,9 +604,30 @@ export const settings = {
 	"settings.systemSettings.coreSettings.hotLoadPageCount.tip":
 		"通过热加载页面，实现固定剪贴板内容到屏幕、视频录制、全屏画布等功能的快速加载，但同时提高了内存的占用",
 	"settings.functionSettings.ocrSettings": "文本识别",
-	"settings.functionSettings.ocrSettings.htmlVisionModel": "视觉理解模型",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName":
+		"GLM OCR 服务名称",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri":
+		"GLM OCR API 地址",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri.tip":
+		"GLM OCR 的服务地址和端口配置在这里。Rapid OCR 不使用这个地址，也没有服务端口。",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey":
+		"GLM OCR API Key",
+	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel":
+		"GLM OCR 模型名称",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.title":
+		"Rapid OCR V4（兼容回退）",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.description":
+		"本机 ONNX 推理，不调用 GLM OCR API，也没有服务端口。V4 与 V5 共享检测/方向分类链路，主要区别是识别模型：V4 使用 PP-OCRv4 识别模型，更适合作为稳定兼容或旧结果对比回退；日常使用优先 V5。",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.title":
+		"Rapid OCR V5（推荐日常使用）",
+	"settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.description":
+		"本机 ONNX 推理，不调用 GLM OCR API，也没有服务端口。V5 与 V4 共享检测/方向分类链路，主要区别是识别模型：V5 使用 PP-OCRv5 识别模型，日常截图取字、中英文混排优先选它；遇到兼容性问题再回退 V4 对比。",
+	"settings.functionSettings.ocrSettings.visionSettings":
+		"视觉理解（非截图 OCR）",
+	"settings.functionSettings.ocrSettings.htmlVisionModel":
+		"图片转 HTML 视觉模型",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.tip":
-		"将图片转为 HTML 的视觉理解模型",
+		"仅用于图片转 HTML/Markdown 等视觉理解功能，不决定截图文本识别模型。截图 OCR 实际后端由“文本识别模型”选择。",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.default": "默认",
 	"settings.functionSettings.ocrSettings.htmlVisionModel.default.tip":
 		"默认使用首个支持视觉理解的模型",

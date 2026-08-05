@@ -1,18 +1,25 @@
 "use client";
 
 import { DeleteOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Badge, Button, List } from "antd";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-import { pluginInstallPlugin, pluginUninstallPlugin } from "@/commands/plugin";
+import {
+	pluginInstallLocalPlugin,
+	pluginInstallPlugin,
+	pluginUninstallPlugin,
+} from "@/commands/plugin";
 import {
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { PluginStatus } from "@/types/commands/plugin";
 import { appError } from "@/utils/log";
+import { getPlatformValue } from "@/utils/platform";
 
 export const PluginsPage = () => {
 	const intl = useIntl();
@@ -27,6 +34,9 @@ export const PluginsPage = () => {
 					break;
 				case PLUGIN_ID_RAPID_OCR:
 					link = "https://github.com/RapidAI/RapidOCR";
+					break;
+				case PLUGIN_ID_GLM_OCR:
+					link = "https://ollama.com/";
 					break;
 			}
 
@@ -60,6 +70,40 @@ export const PluginsPage = () => {
 		}
 	};
 
+	const getDefaultLocalPluginSourceDir = useCallback((pluginId: string) => {
+		switch (pluginId) {
+			case PLUGIN_ID_FFMPEG:
+				return getPlatformValue("D:\\ffmpeg", "/usr/local/bin", "/usr/bin");
+			default:
+				return undefined;
+		}
+	}, []);
+
+	const installPlugin = useCallback(
+		async (pluginId: string, force: boolean = false) => {
+			try {
+				if (pluginId === PLUGIN_ID_FFMPEG) {
+					const sourceDir = await open({
+						directory: true,
+						defaultPath: getDefaultLocalPluginSourceDir(pluginId),
+					});
+
+					if (!sourceDir || Array.isArray(sourceDir)) {
+						return;
+					}
+
+					await pluginInstallLocalPlugin(pluginId, sourceDir, force);
+					return;
+				}
+
+				await pluginInstallPlugin(pluginId, force);
+			} catch (error) {
+				appError("[PluginsPage] install plugin error", error);
+			}
+		},
+		[getDefaultLocalPluginSourceDir],
+	);
+
 	return (
 		<div>
 			<List
@@ -74,7 +118,7 @@ export const PluginsPage = () => {
 								<Button
 									key="uninstall"
 									variant="text"
-									color="red"
+									danger
 									size="small"
 									icon={<DeleteOutlined />}
 									loading={item.status === PluginStatus.Uninstalling}
@@ -100,11 +144,7 @@ export const PluginsPage = () => {
 										item.status === PluginStatus.Unzipping
 									}
 									onClick={() => {
-										try {
-											pluginInstallPlugin(item.id);
-										} catch (error) {
-											appError("[PluginsPage] install plugin error", error);
-										}
+										installPlugin(item.id);
 									}}
 								>
 									<FormattedMessage id="plugin.install" />
@@ -113,16 +153,12 @@ export const PluginsPage = () => {
 							<Button
 								key="forceInstall"
 								variant="text"
-								color="green"
+								color="primary"
 								size="small"
 								icon={<SyncOutlined />}
 								disabled={item.status !== PluginStatus.Installed}
 								onClick={() => {
-									try {
-										pluginInstallPlugin(item.id, true);
-									} catch (error) {
-										appError("[PluginsPage] force install plugin error", error);
-									}
+									installPlugin(item.id, true);
 								}}
 							>
 								<FormattedMessage id="plugin.forceInstall" />
@@ -163,5 +199,3 @@ export const PluginsPage = () => {
 		</div>
 	);
 };
-
-export default PluginsPage;

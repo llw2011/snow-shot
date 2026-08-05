@@ -128,12 +128,14 @@ impl VideoRecordService {
         }
     }
 
-    pub fn get_ffmpeg_command(&self) -> FfmpegCommand {
-        FfmpegCommand::new_with_path(
-            self.ffmpeg_path
-                .as_ref()
-                .expect("[VideoRecordService] valid ffmpeg path"),
-        )
+    pub fn get_ffmpeg_command(&self) -> Result<FfmpegCommand> {
+        let ffmpeg_path = self.ffmpeg_path.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "[VideoRecordService] FFmpeg path is not configured",
+            )
+        })?;
+        Ok(FfmpegCommand::new_with_path(ffmpeg_path))
     }
 
     fn get_actual_video_size(
@@ -223,7 +225,12 @@ impl VideoRecordService {
     }
 
     fn start_segment(&mut self) -> Result<()> {
-        let params = self.recording_params.as_ref().unwrap();
+        let params = self.recording_params.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recording parameters are not initialized",
+            )
+        })?;
 
         // 计算录制区域的宽度和高度
         let mut width = params.max_x - params.min_x;
@@ -253,7 +260,7 @@ impl VideoRecordService {
             params.min_y
         );
 
-        let mut command = self.get_ffmpeg_command();
+        let mut command = self.get_ffmpeg_command()?;
 
         // 硬件加速选项必须在输入选项之前
         if params.hwaccel {
@@ -534,7 +541,13 @@ impl VideoRecordService {
         // 启动ffmpeg进程
         match command.spawn() {
             Ok(mut child) => {
-                for event in child.iter().unwrap() {
+                let output_iter = child.iter().map_err(|e| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to read ffmpeg output: {}", e),
+                    )
+                })?;
+                for event in output_iter {
                     if params.format == VideoFormat::Mp4 {
                         match event {
                             FfmpegEvent::Progress(_) => {
@@ -569,7 +582,16 @@ impl VideoRecordService {
     pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
         let mut device_info_list = Vec::new();
 
-        let mut command = self.get_ffmpeg_command();
+        let mut command = match self.get_ffmpeg_command() {
+            Ok(command) => command,
+            Err(e) => {
+                log::error!(
+                    "[get_device_info_list] Failed to create ffmpeg command: {}",
+                    e
+                );
+                return device_info_list;
+            }
+        };
         command
             .arg("-list_devices")
             .arg("true")
@@ -598,14 +620,14 @@ impl VideoRecordService {
 
         // macOS avfoundation 格式的正则表达式
         // 格式: [AVFoundation indev @ 0x...] [info] [0] 设备名称
-        let device_regex = match Regex::new(r#"\[AVFoundation indev @ [^\]]+\]\s+\[info\]\s+\[(\d+)\]\s+(.+)"#)
-        {
-            Ok(regex) => regex,
-            Err(e) => {
-                log::error!("[get_device_info_list] Failed to create regex: {}", e);
-                return device_info_list;
-            }
-        };
+        let device_regex =
+            match Regex::new(r#"\[AVFoundation indev @ [^\]]+\]\s+\[info\]\s+\[(\d+)\]\s+(.+)"#) {
+                Ok(regex) => regex,
+                Err(e) => {
+                    log::error!("[get_device_info_list] Failed to create regex: {}", e);
+                    return device_info_list;
+                }
+            };
 
         // 检测当前正在解析的设备类型
         let mut current_device_type = DeviceType::Video;
@@ -632,11 +654,27 @@ impl VideoRecordService {
                     }
 
                     if let Some(captures) = device_regex.captures(&line) {
-                        let device_index = captures.get(1).unwrap().as_str().to_string();
-                        let device_name = captures.get(2).unwrap().as_str().to_string();
+                        let device_index = match captures.get(1) {
+                            Some(device_index) => device_index.as_str(),
+                            None => continue,
+                        };
+                        let device_name = match captures.get(2) {
+                            Some(device_name) => device_name.as_str().to_string(),
+                            None => continue,
+                        };
+                        let device_index = match device_index.parse::<usize>() {
+                            Ok(device_index) => device_index,
+                            Err(e) => {
+                                log::warn!(
+                                    "[get_device_info_list] Failed to parse device index: {}",
+                                    e
+                                );
+                                continue;
+                            }
+                        };
                         device_info_list.push(DeviceInfo {
                             name: device_name,
-                            index: device_index.parse::<usize>().unwrap(),
+                            index: device_index,
                             device_type: current_device_type,
                         });
                     }
@@ -664,7 +702,16 @@ impl VideoRecordService {
 
         #[cfg(target_os = "windows")]
         {
-            let mut command = self.get_ffmpeg_command();
+            let mut command = match self.get_ffmpeg_command() {
+                Ok(command) => command,
+                Err(e) => {
+                    println!(
+                        "[get_microphone_device_names] Failed to create ffmpeg command: {}",
+                        e
+                    );
+                    return device_names;
+                }
+            };
             command
                 .arg("-list_devices")
                 .arg("true")
@@ -779,9 +826,18 @@ impl VideoRecordService {
         Ok(())
     }
 
-    fn get_final_filename(&self) -> String {
-        let params = self.recording_params.as_ref().unwrap();
-        format!("{}.{}", params.output_file, params.format.extension())
+    fn get_final_filename(&self) -> Result<String> {
+        let params = self.recording_params.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recording parameters are not initialized",
+            )
+        })?;
+        Ok(format!(
+            "{}.{}",
+            params.output_file,
+            params.format.extension()
+        ))
     }
 
     pub fn stop(
@@ -805,7 +861,7 @@ impl VideoRecordService {
         }
 
         // 如果只有一个片段，直接重命名
-        let mut final_filename = self.get_final_filename();
+        let mut final_filename = self.get_final_filename()?;
         if self.segments.len() == 1 {
             if let Err(e) = std::fs::rename(&self.segments[0], &final_filename) {
                 println!("Failed to rename single segment: {}", e);
@@ -820,7 +876,13 @@ impl VideoRecordService {
         }
 
         // 如果需要转换为GIF格式
-        if convert_to_gif && self.recording_params.as_ref().unwrap().format == VideoFormat::Mp4 {
+        let params = self.recording_params.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recording parameters are not initialized",
+            )
+        })?;
+        if convert_to_gif && params.format == VideoFormat::Mp4 {
             final_filename = self.convert_to_gif(
                 gif_format,
                 &final_filename,
@@ -835,7 +897,12 @@ impl VideoRecordService {
     }
 
     fn merge_segments(&mut self, final_filename: String) -> Result<()> {
-        let params = self.recording_params.as_ref().unwrap();
+        let params = self.recording_params.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recording parameters are not initialized",
+            )
+        })?;
 
         // 创建临时的文件列表
         let list_filename = format!("{}_segments.txt", params.output_file);
@@ -853,7 +920,7 @@ impl VideoRecordService {
         }
 
         // 使用ffmpeg合并片段
-        let mut command = self.get_ffmpeg_command();
+        let mut command = self.get_ffmpeg_command()?;
         command
             .arg("-f")
             .arg("concat")
@@ -903,7 +970,12 @@ impl VideoRecordService {
         gif_max_width: i32,
         gif_max_height: i32,
     ) -> Result<String> {
-        let params = self.recording_params.as_ref().unwrap();
+        let params = self.recording_params.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recording parameters are not initialized",
+            )
+        })?;
 
         // 生成输出文件名
         let output_filename = if format == "apng" {
@@ -936,8 +1008,12 @@ impl VideoRecordService {
             }
         }
 
-        let video_width = self.record_video_size.as_ref().unwrap().0;
-        let video_height = self.record_video_size.as_ref().unwrap().1;
+        let (video_width, video_height) = self.record_video_size.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Recorded video size is not initialized",
+            )
+        })?;
 
         let (target_width, target_height) =
             self.get_actual_video_size(video_width, video_height, gif_max_width, gif_max_height);
@@ -949,7 +1025,7 @@ impl VideoRecordService {
         };
 
         // 构建FFmpeg命令进行MP4到GIF/APNG的转换
-        let mut command = self.get_ffmpeg_command();
+        let mut command = self.get_ffmpeg_command()?;
 
         if format == "apng" {
             // APNG格式转换 - 平衡版本

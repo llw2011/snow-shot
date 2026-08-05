@@ -15,6 +15,7 @@ import { GlobalEventHandler } from "@/components/globalEventHandler";
 import { GlobalShortcut } from "@/components/globalShortcut";
 import { PersonalizationIcon } from "@/components/icons";
 import { InitService } from "@/components/initService";
+import { ThemeSkin } from "@/components/themeSkin";
 import {
 	TrayIconLoader,
 	TrayIconStatePublisher,
@@ -22,9 +23,10 @@ import {
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
+	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
-import { AppContext } from "@/contexts/appContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -32,11 +34,7 @@ import { withStatePublisher } from "@/hooks/useStatePublisher";
 import { en } from "@/messages/en";
 import { zhHans } from "@/messages/zhHans";
 import { zhHant } from "@/messages/zhHant";
-import {
-	AppSettingsGroup,
-	AppSettingsLanguage,
-	AppSettingsTheme,
-} from "@/types/appSettings";
+import { AppSettingsGroup, AppSettingsLanguage } from "@/types/appSettings";
 import type { RouteItem, RouteMapItem } from "@/types/components/menuLayout";
 import { getPlatformValue } from "@/utils/platform";
 import { MenuContent } from "./components/menuContent";
@@ -76,7 +74,6 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 
 	const intl = useIntl();
 	const appSettings = useContext(AppSettingsActionContext);
-	const { currentTheme } = useContext(AppContext);
 	const { updateAppSettings } = appSettings;
 
 	const routerLocation = useLocation();
@@ -368,6 +365,13 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 								return isReadyStatus?.(PLUGIN_ID_FFMPEG);
 							}
 
+							if (item.key === "ocrSettings") {
+								return (
+									isReadyStatus?.(PLUGIN_ID_GLM_OCR) ||
+									isReadyStatus?.(PLUGIN_ID_RAPID_OCR)
+								);
+							}
+
 							if (item.key === "translationSettings") {
 								return isReadyStatus?.(PLUGIN_ID_TRANSLATE);
 							}
@@ -545,25 +549,16 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 			<CheckVersion />
 			<div className="menu-layout-wrap">
 				<Layout>
-					<MenuSider
-						menuItems={menuItems}
-						darkMode={currentTheme === AppSettingsTheme.Dark}
-						pathname={pathname}
-					/>
+					<MenuSider menuItems={menuItems} pathname={pathname} />
 					<MenuContent pathname={pathname} routeTabsMap={routeTabsMap}>
 						<GlobalShortcut>{children}</GlobalShortcut>
 					</MenuContent>
 				</Layout>
 				<style jsx>{`
                     .menu-layout-wrap {
-                        box-shadow: 0 0 12px 0 rgba(0, 0, 0, 0.21);
                         overflow: hidden;
                         height: 100%;
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
+                        position: relative;
                         z-index: 1;
                     }
 
@@ -585,7 +580,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 
                     .menu-layout-wrap :global(.ant-layout-header) {
                         height: 32px !important;
-                        background: ${token.colorBgContainer};
+                        background: var(--snow-shot-header-bg);
                         display: flex;
                         align-items: center;
                         justify-content: flex-end;
@@ -605,7 +600,10 @@ export const MenuLayout = ({ children }: { children: React.ReactNode }) => {
 	return (
 		<>
 			<InitService />
-			<ML>{children}</ML>
+			<div className="snow-shot-window-shell">
+				<ThemeSkin />
+				<ML>{children}</ML>
+			</div>
 		</>
 	);
 };

@@ -5,7 +5,7 @@ import { appWarn } from "./log";
  * @param soundPath 音效文件路径
  * @param volume 音量 (0-1)
  */
-export const playSound = (soundPath: string, volume: number = 1) => {
+const playSound = (soundPath: string, volume: number = 1) => {
 	try {
 		const audio = new Audio(soundPath);
 		audio.volume = Math.max(0, Math.min(1, volume)); // 确保音量在0-1范围内

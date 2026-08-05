@@ -19,7 +19,7 @@ import {
 	getElementFromPosition,
 	getWindowElements,
 	initUiElementsCache,
-} from "@/commands";
+} from "@/commands/core";
 import { DrawStatePublisher } from "@/components/drawCore/extra";
 import type { ImageLayerActionType } from "@/components/imageLayer";
 import { AppContext } from "@/contexts/appContext";
@@ -38,7 +38,7 @@ import {
 	AppSettingsGroup,
 	AppSettingsTheme,
 } from "@/types/appSettings";
-import type { ElementRect } from "@/types/commands/screenshot";
+import type { ElementRect, WindowElement } from "@/types/commands/screenshot";
 import { DrawToolbarKeyEventKey } from "@/types/components/drawToolbar";
 import { DrawState } from "@/types/draw";
 import type { CaptureHistoryItem } from "@/utils/appStore";
@@ -103,7 +103,7 @@ export type SelectLayerActionType = {
 	onCaptureFinish: () => Promise<void>;
 };
 
-export type SelectLayerProps = {
+type SelectLayerProps = {
 	actionRef: React.RefObject<SelectLayerActionType | undefined>;
 };
 
@@ -235,7 +235,20 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 	const selectedWindowIdRef = useRef<number | undefined>(undefined); // 选中的窗口 ID
 	const elementsListRTreeRef = useRef<Flatbush | undefined>(undefined); // 窗口元素的 RTree
 	const selectWindowElementLoadingRef = useRef(true); // 是否正在加载元素选择功能
+	const uiElementsReadyRef = useRef(false); // UIA 子元素仅在初始化完成后参与局部选择
+	const selectWindowElementGenerationRef = useRef(0); // 隔离连续截图的异步选择结果
 	const selectWindowFromMousePositionLevelRef = useRef(0);
+	const onMouseMoveAutoSelectLastParamsRef = useRef<
+		| {
+				mousePosition: MousePosition;
+				ignoreAnimation: boolean;
+				generation: number;
+		  }
+		| undefined
+	>(undefined);
+	const onMouseMoveAutoSelectRunningGenerationRef = useRef<number | undefined>(
+		undefined,
+	);
 	const lastMouseMovePositionRef = useRef<MousePosition | undefined>(undefined); // 上一次鼠标移动事件触发的参数
 	const drawSelectRectAnimationRef = useRef<
 		TweenAnimation<ElementRect> | undefined
@@ -380,18 +393,35 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 	 * 初始化元素选择功能
 	 */
 	const initSelectWindowElement = useCallback(async () => {
+		const generation = selectWindowElementGenerationRef.current + 1;
+		selectWindowElementGenerationRef.current = generation;
 		selectWindowElementLoadingRef.current = true;
+		uiElementsReadyRef.current = false;
+		selectWindowFromMousePositionLevelRef.current = 0;
 
 		const windowElementsPromise =
 			getScreenshotType()?.type === ScreenshotType.SwitchCaptureHistory
-				? Promise.resolve([])
-				: getWindowElements();
+				? Promise.resolve<WindowElement[]>([])
+				: getWindowElements().catch((): WindowElement[] => []);
 
 		const rectList: ElementRect[] = [];
-		const initUiElementsCachePromise = initUiElementsCache();
+		initUiElementsCache()
+			.then(() => {
+				if (selectWindowElementGenerationRef.current === generation) {
+					uiElementsReadyRef.current = true;
+				}
+			})
+			.catch(() => {
+				if (selectWindowElementGenerationRef.current === generation) {
+					uiElementsReadyRef.current = false;
+				}
+			});
 		const map = new Map<number, number>();
 
 		const windowElements = await windowElementsPromise;
+		if (selectWindowElementGenerationRef.current !== generation) {
+			return;
+		}
 
 		if (getPlatform() === "macos") {
 			windowElements.push({
@@ -423,7 +453,6 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		selectedWindowIdRef.current = undefined;
 		elementsIndexWindowIdMapRef.current = map;
 
-		await initUiElementsCachePromise;
 		selectWindowElementLoadingRef.current = false;
 	}, [getScreenshotType]);
 
@@ -443,8 +472,24 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 				return undefined;
 			}
 
+			const rectIndexs = elementsRTree.search(
+				mousePosition.mouseX,
+				mousePosition.mouseY,
+				mousePosition.mouseX,
+				mousePosition.mouseY,
+			);
+			// 获取的是原始数据的索引，原始数据下标越小的，窗口层级越高。
+			rectIndexs.sort((a, b) => a - b);
+
+			const windowRectList = rectIndexs.map((index) => {
+				return elementsListRef.current[index];
+			});
+			selectedWindowIdRef.current = elementsIndexWindowIdMapRef.current.get(
+				rectIndexs[0],
+			);
+
 			let elementRectList: ElementRect[] | undefined;
-			if (isEnableFindChildrenElements()) {
+			if (isEnableFindChildrenElements() && uiElementsReadyRef.current) {
 				try {
 					elementRectList = await getElementFromPosition(
 						mousePosition.mouseX,
@@ -454,30 +499,44 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 					// 获取元素失败，忽略
 				}
 			}
-
-			let result: ElementRect[] | undefined;
-			if (elementRectList) {
-				result = elementRectList;
-			} else {
-				const rectIndexs = elementsRTree.search(
-					mousePosition.mouseX,
-					mousePosition.mouseY,
-					mousePosition.mouseX,
-					mousePosition.mouseY,
-				);
-				// 获取的是原始数据的索引，原始数据下标越小的，窗口层级越高，所以优先选择下标小的
-				rectIndexs.sort((a, b) => a - b);
-
-				result = rectIndexs.map((index) => {
-					return elementsListRef.current[index];
-				});
-
-				selectedWindowIdRef.current = elementsIndexWindowIdMapRef.current.get(
-					rectIndexs[0],
-				);
+			const result: ElementRect[] = [];
+			const rectKeys = new Set<string>();
+			const topWindowRect = windowRectList[0];
+			for (const rect of elementRectList ?? []) {
+				const candidateRect = topWindowRect
+					? {
+							min_x: Math.max(rect.min_x, topWindowRect.min_x),
+							min_y: Math.max(rect.min_y, topWindowRect.min_y),
+							max_x: Math.min(rect.max_x, topWindowRect.max_x),
+							max_y: Math.min(rect.max_y, topWindowRect.max_y),
+						}
+					: rect;
+				const validRect =
+					Number.isFinite(candidateRect.min_x) &&
+					Number.isFinite(candidateRect.min_y) &&
+					Number.isFinite(candidateRect.max_x) &&
+					Number.isFinite(candidateRect.max_y) &&
+					candidateRect.min_x < candidateRect.max_x &&
+					candidateRect.min_y < candidateRect.max_y &&
+					candidateRect.min_x <= mousePosition.mouseX &&
+					candidateRect.max_x >= mousePosition.mouseX &&
+					candidateRect.min_y <= mousePosition.mouseY &&
+					candidateRect.max_y >= mousePosition.mouseY;
+				const rectKey = `${candidateRect.min_x},${candidateRect.min_y},${candidateRect.max_x},${candidateRect.max_y}`;
+				if (validRect && !rectKeys.has(rectKey)) {
+					result.push(candidateRect);
+					rectKeys.add(rectKey);
+				}
 			}
-
-			return result;
+			// 局部元素优先；完整顶层窗口始终保留为可切换层级和可靠兜底。
+			for (const rect of windowRectList) {
+				const rectKey = `${rect.min_x},${rect.min_y},${rect.max_x},${rect.max_y}`;
+				if (!rectKeys.has(rectKey)) {
+					result.push(rect);
+					rectKeys.add(rectKey);
+				}
+			}
+			return result.length > 0 ? result : undefined;
 		},
 		[isEnableFindChildrenElements],
 	);
@@ -749,9 +808,15 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			selectLayerCanvasContextRef.current.canvas.height,
 		);
 		captureBoundingBoxInfoRef.current = undefined;
+		selectWindowElementGenerationRef.current += 1;
 		selectWindowElementLoadingRef.current = true;
+		uiElementsReadyRef.current = false;
 		elementsListRTreeRef.current = undefined;
 		elementsListRef.current = [];
+		elementsIndexWindowIdMapRef.current.clear();
+		selectedWindowIdRef.current = undefined;
+		selectWindowFromMousePositionLevelRef.current = 0;
+		onMouseMoveAutoSelectLastParamsRef.current = undefined;
 		lastMouseMovePositionRef.current = undefined;
 		opacityImageDataRef.current = undefined;
 	}, []);
@@ -955,6 +1020,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			if (!captureBoundingBoxInfo) {
 				return;
 			}
+			const generation = selectWindowElementGenerationRef.current;
 
 			// 防止自动框选阻塞手动选择
 			const currentSelectRect = await autoSelect(
@@ -963,6 +1029,9 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 					mousePosition.mouseY + captureBoundingBoxInfo.rect.min_y,
 				),
 			);
+			if (selectWindowElementGenerationRef.current !== generation) {
+				return;
+			}
 
 			// 判断当前是否还是自动选择状态
 			if (selectStateRef.current !== SelectState.Auto) {
@@ -999,46 +1068,41 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		},
 		[autoSelect, getSelectRect, setSelectRect, getScreenshotType],
 	);
-	const onMouseMoveAutoSelectLastParamsRef = useRef<
-		| {
-				mousePosition: MousePosition;
-				ignoreAnimation: boolean;
-		  }
-		| undefined
-	>(undefined);
-	const onMouseMoveAutoSelectRunningRef = useRef<boolean>(false);
 	const onMouseMoveAutoSelect = useCallback(
 		async (mousePosition: MousePosition, ignoreAnimation: boolean = false) => {
+			const generation = selectWindowElementGenerationRef.current;
 			// 保存最新的参数
 			onMouseMoveAutoSelectLastParamsRef.current = {
 				mousePosition,
 				ignoreAnimation,
+				generation,
 			};
 
-			// 如果已经在运行，直接返回，等待当前执行完成
-			if (onMouseMoveAutoSelectRunningRef.current) {
+			// A stale UIA worker must never block the next capture generation.
+			if (onMouseMoveAutoSelectRunningGenerationRef.current === generation) {
 				return;
 			}
 
-			// 标记开始运行
-			onMouseMoveAutoSelectRunningRef.current = true;
+			onMouseMoveAutoSelectRunningGenerationRef.current = generation;
 
 			try {
-				// 循环处理，直到没有新的参数
-				while (onMouseMoveAutoSelectLastParamsRef.current) {
+				// Only this generation may consume its queued mouse position.
+				while (
+					selectWindowElementGenerationRef.current === generation &&
+					onMouseMoveAutoSelectLastParamsRef.current?.generation === generation
+				) {
 					const currentParams = onMouseMoveAutoSelectLastParamsRef.current;
-					// 清空参数，防止重复处理
 					onMouseMoveAutoSelectLastParamsRef.current = undefined;
 
-					// 执行核心逻辑
 					await onMouseMoveAutoSelectCore(
 						currentParams.mousePosition,
 						currentParams.ignoreAnimation,
 					);
 				}
 			} finally {
-				// 确保标记为未运行
-				onMouseMoveAutoSelectRunningRef.current = false;
+				if (onMouseMoveAutoSelectRunningGenerationRef.current === generation) {
+					onMouseMoveAutoSelectRunningGenerationRef.current = undefined;
+				}
 			}
 		},
 		[onMouseMoveAutoSelectCore],

@@ -1,0 +1,19 @@
+{
+	"worktree": {
+		"setup": ["pnpm install --frozen-lockfile"]
+	},
+	"scripts": {
+		"app": {
+			"type": "service",
+			"command": "pnpm.cmd dev",
+			"port": 8083,
+			"healthPath": "/"
+		},
+		"typecheck": {
+			"command": "pnpm.cmd exec tsc --noEmit"
+		},
+		"build": {
+			"command": "pnpm.cmd build"
+		}
+	}
+}

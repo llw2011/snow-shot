@@ -29,7 +29,7 @@ export const generateImageFileName = (format: string) => {
 	return parseTemplate(format);
 };
 
-export const joinImagePath = (filePath: string, imageFormat: ImageFormat) => {
+const joinImagePath = (filePath: string, imageFormat: ImageFormat) => {
 	let fileExtension = "png";
 	switch (imageFormat) {
 		case ImageFormat.JPEG:

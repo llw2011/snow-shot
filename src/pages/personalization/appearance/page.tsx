@@ -23,6 +23,12 @@ import { IconLabel } from "@/components/iconLable";
 import { DarkModeIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
+import {
+	getAppThemePreset,
+	getAppThemeRuntime,
+	isAppThemePreset,
+} from "@/constants/themePresets";
+import { AppContext } from "@/contexts/appContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { useStateRef } from "@/hooks/useStateRef";
@@ -31,15 +37,20 @@ import {
 	AppSettingsGroup,
 	AppSettingsTheme,
 } from "@/types/appSettings";
+import { ThemePresetSelector } from "./components/themePresetSelector";
 
 export const AppearancePage = () => {
 	const intl = useIntl();
 	const { token } = theme.useToken();
+	const { currentTheme } = useContext(AppContext);
 
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
 	const [commonForm] = Form.useForm<AppSettingsData[AppSettingsGroup.Common]>();
 	const [themeSkinForm] =
 		Form.useForm<AppSettingsData[AppSettingsGroup.ThemeSkin]>();
+	const skinPath = Form.useWatch("skinPath", themeSkinForm);
+	const hasSkinImage =
+		typeof skinPath === "string" && skinPath.trim().length > 0;
 
 	const [appSettingsLoading, setAppSettingsLoading] = useStateRef(true);
 	useAppSettingsLoad(
@@ -157,14 +168,34 @@ export const AppearancePage = () => {
 			<Form
 				className="settings-form common-settings-form"
 				form={commonForm}
-				onValuesChange={(_, values) => {
+				onValuesChange={(changedValues, values) => {
+					const themePresetChanged = isAppThemePreset(
+						changedValues.themePreset,
+					);
+					if (themePresetChanged) {
+						const preset = getAppThemePreset(changedValues.themePreset);
+						const runtime = getAppThemeRuntime(
+							changedValues.themePreset,
+							currentTheme,
+						);
+						values.mainColor = runtime.recommendedAccent;
+						values.borderRadius = preset.recommendedRadius;
+						commonForm.setFieldsValue({
+							mainColor: runtime.recommendedAccent,
+							borderRadius: preset.recommendedRadius,
+						});
+					}
+
 					if (typeof values.mainColor === "object") {
 						values.mainColor = (
 							values.mainColor as AggregationColor
 						).toHexString();
 					}
 
-					updateAppSettingsDebounce(
+					const updateCommonSettings = themePresetChanged
+						? updateAppSettings
+						: updateAppSettingsDebounce;
+					updateCommonSettings(
 						AppSettingsGroup.Common,
 						values,
 						true,
@@ -178,6 +209,23 @@ export const AppearancePage = () => {
 			>
 				<Spin spinning={appSettingsLoading}>
 					<Row gutter={token.marginLG}>
+						<Col span={24}>
+							<Form.Item
+								name="themePreset"
+								label={
+									<IconLabel
+										label={
+											<FormattedMessage id="appearance.themePreset.title" />
+										}
+									/>
+								}
+								extra={
+									<FormattedMessage id="appearance.themePreset.description" />
+								}
+							>
+								<ThemePresetSelector mode={currentTheme} />
+							</Form.Item>
+						</Col>
 						<Col span={12}>
 							<Form.Item
 								label={
@@ -264,16 +312,22 @@ export const AppearancePage = () => {
 								label={
 									<IconLabel
 										label={
-											<FormattedMessage id="settings.themeSkinSettings.skinPath" />
+											<FormattedMessage id="appearance.customBackground.path.label" />
 										}
 										tooltipTitle={
-											<FormattedMessage id="settings.themeSkinSettings.skinPath.tip" />
+											<FormattedMessage id="appearance.customBackground.path.tip" />
 										}
 									/>
+								}
+								extra={
+									<FormattedMessage id="appearance.customBackground.path.description" />
 								}
 								required={false}
 							>
 								<PathInput
+									placeholder={intl.formatMessage({
+										id: "appearance.customBackground.path.placeholder",
+									})}
 									filters={[
 										{
 											name: "Image(*.png,*.jpg,*.gif,*webp,*.avif)",
@@ -290,7 +344,10 @@ export const AppearancePage = () => {
 									<FormattedMessage id="settings.themeSkinSettings.skinImageSize" />
 								}
 							>
-								<Select options={skinImageSizeOptions} />
+								<Select
+									disabled={!hasSkinImage}
+									options={skinImageSizeOptions}
+								/>
 							</ProForm.Item>
 						</Col>
 						<Col span={12}>
@@ -300,7 +357,10 @@ export const AppearancePage = () => {
 									<FormattedMessage id="settings.themeSkinSettings.skinPosition" />
 								}
 							>
-								<Select options={skinPositionOptions} />
+								<Select
+									disabled={!hasSkinImage}
+									options={skinPositionOptions}
+								/>
 							</ProForm.Item>
 						</Col>
 						<Col span={12}>
@@ -311,6 +371,7 @@ export const AppearancePage = () => {
 								}
 							>
 								<Slider
+									disabled={!hasSkinImage}
 									min={0}
 									max={100}
 									step={1}
@@ -326,6 +387,7 @@ export const AppearancePage = () => {
 								}
 							>
 								<Slider
+									disabled={!hasSkinImage}
 									min={0}
 									max={32}
 									step={1}
@@ -341,6 +403,7 @@ export const AppearancePage = () => {
 								}
 							>
 								<Slider
+									disabled={!hasSkinImage}
 									min={0}
 									max={100}
 									step={1}
@@ -356,6 +419,7 @@ export const AppearancePage = () => {
 								}
 							>
 								<Slider
+									disabled={!hasSkinImage}
 									min={0}
 									max={32}
 									step={1}
@@ -368,6 +432,9 @@ export const AppearancePage = () => {
 								name="customCss"
 								label={
 									<FormattedMessage id="settings.themeSkinSettings.customCss" />
+								}
+								extra={
+									<FormattedMessage id="appearance.customBackground.customCss.description" />
 								}
 							>
 								<TextArea

@@ -208,8 +208,7 @@ export type ImageLayerProps = {
 export const DRAW_LAYER_BLUR_CONTAINER_KEY = "draw_layer_blur_container";
 export const DRAW_LAYER_HIGHLIGHT_CONTAINER_KEY =
 	"draw_layer_highlight_container";
-export const DRAW_LAYER_WATERMARK_CONTAINER_KEY =
-	"draw_layer_watermark_container";
+const DRAW_LAYER_WATERMARK_CONTAINER_KEY = "draw_layer_watermark_container";
 
 export const ImageLayer: React.FC<ImageLayerProps> = ({
 	zIndex,

@@ -53,9 +53,9 @@ const SelectLabel: React.FC<{
                     display: inline;
                     color: ${token.colorTextDescription};
                     margin-left: ${token.marginXS}px;
-                    font-size: 0.7em;
+                    font-size: 12px;
                     position: relative;
-                    bottom: 0.15em;
+                    bottom: 1px;
                 }
             `}</style>
 		</div>
@@ -238,10 +238,12 @@ export const useTranslationTypeOptions = (
 						options: customTranslationTypeOptions,
 					}
 				: undefined,
-			{
-				label: <FormattedMessage id="tools.translation.type.official" />,
-				options: officialTranslationTypeOptions,
-			},
+			officialTranslationTypeOptions.length > 0
+				? {
+						label: <FormattedMessage id="tools.translation.type.official" />,
+						options: officialTranslationTypeOptions,
+					}
+				: undefined,
 		].filter(Boolean) as SelectProps["options"];
 	}, [supportedTranslationTypes]);
 
@@ -315,6 +317,7 @@ const TranslatorCore: React.FC<{
 		updateTranslationDomain,
 		supportedTranslationTypesLoading,
 		requestTranslate,
+		cancelTranslation,
 		translatedContent,
 		getTranslatedContent,
 	} = useTranslationRequest(
@@ -335,10 +338,19 @@ const TranslatorCore: React.FC<{
 		() => debounce(requestTranslate, 1500),
 		[requestTranslate],
 	);
+	useEffect(() => {
+		return () => {
+			requestTranslateDebounce.cancel();
+			cancelTranslation();
+		};
+	}, [requestTranslateDebounce, cancelTranslation]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 翻译相关配置变更的时候也要重新翻译
 	useEffect(() => {
 		if (sourceContent.trim() === "") {
+			requestTranslateDebounce.cancel();
+			translatedResultRef.current = [];
+			cancelTranslation();
 			return;
 		}
 
@@ -354,6 +366,7 @@ const TranslatorCore: React.FC<{
 		sourceContent,
 		requestTranslateDebounce,
 		requestTranslate,
+		cancelTranslation,
 		translationType,
 		sourceLanguage,
 		targetLanguage,

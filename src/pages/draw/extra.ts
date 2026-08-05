@@ -1,7 +1,6 @@
 import type { ColorInstance } from "color";
 import { last } from "es-toolkit";
 import Flatbush from "flatbush";
-import type { MonitorInfo } from "@/commands/core";
 import type { ImageLayerActionType } from "@/components/imageLayer";
 import { createPublisher } from "@/hooks/useStatePublisher";
 import type { ElementRect, ImageBuffer } from "@/types/commands/screenshot";
@@ -35,15 +34,6 @@ export const switchLayer = (
 
 	imageLayerAction?.setEnable(switchDraw);
 	selectLayerAction?.setEnable(switchSelect);
-};
-
-export const getMonitorRect = (monitorInfo: MonitorInfo | undefined) => {
-	return {
-		min_x: 0,
-		min_y: 0,
-		max_x: monitorInfo?.monitor_width ?? 0,
-		max_y: monitorInfo?.monitor_height ?? 0,
-	};
 };
 
 export enum CaptureEvent {

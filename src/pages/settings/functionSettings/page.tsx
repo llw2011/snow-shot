@@ -50,6 +50,7 @@ import {
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
+	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 	PLUGIN_ID_TRANSLATE,
 } from "@/constants/pluginService";
@@ -62,8 +63,6 @@ import {
 	type AppSettingsData,
 	AppSettingsFixedContentInitialPosition,
 	AppSettingsGroup,
-	CloudSaveUrlFormat,
-	CloudSaveUrlType,
 	DoubleClickAction,
 	GifFormat,
 	KeyDisplayDirection,
@@ -80,6 +79,7 @@ import {
 	getImageSaveDirectory,
 	getVideoRecordSaveDirectory,
 } from "@/utils/file";
+import { canUseOcr } from "@/utils/ocr";
 import { TestChat } from "./components/testChat";
 import { TranslationConfig } from "./components/translationConfig";
 
@@ -283,6 +283,33 @@ export const FunctionSettingsPage = () => {
 	);
 
 	const { isReadyStatus } = usePluginServiceContext();
+	const currentFunctionOcrModel = Form.useWatch("ocrModel", functionOcrForm);
+	const selectedFunctionOcrModel =
+		currentFunctionOcrModel ??
+		defaultAppSettingsData[AppSettingsGroup.FunctionOcr].ocrModel;
+	const isCurrentGlmOcrModel = selectedFunctionOcrModel === OcrModel.GlmOcr;
+	const isCurrentRapidOcrModel =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4 ||
+		selectedFunctionOcrModel === OcrModel.RapidOcrV5;
+	const rapidOcrRuntimeMessageId =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4
+			? "settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.title"
+			: "settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.title";
+	const rapidOcrRuntimeDescriptionId =
+		selectedFunctionOcrModel === OcrModel.RapidOcrV4
+			? "settings.functionSettings.ocrSettings.rapidOcrRuntime.v4.description"
+			: "settings.functionSettings.ocrSettings.rapidOcrRuntime.v5.description";
+	const ocrReady = canUseOcr(
+		{
+			...defaultAppSettingsData,
+			[AppSettingsGroup.FunctionOcr]: {
+				...defaultAppSettingsData[AppSettingsGroup.FunctionOcr],
+				ocrModel: selectedFunctionOcrModel,
+			},
+		},
+		isReadyStatus?.(PLUGIN_ID_GLM_OCR),
+		isReadyStatus?.(PLUGIN_ID_RAPID_OCR),
+	);
 
 	const initedMicrophoneDeviceNameOptions = useRef(false);
 	useEffect(() => {
@@ -552,6 +579,12 @@ export const FunctionSettingsPage = () => {
 		return [
 			{
 				label: intl.formatMessage({
+					id: "settings.functionSettings.translationSettings.apiConfig.apiType.openAiCompatible",
+				}),
+				value: TranslationApiType.OpenAiCompatible,
+			},
+			{
+				label: intl.formatMessage({
 					id: "settings.functionSettings.translationSettings.apiConfig.apiType.deepL",
 				}),
 				value: TranslationApiType.DeepL,
@@ -594,32 +627,22 @@ export const FunctionSettingsPage = () => {
 		];
 	}, [intl]);
 
-	const cloudSaveUrlTypeOptions = useMemo(() => {
-		return [
+	const ocrModelOptions = useMemo(() => {
+		const options = [
 			{
 				label: intl.formatMessage({
-					id: "settings.functionSettings.screenshotSettings.cloudSaveUrl.type.s3",
+					id: "settings.systemSettings.screenshotSettings.ocrModel.glmOcr",
 				}),
-				value: CloudSaveUrlType.S3,
+				value: OcrModel.GlmOcr,
 			},
 		];
-	}, [intl]);
 
-	const cloudSaveUrlFormatOptions = useMemo(() => {
-		return [
-			{
-				label: intl.formatMessage({ id: "draw.cloudSaveUrlFormat.origin" }),
-				value: CloudSaveUrlFormat.Origin,
-			},
-			{
-				label: intl.formatMessage({ id: "draw.cloudSaveUrlFormat.markdown" }),
-				value: CloudSaveUrlFormat.Markdown,
-			},
-		];
-	}, [intl]);
+		if (!isReadyStatus?.(PLUGIN_ID_RAPID_OCR)) {
+			return options;
+		}
 
-	const ocrModelOptions = useMemo(() => {
 		return [
+			...options,
 			{
 				label: intl.formatMessage({
 					id: "settings.systemSettings.screenshotSettings.ocrModel.rapidOcrV4",
@@ -633,7 +656,7 @@ export const FunctionSettingsPage = () => {
 				value: OcrModel.RapidOcrV5,
 			},
 		];
-	}, [intl]);
+	}, [intl, isReadyStatus]);
 
 	const { getVisionModelList } = useVisionModelList();
 	const [htmlVisionModelOptions, setHtmlVisionModelOptions] = useState<
@@ -775,7 +798,7 @@ export const FunctionSettingsPage = () => {
 						</Col>
 					</Row>
 
-					{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+					{ocrReady && (
 						<Row gutter={token.marginLG}>
 							<Col span={12}>
 								<ProFormSelect
@@ -934,136 +957,6 @@ export const FunctionSettingsPage = () => {
 							</ProForm.Item>
 						</Col>
 					</Row>
-
-					<Row gutter={token.marginLG}>
-						<Col span={12}>
-							<ProFormSwitch
-								name="saveToCloud"
-								layout="horizontal"
-								label={
-									<IconLabel
-										label={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.saveToCloud" />
-										}
-										tooltipTitle={
-											<FormattedMessage id="settings.functionSettings.screenshotSettings.saveToCloud.tip" />
-										}
-									/>
-								}
-								valuePropName="checked"
-							/>
-						</Col>
-					</Row>
-
-					<ProFormDependency<{ saveToCloud: boolean }> name={["saveToCloud"]}>
-						{({ saveToCloud }) => {
-							if (!saveToCloud) {
-								return null;
-							}
-
-							return (
-								<Row gutter={token.marginLG}>
-									<Col span={12}>
-										<ProFormSelect
-											name="cloudSaveUrlFormat"
-											layout="horizontal"
-											label={<FormattedMessage id="draw.cloudSaveUrlFormat" />}
-											options={cloudSaveUrlFormatOptions}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="cloudProxyUrl"
-											layout="horizontal"
-											label={
-												<IconLabel
-													label={
-														<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudProxyUrl" />
-													}
-													tooltipTitle={
-														<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudProxyUrl.tip" />
-													}
-												/>
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormSelect
-											name="cloudSaveUrlType"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.type" />
-											}
-											options={cloudSaveUrlTypeOptions}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3Endpoint"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Endpoint" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText.Password
-											name="s3AccessKeyId"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3AccessKeyId" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText.Password
-											name="s3SecretAccessKey"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3SecretAccessKey" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3Region"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3Region" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3BucketName"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3BucketName" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormText
-											name="s3PathPrefix"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3PathPrefix" />
-											}
-										/>
-									</Col>
-									<Col span={12}>
-										<ProFormSwitch
-											name="s3ForcePathStyle"
-											layout="horizontal"
-											label={
-												<FormattedMessage id="settings.functionSettings.screenshotSettings.cloudSaveUrl.s3ForcePathStyle" />
-											}
-										/>
-									</Col>
-								</Row>
-							);
-						}}
-					</ProFormDependency>
 				</ProForm>
 			</Spin>
 
@@ -1223,7 +1116,7 @@ export const FunctionSettingsPage = () => {
 							/>
 						</Col>
 
-						{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+						{ocrReady && (
 							<Col span={12}>
 								<ProFormSwitch
 									label={
@@ -1265,7 +1158,8 @@ export const FunctionSettingsPage = () => {
 				</ProForm>
 			</Spin>
 
-			{isReadyStatus?.(PLUGIN_ID_RAPID_OCR) && (
+			{(isReadyStatus?.(PLUGIN_ID_GLM_OCR) ||
+				isReadyStatus?.(PLUGIN_ID_RAPID_OCR)) && (
 				<>
 					<Divider />
 
@@ -1308,15 +1202,94 @@ export const FunctionSettingsPage = () => {
 												label={
 													<FormattedMessage id="settings.systemSettings.screenshotSettings.ocrModel" />
 												}
+												tooltipTitle={
+													<FormattedMessage id="settings.systemSettings.screenshotSettings.ocrModel.tip" />
+												}
 											/>
 										}
 										name="ocrModel"
 										options={ocrModelOptions}
+										allowClear={false}
 									/>
 								</Col>
+								{isCurrentRapidOcrModel && (
+									<Col span={12}>
+										<Alert
+											type="info"
+											showIcon
+											message={
+												<FormattedMessage id={rapidOcrRuntimeMessageId} />
+											}
+											description={
+												<FormattedMessage id={rapidOcrRuntimeDescriptionId} />
+											}
+										/>
+									</Col>
+								)}
+								{isCurrentGlmOcrModel && (
+									<>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "model_name"]}
+												label={
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName" />
+														}
+													/>
+												}
+											/>
+										</Col>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "api_uri"]}
+												label={
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri" />
+														}
+														tooltipTitle={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri.tip" />
+														}
+													/>
+												}
+											/>
+										</Col>
+										<Col span={12}>
+											<ProFormText.Password
+												name={["glmOcrApiConfig", "api_key"]}
+												label={
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiKey" />
+														}
+													/>
+												}
+											/>
+										</Col>
+										<Col span={12}>
+											<ProFormText
+												name={["glmOcrApiConfig", "api_model"]}
+												label={
+													<IconLabel
+														label={
+															<FormattedMessage id="settings.functionSettings.ocrSettings.glmOcrApiConfig.apiModel" />
+														}
+													/>
+												}
+											/>
+										</Col>
+									</>
+								)}
 
 								{isReadyStatus?.(PLUGIN_ID_AI_CHAT) && (
 									<>
+										<Col span={24}>
+											<Divider style={{ margin: `${token.margin}px 0` }} />
+											<SubGroupTitle>
+												<FormattedMessage id="settings.functionSettings.ocrSettings.visionSettings" />
+											</SubGroupTitle>
+										</Col>
 										<Col span={12}>
 											<ProFormSelect
 												name="htmlVisionModel"
@@ -1435,6 +1408,97 @@ export const FunctionSettingsPage = () => {
 							</Row>
 
 							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormDigit
+										name="translationMaxTokens"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.maxTokens" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.maxTokens.tip" />
+												}
+											/>
+										}
+										min={512}
+										max={8192}
+										fieldProps={{
+											precision: 0,
+										}}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTemperature"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.temperature" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.temperature.tip" />
+												}
+											/>
+										}
+										min={0}
+										max={2}
+										fieldProps={{
+											precision: 1,
+											step: 0.1,
+										}}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTopP"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.topP" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.topP.tip" />
+												}
+											/>
+										}
+										min={0}
+										max={1}
+										fieldProps={{
+											precision: 2,
+											step: 0.05,
+										}}
+									/>
+								</Col>
+
+								<Col span={12}>
+									<ProFormDigit
+										name="translationTimeoutMs"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.timeoutMs" />
+												}
+												tooltipTitle={
+													<FormattedMessage id="settings.functionSettings.translationSettings.timeoutMs.tip" />
+												}
+											/>
+										}
+										min={5000}
+										max={300000}
+										fieldProps={{
+											precision: 0,
+											addonAfter: "ms",
+										}}
+									/>
+								</Col>
+							</Row>
+
+							<Row gutter={token.marginLG}>
 								<Col span={24}>
 									<ProFormList
 										name="translationApiConfigList"
@@ -1462,7 +1526,9 @@ export const FunctionSettingsPage = () => {
 										creatorRecord={() => ({
 											api_uri: "",
 											api_key: "",
-											api_type: TranslationApiType.DeepL,
+											api_model: "",
+											model_name: "",
+											api_type: TranslationApiType.OpenAiCompatible,
 										})}
 									>
 										<Row gutter={token.marginLG} style={{ width: "100%" }}>
@@ -1480,74 +1546,178 @@ export const FunctionSettingsPage = () => {
 													options={translationApiTypeOptions}
 												/>
 											</Col>
-											<Col span={12}>
-												<ProFormText
-													name="api_uri"
-													label={
-														<IconLabel
-															label={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
-															}
-															tooltipTitle={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
-															}
-														/>
-													}
-													rules={[
-														{
-															required: true,
-															message: intl.formatMessage({
-																id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
-															}),
-														},
-													]}
-												/>
-											</Col>
-											<Col span={12}>
-												<ProFormText.Password
-													name="api_key"
-													label={
-														<IconLabel
-															label={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
-															}
-															tooltipTitle={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
-															}
-														/>
-													}
-													rules={[
-														{
-															required: true,
-															message: intl.formatMessage({
-																id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
-															}),
-														},
-													]}
-												/>
-											</Col>
 
 											<ProFormDependency<{ api_type: TranslationApiType }>
 												name={["api_type"]}
 											>
 												{({ api_type }) => {
+													if (
+														api_type === TranslationApiType.OpenAiCompatible ||
+														!api_type
+													) {
+														return (
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="model_name"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.modelName.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_model"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiModel.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+															</>
+														);
+													}
+
 													if (api_type === TranslationApiType.DeepL) {
 														return (
-															<Col span={12}>
-																<ProFormSwitch
-																	name="deepl_prefer_quality_optimized"
-																	label={
-																		<IconLabel
-																			label={
-																				<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
-																			}
-																			tooltipTitle={
-																				<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
-																			}
-																		/>
-																	}
-																/>
-															</Col>
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormSwitch
+																		name="deepl_prefer_quality_optimized"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
+																				}
+																			/>
+																		}
+																	/>
+																</Col>
+															</>
 														);
 													}
 
@@ -2591,38 +2761,6 @@ export const FunctionSettingsPage = () => {
 											readonly
 											label={
 												<FormattedMessage id="settings.functionSettings.outputSettings.fullScreenFileNameFormatPreview" />
-											}
-											fieldProps={{
-												value: text,
-											}}
-										/>
-									</Col>
-								);
-							}}
-						</ProFormDependency>
-
-						<Col span={24}>
-							<ProFormText
-								name="uploadToCloudSaveUrlFormat"
-								layout="horizontal"
-								label={
-									<FormattedMessage id="settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormat" />
-								}
-							/>
-						</Col>
-
-						<ProFormDependency<{ uploadToCloudSaveUrlFormat: string }>
-							name={["uploadToCloudSaveUrlFormat"]}
-						>
-							{({ uploadToCloudSaveUrlFormat }) => {
-								const text = generateImageFileName(uploadToCloudSaveUrlFormat);
-								return (
-									<Col span={24}>
-										<ProFormText
-											layout="horizontal"
-											readonly
-											label={
-												<FormattedMessage id="settings.functionSettings.outputSettings.uploadToCloudSaveUrlFormatPreview" />
 											}
 											fieldProps={{
 												value: text,

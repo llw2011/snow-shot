@@ -1,11 +1,3 @@
-import type { ChatApiConfig } from "@/types/appSettings";
-
-export const fliterChatApiConfig = (configList: ChatApiConfig[]) => {
-	return configList.filter(
-		(item) => item.api_key && item.api_uri && item.api_model && item.model_name,
-	);
-};
-
 export const convertLanguageCodeToDeepLSourceLanguageCode = (
 	languageCode: string,
 ): string | null => {

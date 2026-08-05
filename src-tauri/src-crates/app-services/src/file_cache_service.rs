@@ -165,7 +165,12 @@ impl FileCacheService {
         }
 
         let path = self.get_app_config_dir(app)?;
-        let path = path.parent().unwrap().to_path_buf();
+        let path = path.parent().ok_or_else(|| {
+            format!(
+                "[TextFileCacheService::get_app_config_base_dir] Failed to get parent directory: {}",
+                path.display()
+            )
+        })?.to_path_buf();
 
         self.env_path_cache
             .insert(APP_CONFIG_BASE_DIR.to_string(), path.clone());

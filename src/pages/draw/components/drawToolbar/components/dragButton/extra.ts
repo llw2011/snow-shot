@@ -1,7 +1,7 @@
 import type { ElementRect } from "@/types/commands/screenshot";
 import { MousePosition } from "@/utils/mousePosition";
 
-export const dragRect = (
+const dragRect = (
 	rect: ElementRect,
 	originMousePosition: MousePosition,
 	currentMousePosition: MousePosition,

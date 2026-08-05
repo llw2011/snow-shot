@@ -18,7 +18,7 @@ export type PluginServiceContextType = {
 };
 
 export const PluginServiceContext = createContext<PluginServiceContextType>({
-	pluginConfig: new PluginConfig([], "", "", "", ""),
+	pluginConfig: new PluginConfig([], "", "", ""),
 	pluginConfigRef: { current: undefined },
 	pluginStatus: undefined,
 	pluginStatusRef: { current: undefined },

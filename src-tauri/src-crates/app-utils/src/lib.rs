@@ -56,21 +56,26 @@ pub fn get_target_monitor() -> Result<(i32, i32, Monitor), String> {
             ));
         }
     };
-    let monitor = Monitor::from_point(mouse_x, mouse_y).unwrap_or_else(|_| {
-        // 在 Wayland 中，获取不到鼠标位置，选用第一个显示器作为位置
+    let monitor = match Monitor::from_point(mouse_x, mouse_y) {
+        Ok(monitor) => monitor,
+        Err(_) => {
+            // 在 Wayland 中，获取不到鼠标位置，选用第一个显示器作为位置
+            log::warn!("[get_target_monitor] No monitor found, using first monitor");
 
-        log::warn!("[get_target_monitor] No monitor found, using first monitor");
+            let monitor_list = xcap::Monitor::all()
+                .map_err(|e| format!("[get_target_monitor] Failed to get monitor list: {}", e))?;
+            let first_monitor = monitor_list
+                .first()
+                .ok_or_else(|| String::from("[get_target_monitor] No monitor found"))?;
 
-        let monitor_list = xcap::Monitor::all().expect("[get_target_monitor] No monitor found");
-        let first_monitor = monitor_list
-            .first()
-            .expect("[get_target_monitor] No monitor found");
+            mouse_x =
+                first_monitor.x().unwrap_or(0) + first_monitor.width().unwrap_or(0) as i32 / 2;
+            mouse_y =
+                first_monitor.y().unwrap_or(0) + first_monitor.height().unwrap_or(0) as i32 / 2;
 
-        mouse_x = first_monitor.x().unwrap_or(0) + first_monitor.width().unwrap_or(0) as i32 / 2;
-        mouse_y = first_monitor.y().unwrap_or(0) + first_monitor.height().unwrap_or(0) as i32 / 2;
-
-        first_monitor.clone()
-    });
+            first_monitor.clone()
+        }
+    };
 
     Ok((mouse_x, mouse_y, monitor))
 }
@@ -772,7 +777,9 @@ pub async fn write_bitmap_image_to_clipboard(
         unsafe {
             rgba_image.set_len(image_total_bytes);
         }
-        decoder.read_image(&mut rgba_image).unwrap();
+        decoder
+            .read_image(&mut rgba_image)
+            .map_err(|e| format!("[write_bitmap_image_to_clipboard] Failed to read PNG: {}", e))?;
 
         write_bitmap_image_to_clipboard_core(rgba_image.as_ref(), image_width, image_height)
             .await?;
@@ -781,12 +788,50 @@ pub async fn write_bitmap_image_to_clipboard(
     }
 }
 
+pub fn split_rgba_image_metadata<'a>(
+    image_data: &'a [u8],
+    error_prefix: &str,
+) -> Result<(&'a [u8], u32, u32), String> {
+    if image_data.len() < 8 {
+        return Err(format!("[{}] Invalid image metadata", error_prefix));
+    }
+
+    let metadata_offset = image_data.len() - 8;
+    let image_width = u32::from_le_bytes(
+        image_data[metadata_offset..metadata_offset + 4]
+            .try_into()
+            .map_err(|_| format!("[{}] Invalid image width", error_prefix))?,
+    );
+    let image_height = u32::from_le_bytes(
+        image_data[metadata_offset + 4..]
+            .try_into()
+            .map_err(|_| format!("[{}] Invalid image height", error_prefix))?,
+    );
+    if image_width == 0 || image_height == 0 {
+        return Err(format!("[{}] Invalid image size", error_prefix));
+    }
+
+    let expected_pixel_len = (image_width as usize)
+        .checked_mul(image_height as usize)
+        .and_then(|len| len.checked_mul(4))
+        .ok_or_else(|| format!("[{}] Invalid image size", error_prefix))?;
+    if metadata_offset != expected_pixel_len {
+        return Err(format!("[{}] Invalid image size", error_prefix));
+    }
+
+    Ok((&image_data[..metadata_offset], image_width, image_height))
+}
+
 #[cfg(target_os = "windows")]
 pub async fn write_bitmap_image_to_clipboard_with_shared_buffer(
     shared_buffer_service: tauri::State<'_, std::sync::Arc<snow_shot_webview::SharedBufferService>>,
+    webview: tauri::Webview,
     channel_id: String,
 ) -> Result<(), String> {
-    let image_data = match shared_buffer_service.receive_data(channel_id) {
+    let image_data = match shared_buffer_service
+        .receive_data(channel_id, webview)
+        .await
+    {
         Ok(image_data) => image_data,
         Err(e) => {
             return Err(format!(
@@ -797,19 +842,13 @@ pub async fn write_bitmap_image_to_clipboard_with_shared_buffer(
     };
 
     // 最后 8 个字节是 image_width 和 image_height
-    let image_width = u32::from_le_bytes(
-        image_data[image_data.len() - 8..image_data.len() - 4]
-            .try_into()
-            .unwrap(),
-    );
-    let image_height = u32::from_le_bytes(
-        image_data[image_data.len() - 4..image_data.len()]
-            .try_into()
-            .unwrap(),
-    );
+    let (pixel_data, image_width, image_height) = split_rgba_image_metadata(
+        &image_data,
+        "write_bitmap_image_to_clipboard_with_shared_buffer",
+    )?;
 
     write_bitmap_image_to_clipboard_core(
-        &image_data[..image_data.len() - 8],
+        pixel_data,
         image_width as usize,
         image_height as usize,
     )
@@ -847,7 +886,12 @@ pub fn get_request_string_header(
         }
     };
     match BASE64_STANDARD.decode(base64_header) {
-        Ok(header) => Ok(String::from_utf8(header).unwrap()),
+        Ok(header) => String::from_utf8(header).map_err(|_| {
+            format!(
+                "[get_request_string_header] Invalid header encoding: {}",
+                header_name
+            )
+        }),
         Err(_) => Err(format!(
             "[get_request_string_header] Invalid header: {}",
             header_name
@@ -918,13 +962,41 @@ pub async fn set_exclude_from_capture(
             )
         };
 
-        if result.is_err() {
+        if let Err(e) = result {
             return Err(format!(
                 "[set_exclude_from_capture] Failed to set window display affinity: {}",
-                result.err().unwrap()
+                e
             ));
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_rgba_image_metadata;
+
+    #[test]
+    fn split_rgba_image_metadata_accepts_valid_payload() {
+        let mut payload = vec![0; 2 * 1 * 4];
+        payload.extend_from_slice(&2u32.to_le_bytes());
+        payload.extend_from_slice(&1u32.to_le_bytes());
+
+        let (pixels, width, height) =
+            split_rgba_image_metadata(&payload, "test").expect("valid metadata");
+
+        assert_eq!(pixels.len(), 8);
+        assert_eq!(width, 2);
+        assert_eq!(height, 1);
+    }
+
+    #[test]
+    fn split_rgba_image_metadata_rejects_size_mismatch() {
+        let mut payload = vec![0; 4];
+        payload.extend_from_slice(&2u32.to_le_bytes());
+        payload.extend_from_slice(&1u32.to_le_bytes());
+
+        assert!(split_rgba_image_metadata(&payload, "test").is_err());
     }
 }

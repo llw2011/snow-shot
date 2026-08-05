@@ -1,9 +1,9 @@
+use snow_shot_plugin_service::plugin::PluginFileSource;
 use snow_shot_plugin_service::plugin_service::PluginService;
 use snow_shot_plugin_service::plugin_service::PluginStatusResult;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::command;
-use tauri_plugin_http::reqwest;
 
 #[command]
 pub async fn plugin_init(
@@ -12,7 +12,6 @@ pub async fn plugin_init(
     version: String,
     plugin_install_dir: String,
     plugin_download_dir: String,
-    plugin_download_service_url: String,
 ) -> Result<(), String> {
     log::info!("[plugin_init] init plugin service");
 
@@ -21,7 +20,6 @@ pub async fn plugin_init(
             version,
             Path::new(&plugin_install_dir),
             Path::new(&plugin_download_dir),
-            reqwest::Url::parse(&plugin_download_service_url).unwrap(),
             app,
         )
         .await;
@@ -41,9 +39,14 @@ pub async fn plugin_register_plugin(
     plugin_service: tauri::State<'_, Arc<PluginService>>,
     name: String,
     file_list: Vec<PathBuf>,
+    file_source_list: Option<Vec<PluginFileSource>>,
 ) -> Result<(), String> {
     plugin_service
-        .register_plugin(name.clone(), file_list)
+        .register_plugin(
+            name.clone(),
+            file_list,
+            file_source_list.unwrap_or_default(),
+        )
         .await;
 
     Ok(())
@@ -56,6 +59,18 @@ pub async fn plugin_install_plugin(
     force: bool,
 ) -> Result<(), String> {
     plugin_service.install_plugin(name.clone(), force).await
+}
+
+#[command]
+pub async fn plugin_install_local_plugin(
+    plugin_service: tauri::State<'_, Arc<PluginService>>,
+    name: String,
+    source_dir: PathBuf,
+    force: bool,
+) -> Result<(), String> {
+    plugin_service
+        .install_local_plugin(name.clone(), &source_dir, force)
+        .await
 }
 
 #[command]

@@ -1,9 +1,9 @@
-export interface OcrDetectResultTextPoint {
+interface OcrDetectResultTextPoint {
 	x: number;
 	y: number;
 }
 
-export interface OcrDetectResultTextBlock {
+interface OcrDetectResultTextBlock {
 	box_points: OcrDetectResultTextPoint[];
 	text: string;
 	text_score: number;

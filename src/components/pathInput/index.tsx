@@ -7,7 +7,8 @@ export const PathInput: React.FC<{
 	value?: string;
 	onChange?: (value: string) => void;
 	filters: dialog.DialogFilter[];
-}> = ({ value, onChange, filters }) => {
+	placeholder?: string;
+}> = ({ value, onChange, filters, placeholder }) => {
 	const selectPath = useCallback(async () => {
 		const filePath = await dialog.open({
 			filters,
@@ -21,6 +22,7 @@ export const PathInput: React.FC<{
 
 	return (
 		<Input.Search
+			placeholder={placeholder}
 			enterButton={
 				<Button
 					onClick={() => {

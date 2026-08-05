@@ -10,8 +10,23 @@ export const getTranslationPrompt = (
 	targetLanguage: string,
 	translationDomain: string,
 ) => {
-	return chatPrompt
-		.replace(SOURCE_LANGUAGE_ENV_VARIABLE, sourceLanguage)
-		.replace(TARGET_LANGUAGE_ENV_VARIABLE, targetLanguage)
-		.replace(TRANSLATION_DOMAIN_ENV_VARIABLE, translationDomain);
+	const replacePromptVariable = (
+		prompt: string,
+		variable: string,
+		value: string,
+	) => prompt.split(variable).join(value);
+
+	return replacePromptVariable(
+		replacePromptVariable(
+			replacePromptVariable(
+				chatPrompt,
+				SOURCE_LANGUAGE_ENV_VARIABLE,
+				sourceLanguage,
+			),
+			TARGET_LANGUAGE_ENV_VARIABLE,
+			targetLanguage,
+		),
+		TRANSLATION_DOMAIN_ENV_VARIABLE,
+		translationDomain,
+	);
 };

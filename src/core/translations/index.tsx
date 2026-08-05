@@ -2,7 +2,12 @@ import { trim } from "es-toolkit";
 import OpenAI from "openai";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { defaultTranslationPrompt } from "@/constants/components/translation";
+import { HARDENED_CUSTOM_MODEL_PREFIX } from "@/constants/appSettings";
+import {
+	defaultTranslationPrompt,
+	strictStructuredTranslationPrompt,
+	structuredTranslationPrompt,
+} from "@/constants/components/translation";
 import { AntdContext } from "@/contexts/antdContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -11,15 +16,9 @@ import {
 	convertLanguageCodeToDeepLSourceLanguageCode,
 	convertLanguageCodeToDeepLTargetLanguageCode,
 } from "@/pages/settings/functionSettings/extra";
-import { CUSTOM_MODEL_PREFIX } from "@/pages/tools/chat/page";
 import { getTranslationPrompt } from "@/pages/tools/translation/extra";
-import { appFetch, getUrl, type ServiceResponse } from "@/services/tools";
-import { type ChatModel, getChatModelsWithCache } from "@/services/tools/chat";
-import {
-	getTranslationTypesWithCache,
-	translate,
-	translateTextDeepL,
-} from "@/services/tools/translation";
+import { appFetch } from "@/services/tools";
+import { translateTextDeepL } from "@/services/tools/translation";
 import {
 	type AppSettingsData,
 	AppSettingsGroup,
@@ -29,12 +28,17 @@ import {
 } from "@/types/appSettings";
 import {
 	type DeepLTranslateResult,
-	type TranslateData,
 	TranslationDomain,
 	TranslationType,
 	type TranslationTypeOption,
 } from "@/types/servies/translation";
+import { getCachedData, setCachedData } from "@/utils/cache";
 import { appError } from "@/utils/log";
+import {
+	buildStructuredTranslationInput,
+	parseStructuredTranslationResult,
+	type TranslationResultItem,
+} from "./structuredProtocol";
 
 export type TranslationServiceConfig = (
 	| TranslationTypeOption
@@ -51,6 +55,145 @@ export type TranslationServiceConfig = (
 ) & {
 	isOfficial: boolean;
 };
+
+type TranslationRequestHandle = {
+	requestSerial: number;
+	abortController: AbortController;
+};
+
+type TranslationRequestResult = {
+	success: boolean;
+	aborted?: boolean;
+	timeout?: boolean;
+	result?: TranslationResultItem[];
+};
+
+type TranslationCachePayload = {
+	version: string;
+	result: TranslationResultItem[];
+};
+
+const TRANSLATION_CACHE_VERSION = "qwen-translation-cache-v1";
+const TRANSLATION_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+const TRANSLATION_CACHE_KEY_PREFIX = "translation:";
+const CUSTOM_MODEL_PREFIX = HARDENED_CUSTOM_MODEL_PREFIX;
+const TRANSLATION_CACHE_PROTOCOL_VERSION =
+	"single-stream-v1;structured-json-v1;legacy-separator-v1";
+
+const createSha256Hash = async (content: string) => {
+	if (!globalThis.crypto?.subtle) {
+		return undefined;
+	}
+
+	const digest = await globalThis.crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(content),
+	);
+
+	return Array.from(new Uint8Array(digest), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
+};
+
+const createTranslationCacheKey = async (params: {
+	apiUri?: string;
+	model: string;
+	sourceLanguage: string;
+	targetLanguage: string;
+	translationDomain: TranslationDomain;
+	baseSystemPrompt: string;
+	sourceContent: string[];
+	completionParams: {
+		max_completion_tokens: number;
+		temperature: number;
+		top_p: number;
+	};
+}) => {
+	const hash = await createSha256Hash(
+		JSON.stringify({
+			version: TRANSLATION_CACHE_VERSION,
+			protocol: TRANSLATION_CACHE_PROTOCOL_VERSION,
+			apiUri: params.apiUri,
+			model: params.model,
+			sourceLanguage: params.sourceLanguage,
+			targetLanguage: params.targetLanguage,
+			translationDomain: params.translationDomain,
+			baseSystemPrompt: params.baseSystemPrompt,
+			structuredTranslationPrompt,
+			strictStructuredTranslationPrompt,
+			completionParams: params.completionParams,
+			sourceContent: params.sourceContent,
+		}),
+	);
+
+	return hash ? `${TRANSLATION_CACHE_KEY_PREFIX}${hash}` : undefined;
+};
+
+const getTranslationCacheResult = (
+	cacheKey: string,
+	sourceContentLength: number,
+) => {
+	const cached = getCachedData<TranslationCachePayload>(
+		cacheKey,
+		TRANSLATION_CACHE_DURATION,
+	);
+	if (
+		!cached ||
+		cached.version !== TRANSLATION_CACHE_VERSION ||
+		!Array.isArray(cached.result) ||
+		cached.result.length !== sourceContentLength ||
+		cached.result.some((item) => !item || typeof item.content !== "string")
+	) {
+		return undefined;
+	}
+
+	return cached.result.map((item) => ({ content: item.content }));
+};
+
+const setTranslationCacheResult = (
+	cacheKey: string | undefined,
+	result: TranslationResultItem[],
+) => {
+	if (!cacheKey) {
+		return;
+	}
+
+	setCachedData<TranslationCachePayload>(cacheKey, {
+		version: TRANSLATION_CACHE_VERSION,
+		result: result.map((item) => ({ content: item.content })),
+	});
+};
+
+const validateTranslationResult = (
+	result: TranslationResultItem[],
+	sourceContentLength: number,
+) => {
+	if (
+		result.length !== sourceContentLength ||
+		result.some((item) => !item || typeof item.content !== "string")
+	) {
+		return undefined;
+	}
+
+	return result;
+};
+
+const buildStructuredTranslationSystemPrompt = (
+	basePrompt: string,
+	strictRetry: boolean,
+) =>
+	`${basePrompt}\n\n${structuredTranslationPrompt}${
+		strictRetry ? `\n\n${strictStructuredTranslationPrompt}` : ""
+	}`;
+
+const isOpenAiAbortError = (error: unknown) =>
+	error instanceof OpenAI.APIUserAbortError ||
+	(error instanceof Error &&
+		(error.name === "AbortError" || error.name === "APIUserAbortError"));
+
+const isOpenAiTimeoutError = (error: unknown) =>
+	error instanceof OpenAI.APIConnectionTimeoutError ||
+	(error instanceof Error && error.name === "APIConnectionTimeoutError");
 
 export const useTranslationRequest = (options?: {
 	/// 配置从 Cache 中加载
@@ -77,24 +220,10 @@ export const useTranslationRequest = (options?: {
 	const [targetLanguage, setTargetLanguage, targetLanguageRef] =
 		useStateRef<string>("zh-CHS");
 
-	// 用户自定义的 AI 对话配置
-	const [chatApiConfigList, setChatApiConfigList] = useState<
-		ChatApiConfig[] | undefined
-	>(undefined);
 	/// 用户自定义的翻译 API 配置
 	const [translationApiConfigList, setTranslationApiConfigList] = useState<
 		TranslationApiConfig[] | undefined
 	>(undefined);
-	// Snow Shot 自带的
-	const [
-		officialTranslationTypes,
-		setOfficialTranslationTypes,
-		officialTranslationTypesRef,
-	] = useStateRef<TranslationTypeOption[] | undefined>(undefined);
-	const [officialChatModels, setOfficialChatModels, officialChatModelsRef] =
-		useStateRef<ChatModel[] | undefined>(undefined);
-	const [chatConfig, setChatConfig] =
-		useState<AppSettingsData[AppSettingsGroup.SystemChat]>();
 	const [translationConfig, setTranslationConfig] =
 		useState<AppSettingsData[AppSettingsGroup.FunctionTranslation]>();
 
@@ -133,15 +262,11 @@ export const useTranslationRequest = (options?: {
 					);
 				}
 
-				setChatApiConfigList(
-					settings[AppSettingsGroup.FunctionChat].chatApiConfigList,
-				);
 				setTranslationApiConfigList(
 					settings[AppSettingsGroup.FunctionTranslation]
 						.translationApiConfigList,
 				);
 
-				setChatConfig(settings[AppSettingsGroup.SystemChat]);
 				setTranslationConfig(settings[AppSettingsGroup.FunctionTranslation]);
 			},
 			[
@@ -160,28 +285,8 @@ export const useTranslationRequest = (options?: {
 		Promise<[undefined, undefined]> | undefined
 	>(undefined);
 	const reloadOnlineConfigs = useCallback(async () => {
-		if (officialTranslationTypesRef.current && officialChatModelsRef.current) {
-			return;
-		}
-
-		const promise = Promise.all([
-			getTranslationTypesWithCache().then((res) => {
-				setOfficialTranslationTypes(res ?? []);
-				return undefined;
-			}),
-			getChatModelsWithCache().then((res) => {
-				setOfficialChatModels(res ?? []);
-				return undefined;
-			}),
-		]);
-		reloadOnlineConfigsPromiseRef.current = promise;
-		await promise;
-	}, [
-		setOfficialChatModels,
-		setOfficialTranslationTypes,
-		officialChatModelsRef,
-		officialTranslationTypesRef,
-	]);
+		// Cloud backend disabled — no online configs to load
+	}, []);
 
 	useEffect(() => {
 		if (options?.lazyLoad) {
@@ -198,12 +303,20 @@ export const useTranslationRequest = (options?: {
 	] = useStateRef<TranslationServiceConfig[]>([]);
 
 	const getTranslationApiConfigTypeName = useCallback(
-		(apiConfigType: TranslationApiType) => {
-			switch (apiConfigType) {
+		(apiConfig: TranslationApiConfig) => {
+			switch (apiConfig.api_type) {
+				case TranslationApiType.OpenAiCompatible:
+					return (
+						apiConfig.model_name ||
+						apiConfig.api_model ||
+						intl.formatMessage({
+							id: "tools.translation.type.openAiCompatible",
+						})
+					);
 				case TranslationApiType.DeepL:
 					return intl.formatMessage({ id: "tools.translation.type.deepl" });
 				default:
-					return apiConfigType;
+					return apiConfig.api_type;
 			}
 		},
 		[intl],
@@ -216,57 +329,35 @@ export const useTranslationRequest = (options?: {
 	useEffect(() => {
 		setSupportedTranslationTypesLoading(true);
 		setSupportedTranslationTypes([
-			...(chatApiConfigList?.map((item): TranslationServiceConfig => {
-				return {
-					type: `${CUSTOM_MODEL_PREFIX}${item.api_model}`,
-					name: item.model_name,
-					apiConfig: {
-						...item,
-						support_thinking: false,
-					},
-					isOfficial: false,
-				};
-			}) ?? []),
 			...(translationApiConfigList?.map((item): TranslationServiceConfig => {
+				if (item.api_type === TranslationApiType.OpenAiCompatible) {
+					return {
+						type: `${CUSTOM_MODEL_PREFIX}${item.api_model ?? ""}`,
+						name: getTranslationApiConfigTypeName(item),
+						apiConfig: {
+							api_uri: item.api_uri,
+							api_key: item.api_key,
+							api_model: item.api_model ?? "",
+							model_name: item.model_name ?? item.api_model ?? "",
+							support_thinking: false,
+							support_vision: false,
+						},
+						isOfficial: false,
+					};
+				}
+
 				return {
 					type: item.api_type,
-					name: getTranslationApiConfigTypeName(item.api_type),
+					name: getTranslationApiConfigTypeName(item),
 					translationApiConfig: item,
 					isOfficial: false,
 				};
 			}) ?? []),
-			...(officialTranslationTypes ?? []).map(
-				(item): TranslationServiceConfig => {
-					return {
-						type: item.type,
-						name: item.name,
-						isOfficial: true,
-					};
-				},
-			),
-			...(officialChatModels ?? []).map((item): TranslationServiceConfig => {
-				return {
-					type: item.model,
-					name: item.name,
-					apiConfig: {
-						api_uri: getUrl("api/v1/"),
-						api_key: "",
-						api_model: item.model,
-						model_name: item.name,
-						support_thinking: false,
-						support_vision: false,
-					},
-					isOfficial: true,
-				};
-			}),
 		]);
 		setSupportedTranslationTypesLoading(false);
 	}, [
-		chatApiConfigList,
 		setSupportedTranslationTypes,
 		translationApiConfigList,
-		officialChatModels,
-		officialTranslationTypes,
 		getTranslationApiConfigTypeName,
 	]);
 
@@ -276,6 +367,41 @@ export const useTranslationRequest = (options?: {
 	const [deltaTranslateLoading, setDeltaTranslateLoading] = useState(false);
 	const [translatedContent, setTranslatedContent, translatedContentRef] =
 		useStateRef<string>("");
+	const translateRequestSerialRef = useRef(0);
+	const translationAbortControllerRef = useRef<AbortController | undefined>(
+		undefined,
+	);
+	const abortCurrentTranslationRequest = useCallback(() => {
+		translationAbortControllerRef.current?.abort();
+		translationAbortControllerRef.current = undefined;
+	}, []);
+	const beginTranslationRequest = useCallback(() => {
+		abortCurrentTranslationRequest();
+		const abortController = new AbortController();
+		translationAbortControllerRef.current = abortController;
+		translateRequestSerialRef.current += 1;
+		return {
+			requestSerial: translateRequestSerialRef.current,
+			abortController,
+		};
+	}, [abortCurrentTranslationRequest]);
+	const isCurrentTranslationRequest = useCallback(
+		(requestSerial: number) =>
+			requestSerial === translateRequestSerialRef.current,
+		[],
+	);
+	const invalidateTranslationRequest = useCallback(() => {
+		abortCurrentTranslationRequest();
+		translateRequestSerialRef.current += 1;
+		setStartTranslateLoading(false);
+		setDeltaTranslateLoading(false);
+		setTranslatedContent("");
+	}, [abortCurrentTranslationRequest, setTranslatedContent]);
+	useEffect(() => {
+		return () => {
+			abortCurrentTranslationRequest();
+		};
+	}, [abortCurrentTranslationRequest]);
 
 	const customTranslation = useCallback(
 		async (params: {
@@ -284,13 +410,10 @@ export const useTranslationRequest = (options?: {
 			targetLanguage: string;
 			translationType: string;
 			translationDomain: TranslationDomain;
+			requestHandle: TranslationRequestHandle;
 			requestId?: number;
-		}): Promise<{
-			success: boolean;
-			result?: {
-				content: string;
-			}[];
-		}> => {
+		}): Promise<TranslationRequestResult> => {
+			const requestSerial = params.requestHandle.requestSerial;
 			const config = supportedTranslationTypesRef.current.find(
 				(item) => item.type === params.translationType,
 			);
@@ -303,7 +426,9 @@ export const useTranslationRequest = (options?: {
 
 			if ("translationApiConfig" in config) {
 				if (config.type === TranslationApiType.DeepL) {
-					setStartTranslateLoading(true);
+					if (isCurrentTranslationRequest(requestSerial)) {
+						setStartTranslateLoading(true);
+					}
 
 					let result: DeepLTranslateResult | undefined;
 					try {
@@ -324,7 +449,9 @@ export const useTranslationRequest = (options?: {
 						appError("[customTranslation] translateTextDeepL error", error);
 					}
 
-					setStartTranslateLoading(false);
+					if (isCurrentTranslationRequest(requestSerial)) {
+						setStartTranslateLoading(false);
+					}
 
 					if (!result) {
 						return {
@@ -332,18 +459,26 @@ export const useTranslationRequest = (options?: {
 						};
 					}
 
-					options?.onComplete?.(
+					const translationResult = validateTranslationResult(
 						result.translations.map((item) => ({
 							content: item.text,
 						})),
-						params.requestId,
+						params.sourceContent.length,
 					);
+					if (!translationResult) {
+						appError("[customTranslation] invalid DeepL translation result");
+						return {
+							success: false,
+						};
+					}
+
+					if (isCurrentTranslationRequest(requestSerial)) {
+						options?.onComplete?.(translationResult, params.requestId);
+					}
 
 					return {
 						success: true,
-						result: result.translations.map((item) => ({
-							content: item.text,
-						})),
+						result: translationResult,
 					};
 				}
 			}
@@ -354,6 +489,65 @@ export const useTranslationRequest = (options?: {
 				};
 			}
 
+			const model = config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, "");
+			const baseSystemPrompt = getTranslationPrompt(
+				translationConfig?.translationSystemPrompt ?? defaultTranslationPrompt,
+				params.sourceLanguage,
+				params.targetLanguage,
+				params.translationDomain,
+			);
+			const completionOptions = {
+				timeout: translationConfig?.translationTimeoutMs ?? 60000,
+				maxRetries: 0,
+				signal: params.requestHandle.abortController.signal,
+			};
+			const completionBaseParams = {
+				model,
+				max_completion_tokens: translationConfig?.translationMaxTokens ?? 4096,
+				temperature: translationConfig?.translationTemperature ?? 0.2,
+				top_p: translationConfig?.translationTopP ?? 0.9,
+			};
+			let translationCacheKey: string | undefined;
+			try {
+				translationCacheKey = await createTranslationCacheKey({
+					apiUri: config.apiConfig.api_uri,
+					model,
+					sourceLanguage: params.sourceLanguage,
+					targetLanguage: params.targetLanguage,
+					translationDomain: params.translationDomain,
+					baseSystemPrompt,
+					sourceContent: params.sourceContent,
+					completionParams: completionBaseParams,
+				});
+			} catch (error) {
+				appError("[customTranslation] translation cache key error", error);
+			}
+
+			if (!isCurrentTranslationRequest(requestSerial)) {
+				return {
+					success: false,
+					aborted: true,
+				};
+			}
+
+			const cachedResult = translationCacheKey
+				? getTranslationCacheResult(
+						translationCacheKey,
+						params.sourceContent.length,
+					)
+				: undefined;
+
+			if (cachedResult) {
+				setTranslatedContent(
+					cachedResult.map((item) => item.content).join("\n"),
+				);
+				options?.onComplete?.(cachedResult, params.requestId);
+				return {
+					success: true,
+					result: cachedResult,
+				};
+			}
+
 			const client = new OpenAI({
 				apiKey: config.apiConfig.api_key,
 				baseURL: config.apiConfig.api_uri,
@@ -361,83 +555,189 @@ export const useTranslationRequest = (options?: {
 				fetch: appFetch,
 			});
 
-			setStartTranslateLoading(true);
+			if (isCurrentTranslationRequest(requestSerial)) {
+				setStartTranslateLoading(true);
+			}
 
-			let responseContent: string = "";
+			const requestStructuredTranslation = async (strictRetry: boolean) => {
+				const structuredResponse = await client.chat.completions.create(
+					{
+						...completionBaseParams,
+						messages: [
+							{
+								role: "system",
+								content: buildStructuredTranslationSystemPrompt(
+									baseSystemPrompt,
+									strictRetry,
+								),
+							},
+							{
+								role: "user",
+								content: JSON.stringify(
+									buildStructuredTranslationInput(params.sourceContent),
+								),
+							},
+						],
+						stream: false,
+					},
+					completionOptions,
+				);
+
+				return parseStructuredTranslationResult(
+					structuredResponse.choices[0]?.message.content ?? "",
+					params.sourceContent.length,
+				);
+			};
+
 			try {
-				const streamResponse = await client.chat.completions.create({
-					model: config.apiConfig.api_model.replace(CUSTOM_MODEL_PREFIX, ""),
-					messages: [
-						{
-							role: "system",
-							content: getTranslationPrompt(
-								translationConfig?.translationSystemPrompt ??
-									defaultTranslationPrompt,
-								sourceLanguage,
-								targetLanguage,
-								translationDomain,
-							),
-						},
-						{
-							role: "user",
-							content: params.sourceContent.join("%%"),
-						},
-					],
-					max_completion_tokens: chatConfig?.maxTokens ?? 4096,
-					temperature: chatConfig?.temperature ?? 1,
-					stream: true,
-				});
+				if (params.sourceContent.length > 1) {
+					const structuredResult =
+						(await requestStructuredTranslation(false)) ??
+						(await requestStructuredTranslation(true));
 
-				setDeltaTranslateLoading(true);
+					if (structuredResult) {
+						if (isCurrentTranslationRequest(requestSerial)) {
+							setTranslatedContent(
+								structuredResult.map((item) => item.content).join("\n"),
+							);
+							options?.onComplete?.(structuredResult, params.requestId);
+							setTranslationCacheResult(translationCacheKey, structuredResult);
+						}
+
+						return {
+							success: true,
+							result: structuredResult,
+						};
+					}
+
+					appError(
+						"[customTranslation] structured translation validation failed; falling back to legacy separator protocol",
+					);
+				}
+
+				let responseContent = "";
+				const streamResponse = await client.chat.completions.create(
+					{
+						...completionBaseParams,
+						messages: [
+							{
+								role: "system",
+								content: baseSystemPrompt,
+							},
+							{
+								role: "user",
+								content: params.sourceContent.join("%%"),
+							},
+						],
+						stream: true,
+					},
+					completionOptions,
+				);
+
+				if (isCurrentTranslationRequest(requestSerial)) {
+					setDeltaTranslateLoading(true);
+				}
 				try {
-					setTranslatedContent("");
+					if (isCurrentTranslationRequest(requestSerial)) {
+						setTranslatedContent("");
+					}
 					for await (const event of streamResponse) {
 						if (event.choices.length > 0 && event.choices[0].delta.content) {
-							setTranslatedContent(
-								(prevContent) =>
-									`${prevContent}${event.choices[0].delta.content}`,
-							);
 							responseContent += event.choices[0].delta.content;
-							options?.onDeltaContent?.(event.choices[0].delta.content);
+							if (isCurrentTranslationRequest(requestSerial)) {
+								setTranslatedContent(
+									(prevContent) =>
+										`${prevContent}${event.choices[0].delta.content}`,
+								);
+								options?.onDeltaContent?.(event.choices[0].delta.content);
+							}
 						}
 					}
 				} catch (error) {
+					if (isOpenAiAbortError(error) || isOpenAiTimeoutError(error)) {
+						throw error;
+					}
 					appError("[customTranslation] streamResponse error", error);
 				}
-				setDeltaTranslateLoading(false);
+				if (isCurrentTranslationRequest(requestSerial)) {
+					setDeltaTranslateLoading(false);
+				}
+				const result = validateTranslationResult(
+					params.sourceContent.length > 1
+						? responseContent
+								.split("%%")
+								.map((item) => ({ content: trim(item) }))
+						: [{ content: responseContent }],
+					params.sourceContent.length,
+				);
+				if (!result) {
+					appError("[customTranslation] legacy translation validation failed");
+					return {
+						success: false,
+					};
+				}
+
+				if (isCurrentTranslationRequest(requestSerial)) {
+					options?.onComplete?.(result, params.requestId);
+					setTranslationCacheResult(translationCacheKey, result);
+				}
+
+				return {
+					success: true,
+					result,
+				};
 			} catch (error) {
+				if (isOpenAiAbortError(error)) {
+					return {
+						success: false,
+						aborted: true,
+					};
+				}
+
+				if (isOpenAiTimeoutError(error)) {
+					if (isCurrentTranslationRequest(requestSerial)) {
+						message.error(
+							intl.formatMessage({
+								id: "tools.translation.requestTimeout",
+							}),
+						);
+					}
+					return {
+						success: false,
+						timeout: true,
+					};
+				}
+
 				appError("[customTranslation] error", error);
 			} finally {
-				setStartTranslateLoading(false);
+				if (isCurrentTranslationRequest(requestSerial)) {
+					setStartTranslateLoading(false);
+					setDeltaTranslateLoading(false);
+				}
 			}
 
-			const result =
-				params.sourceContent.length > 1
-					? responseContent.split("%%").map((item) => ({ content: trim(item) }))
-					: [{ content: responseContent }];
-
-			options?.onComplete?.(result, params.requestId);
-
 			return {
-				success: true,
-				result: [{ content: responseContent }],
+				success: false,
 			};
 		},
 		[
-			sourceLanguage,
-			targetLanguage,
-			translationDomain,
 			supportedTranslationTypesRef,
-			chatConfig?.maxTokens,
-			chatConfig?.temperature,
 			options,
+			intl,
+			message,
+			translationConfig?.translationMaxTokens,
 			translationConfig?.translationSystemPrompt,
+			translationConfig?.translationTemperature,
+			translationConfig?.translationTimeoutMs,
+			translationConfig?.translationTopP,
 			setTranslatedContent,
+			isCurrentTranslationRequest,
 		],
 	);
 
 	const requestTranslate = useCallback(
 		async (sourceContent: string[], requestId?: number) => {
+			const requestHandle = beginTranslationRequest();
 			const translationType = translationTypeRef.current;
 			const translationDomain = translationDomainRef.current;
 			const sourceLanguage = sourceLanguageRef.current;
@@ -453,6 +753,10 @@ export const useTranslationRequest = (options?: {
 				await new Promise((resolve) => setTimeout(resolve, 17));
 			}
 
+			if (!isCurrentTranslationRequest(requestHandle.requestSerial)) {
+				return;
+			}
+
 			if (typeof translationType === "string") {
 				const result = await customTranslation({
 					sourceContent: sourceContent,
@@ -460,44 +764,23 @@ export const useTranslationRequest = (options?: {
 					targetLanguage: targetLanguage,
 					translationType: translationType,
 					translationDomain: translationDomain,
+					requestHandle,
 					requestId: requestId,
 				});
+				if (result.aborted || result.timeout) {
+					return;
+				}
 				if (result.success) {
 					return;
 				}
 			}
 
-			setStartTranslateLoading(true);
-			let translateResult:
-				| ServiceResponse<TranslateData | undefined>
-				| undefined;
-			try {
-				translateResult = await translate({
-					content: sourceContent,
-					from: sourceLanguage,
-					to: targetLanguage,
-					domain: translationDomain,
-					type: translationType as TranslationType, // 如果没找到自定义模型，则报错
-				});
-			} catch (error) {
-				appError("[requestTranslate] error", error);
-				message.error("-1: Unknown error");
-			}
-
-			setStartTranslateLoading(false);
-
-			if (
-				!translateResult ||
-				!translateResult.success() ||
-				!translateResult.data?.results.length
-			) {
+			if (!isCurrentTranslationRequest(requestHandle.requestSerial)) {
 				return;
 			}
 
-			options?.onComplete?.(translateResult.data?.results, requestId);
-			setTranslatedContent(
-				translateResult.data?.results.map((item) => item.content).join("\n") ??
-					"",
+			message.error(
+				intl.formatMessage({ id: "tools.translation.noAvailableService" }),
 			);
 		},
 		[
@@ -508,13 +791,16 @@ export const useTranslationRequest = (options?: {
 			targetLanguageRef,
 			translationDomainRef,
 			translationTypeRef,
-			setTranslatedContent,
 			reloadOnlineConfigs,
+			intl,
+			beginTranslationRequest,
+			isCurrentTranslationRequest,
 		],
 	);
 
 	const updateTranslationDomain = useCallback(
 		(translationDomain: TranslationDomain) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -537,11 +823,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateTranslationType = useCallback(
 		(translationType: TranslationType | string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -564,11 +855,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateSourceLanguage = useCallback(
 		(sourceLanguage: string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -591,11 +887,16 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const updateTargetLanguage = useCallback(
 		(targetLanguage: string) => {
+			invalidateTranslationRequest();
 			if (options?.enableCacheConfig) {
 				updateAppSettings(
 					AppSettingsGroup.FunctionTranslationCache,
@@ -618,7 +919,11 @@ export const useTranslationRequest = (options?: {
 				);
 			}
 		},
-		[updateAppSettings, options?.enableCacheConfig],
+		[
+			updateAppSettings,
+			options?.enableCacheConfig,
+			invalidateTranslationRequest,
+		],
 	);
 
 	const getTranslatedContent = useCallback(() => {
@@ -641,5 +946,6 @@ export const useTranslationRequest = (options?: {
 		supportedTranslationTypes,
 		supportedTranslationTypesLoading,
 		getTranslatedContent,
+		cancelTranslation: invalidateTranslationRequest,
 	};
 };
