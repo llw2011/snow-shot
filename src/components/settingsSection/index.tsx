@@ -104,6 +104,14 @@ export const SettingsSection: React.FC<{
 					grid-template-columns: minmax(0, 1fr) auto;
 					align-items: center;
 					min-height: 56px;
+					transition-property: background-color;
+					transition-duration: var(--snow-shot-motion-fast);
+					transition-timing-function: ease;
+				}
+
+				.settings-section-header:hover,
+				.settings-section-header:focus-within {
+					background: var(--snow-shot-surface-elevated);
 				}
 
 				.settings-section-heading {
@@ -131,14 +139,6 @@ export const SettingsSection: React.FC<{
 					font: inherit;
 					text-align: left;
 					cursor: pointer;
-				}
-
-				.settings-section-toggle:hover {
-					background: color-mix(
-						in srgb,
-						var(--snow-shot-ink) 3%,
-						transparent
-					);
 				}
 
 				.settings-section-toggle:focus-visible {
@@ -196,6 +196,7 @@ export const SettingsSection: React.FC<{
 				}
 
 				@media (prefers-reduced-motion: reduce) {
+					.settings-section-header,
 					.settings-section-chevron {
 						transition: none;
 					}
