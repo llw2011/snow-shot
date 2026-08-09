@@ -2,6 +2,10 @@
 # 将显示在 GitHub 存储库的"操作"选项卡中的工作流名称
 name: Release CI
 
+concurrency:
+    group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    cancel-in-progress: false
+
 # 指定此工作流的触发器
 on:
     push:
@@ -27,22 +31,124 @@ jobs:
 
             - name: Set version
               id: vars
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  RELEASE_INPUT: ${{ inputs.version }}
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
               run: |
-                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                    echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
+                  if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+                    echo "workflow_dispatch releases must run from the default branch ($DEFAULT_BRANCH)" >&2
+                    exit 1
+                  fi
+
+                  if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                    TAG="$RELEASE_INPUT"
                   else
-                    echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+                    TAG="${GITHUB_REF#refs/tags/}"
+                  fi
+
+                  if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.+-]+)?$ ]]; then
+                    echo "Invalid release tag: $TAG" >&2
+                    exit 1
+                  fi
+
+                  # A signing release may only be built from code that is already
+                  # reachable from the protected default branch. This prevents a
+                  # tag on an arbitrary feature branch from exposing the signing
+                  # secret to that branch's workflow contents.
+                  git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+                  MAIN_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")"
+                  if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                    RELEASE_SHA="$(git rev-parse HEAD)"
+                    if [ "$RELEASE_SHA" != "$MAIN_SHA" ]; then
+                      echo "Manual releases must run at the current default-branch commit ($MAIN_SHA)" >&2
+                      exit 1
+                    fi
+                  elif ! git merge-base --is-ancestor "$GITHUB_SHA" "$MAIN_SHA"; then
+                    echo "Tag $TAG does not point to a commit reachable from the default branch" >&2
+                    exit 1
+                  fi
+
+                  VERSION="${TAG#v}"
+                  CONFIG_VERSION="$(jq -r '.version' src-tauri/tauri.conf.json)"
+                  CARGO_VERSION="$(awk '
+                    /^\[package\]/{in_package=1; next}
+                    /^\[/{in_package=0}
+                    in_package && /^version[[:space:]]*=/ {
+                      sub(/^[^=]*=/, "", $0)
+                      gsub(/[[:space:]]/, "", $0)
+                      gsub(/"/, "", $0)
+                      print; exit
+                    }
+                  ' src-tauri/Cargo.toml)"
+                  LOCK_VERSION="$(awk '
+                    /^\[\[package\]\]/{in_package=0}
+                    /^name = "snow-shot"$/{in_package=1; next}
+                    in_package && /^version[[:space:]]*=/ {
+                      sub(/^[^=]*=/, "", $0)
+                      gsub(/[[:space:]]/, "", $0)
+                      gsub(/"/, "", $0)
+                      print; exit
+                    }
+                  ' src-tauri/Cargo.lock)"
+                  if [ "$VERSION" != "$CONFIG_VERSION" ] || [ "$VERSION" != "$CARGO_VERSION" ] || [ "$VERSION" != "$LOCK_VERSION" ]; then
+                    echo "Release version $VERSION must match tauri.conf.json ($CONFIG_VERSION), Cargo.toml ($CARGO_VERSION), and Cargo.lock ($LOCK_VERSION)" >&2
+                    exit 1
+                  fi
+
+                  EXPECTED_ENDPOINT="https://github.com/llw2011/snow-shot/releases/latest/download/latest.json"
+                  PUBKEY=""
+                  for CONFIG_FILE in src-tauri/tauri.windows.conf.json src-tauri/tauri.macos.conf.json src-tauri/webview2.x64.json; do
+                    CURRENT_PUBKEY="$(jq -er '.plugins.updater.pubkey' "$CONFIG_FILE")"
+                    CURRENT_ENDPOINT="$(jq -r '.plugins.updater.endpoints[0] // empty' "$CONFIG_FILE")"
+                    if [ -z "$PUBKEY" ]; then
+                      PUBKEY="$CURRENT_PUBKEY"
+                    elif [ "$PUBKEY" != "$CURRENT_PUBKEY" ]; then
+                      echo "Updater public keys differ; refusing to build a release" >&2
+                      exit 1
+                    fi
+                    if [[ "$CONFIG_FILE" != *webview2* ]] && [ "$CURRENT_ENDPOINT" != "$EXPECTED_ENDPOINT" ]; then
+                      echo "Unexpected updater endpoint in $CONFIG_FILE" >&2
+                      exit 1
+                    fi
+                  done
+                  jq -e '.plugins.updater.endpoints == [] and .bundle.createUpdaterArtifacts == false' src-tauri/tauri.no-ota.conf.json >/dev/null
+                  jq -e '.bundle.createUpdaterArtifacts == true' src-tauri/tauri.release.conf.json >/dev/null
+
+                  {
+                    echo "tag=$TAG"
+                    echo "version=$VERSION"
+                  } >> "$GITHUB_OUTPUT"
+              shell: bash
+
+            - name: Verify updater signing secrets
+              env:
+                  SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              run: |
+                  if [ -z "$SIGNING_KEY" ] || [ -z "$SIGNING_PASSWORD" ]; then
+                    echo "TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be configured before a release." >&2
+                    exit 1
                   fi
               shell: bash
 
-            # 手动触发时创建 tag
-            - name: Create tag (if manual trigger)
+            # 手动重跑只接受已经存在、且指向当前默认分支提交的 tag。
+            # 不在 workflow 中 push tag，避免 workflow_dispatch 触发第二次
+            # push-tags workflow 并重复发布同一个 Release。
+            - name: Verify existing tag (manual trigger)
               if: github.event_name == 'workflow_dispatch'
+              env:
+                  RELEASE_TAG: ${{ steps.vars.outputs.tag }}
               run: |
-                  git config user.name github-actions
-                  git config user.email github-actions@github.com
-                  git tag -a ${{ steps.vars.outputs.tag }} -m "Release ${{ steps.vars.outputs.tag }}"
-                  git push origin ${{ steps.vars.outputs.tag }}
+                  if ! git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
+                    git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+                  fi
+                  EXISTING_SHA="$(git rev-list -n 1 "$RELEASE_TAG")"
+                  CURRENT_SHA="$(git rev-parse HEAD)"
+                  if [ "$EXISTING_SHA" != "$CURRENT_SHA" ]; then
+                    echo "Manual releases require $RELEASE_TAG to point to the current default-branch commit" >&2
+                    exit 1
+                  fi
             # 安装 Node.js
             - name: Setup node
               uses: actions/setup-node@v4
@@ -52,15 +158,19 @@ jobs:
             # 发布 Release，使用自定义名称
             - name: Generate changelog
               id: create_release
-              run: npx changelogithub --draft --name ${{ steps.vars.outputs.tag }}
               env:
+                  RELEASE_TAG: ${{ steps.vars.outputs.tag }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: npx --yes changelogithub@14.0.0 --draft --name "$RELEASE_TAG"
 
             - name: Set app version output
               id: app_version
-              run: echo "version=${{ steps.vars.outputs.tag }}" >> $GITHUB_OUTPUT
+              run: |
+                  echo "tag=${{ steps.vars.outputs.tag }}" >> "$GITHUB_OUTPUT"
+                  echo "version=${{ steps.vars.outputs.version }}" >> "$GITHUB_OUTPUT"
 
         outputs:
+            release_tag: ${{ steps.app_version.outputs.tag }}
             app_version: ${{ steps.app_version.outputs.version }}
 
     # 编译 Tauri 应用
@@ -70,29 +180,40 @@ jobs:
             contents: write
         strategy:
             fail-fast: false
+            max-parallel: 1
             matrix:
                 include:
                     # macOS Apple Silicon (M1/M2/M3)
                     - platform: "macos-latest"
                       target: "aarch64-apple-darwin"
+                      ota: true
+                      config: "src-tauri/tauri.release.conf.json"
 
                     # macOS Intel x64
                     - platform: "macos-15-intel"
                       target: "x86_64-apple-darwin"
+                      ota: true
+                      config: "src-tauri/tauri.release.conf.json"
 
                     # Windows standard
                     - platform: "windows-latest"
                       target: "x86_64-pc-windows-msvc"
+                      ota: true
+                      config: "src-tauri/tauri.release.conf.json"
 
                     # Windows with fixed runtime
                     - platform: "windows-latest"
                       target: "x86_64-pc-windows-msvc"
                       fixedRuntime: true
+                      ota: false
+                      config: "src-tauri/tauri.no-ota.conf.json"
 
                     # Windows offline version
                     - platform: "windows-latest"
                       target: "x86_64-pc-windows-msvc"
                       offline: true
+                      ota: false
+                      config: "src-tauri/tauri.no-ota.conf.json"
 
         runs-on: ${{ matrix.platform }}
         steps:
@@ -108,7 +229,7 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v3
               with:
-                  version: latest
+                  version: 10.8.1
 
             # 安装 Rust
             - name: Install Rust stable
@@ -140,7 +261,7 @@ jobs:
                   cd ..
                   git clone https://github.com/mg-chao/excalidraw.git
                   cd excalidraw
-                  git checkout custom/master
+                  git checkout d57ac317fc926bba6f7332e9ac24de7a84359d5f # custom/master snapshot
               shell: bash
 
             # 配置 yarn 缓存
@@ -192,6 +313,9 @@ jobs:
                   # 下载 npm.zip
                   Write-Host "Downloading npm.zip..."
                   Invoke-WebRequest -Uri "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/Resources_20251107/npm.zip" -OutFile "npm.zip"
+                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "npm.zip").Hash.ToLowerInvariant() -ne "6547bd788af982a9d3c7a3cdb4fed88acebd93be81cb1bbc72c121abdf00") {
+                    throw "npm.zip SHA-256 does not match the pinned release asset"
+                  }
 
                   # 解压 npm.zip 到 public 目录
                   Write-Host "Extracting npm.zip to public directory..."
@@ -213,6 +337,9 @@ jobs:
               run: |
                   # 下载 onnxruntime
                   Invoke-WebRequest -Uri "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-win-x64-static_lib-1.22.2.zip" -OutFile "onnxruntime.zip"
+                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "onnxruntime.zip").Hash.ToLowerInvariant() -ne "6d44e096a5e1eab6dbf47dc6ff4c70e838cd72a161507e3dca239fbb85d63b66") {
+                    throw "onnxruntime.zip SHA-256 does not match the pinned release asset"
+                  }
 
                   # 解压文件
                   Expand-Archive -Path "onnxruntime.zip" -DestinationPath "onnxruntime-temp" -Force
@@ -243,6 +370,9 @@ jobs:
 
                   Write-Host "Downloading WebView2 Fixed Runtime $runtimeVersion..."
                   Invoke-WebRequest -Uri $cabUrl -OutFile $cabFile
+                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath $cabFile).Hash.ToLowerInvariant() -ne "a1dfd3992543afb6c44da3db0bd5c43d750b00068253ebd41e23f4d610052514") {
+                    throw "WebView2 CAB SHA-256 does not match the pinned release asset"
+                  }
 
                   # 解压 cab 文件到 src-tauri 目录
                   Write-Host "Extracting WebView2 Fixed Runtime..."
@@ -272,6 +402,7 @@ jobs:
               run: |
                   # 下载 onnxruntime
                   curl -L -o onnxruntime.tgz "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-osx-universal2-static_lib-1.22.2.tgz"
+                  echo "aaa1a7dc5e4c2888cb5048a79af250c70f6d01d06dd6f7569b8b08a2bea01b98  onnxruntime.tgz" | shasum -a 256 -c -
 
                   # 解压文件
                   mkdir -p onnxruntime-temp
@@ -322,27 +453,31 @@ jobs:
 
             # 执行构建，以及推送 github release
             - name: Build the app
-              uses: tauri-apps/tauri-action@v0
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
               env:
                   CI: false
                   PLATFORM: ${{ matrix.platform }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ matrix.ota && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.ota && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
               with:
-                  tagName: ${{ needs.create-release.outputs.app_version }}
-                  releaseName: Snow Shot ${{ needs.create-release.outputs.app_version }}
+                  tagName: ${{ needs.create-release.outputs.release_tag }}
+                  releaseName: Snow Shot ${{ needs.create-release.outputs.release_tag }}
                   assetNamePattern: ${{ steps.asset_pattern.outputs.pattern }}
+                  includeUpdaterJson: ${{ matrix.ota }}
                   releaseBody: ""
                   releaseDraft: true
                   prerelease: false
-                  args: --target ${{ matrix.target }}
+                  args: --ci --target ${{ matrix.target }} --config ${{ matrix.config }} -- --locked
+
+            - name: Verify dependency lockfiles were not rewritten
+              run: git diff --exit-code -- src-tauri/Cargo.lock
 
     # 更新 Release 下载引导
     update-release-notes:
         name: Update Release Notes with Download Guide
         runs-on: ubuntu-latest
-        needs: [build-app]
+        needs: [create-release, build-app]
         permissions:
             contents: write
         steps:
@@ -351,11 +486,38 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: Set Environment Variables
+            - name: Validate updater manifest
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_TAG: ${{ needs.create-release.outputs.release_tag }}
+                  EXPECTED_VERSION: ${{ needs.create-release.outputs.app_version }}
               run: |
-                  TAG_REF="${GITHUB_REF##*/}"
-                  echo "TAG_NAME=$TAG_REF" >> $GITHUB_ENV
-              shell: bash
+                  set -euo pipefail
+                  release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.id')"
+                  asset_url="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" --jq '.[] | select(.name == "latest.json") | .url' | head -n 1)"
+                  if [ -z "$asset_url" ]; then
+                    echo "The release does not contain latest.json; refusing to publish OTA." >&2
+                    exit 1
+                  fi
+
+                  manifest_file="$(mktemp)"
+                  trap 'rm -f "$manifest_file"' EXIT
+                  gh api "$asset_url" -H 'Accept: application/octet-stream' > "$manifest_file"
+
+                  jq -e --arg expected "$EXPECTED_VERSION" --arg tag "$RELEASE_TAG" '
+                    . as $manifest
+                    | ($manifest.version == $expected)
+                    and ($manifest.platforms | type == "object")
+                    and (["windows-x86_64", "darwin-aarch64", "darwin-x86_64"]
+                      | all(.[]; . as $platform |
+                          ($manifest.platforms[$platform] | type == "object")
+                          and ($manifest.platforms[$platform].signature | type == "string" and length > 0)
+                          and ($manifest.platforms[$platform].url | type == "string"
+                            and startswith("https://github.com/llw2011/snow-shot/releases/download/" + $tag + "/"))
+                        ))
+                  ' "$manifest_file" >/dev/null
+
+                  echo "Updater manifest validated for $RELEASE_TAG ($EXPECTED_VERSION)."
 
             - name: Generate Release Notes
               run: |
@@ -369,8 +531,8 @@ jobs:
             - name: Update Release
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: ${{ env.TAG_NAME }}
-                  name: "Snow Shot ${{ env.TAG_NAME }}"
+                  tag_name: ${{ needs.create-release.outputs.release_tag }}
+                  name: "Snow Shot ${{ needs.create-release.outputs.release_tag }}"
                   body_path: release_notes.md
                   draft: false
                   prerelease: false

@@ -45,3 +45,9 @@ tsconfig.tsbuildinfo
 
 # env files (can opt-in for committing if needed)
 .env*
+
+# Local GitHub credentials used for release administration; never commit.
+/github.txt
+
+# Local Tauri signer material; never commit.
+/~/.tauri/

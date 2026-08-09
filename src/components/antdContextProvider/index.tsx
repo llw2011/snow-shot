@@ -21,9 +21,11 @@ export const AntdContextProvider: React.FC<{ children: React.ReactNode }> = ({
 	const confirmWithStatus = useCallback(
 		async (...params: Parameters<HookAPI["confirm"]>) => {
 			isConfirmingRef.current = true;
-			const res = await modalApi.confirm(...params);
-			isConfirmingRef.current = false;
-			return res;
+			try {
+				return await modalApi.confirm(...params);
+			} finally {
+				isConfirmingRef.current = false;
+			}
 		},
 		[modalApi],
 	);

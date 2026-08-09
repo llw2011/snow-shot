@@ -79,3 +79,8 @@ export const getAppConfigBaseDir = async () => {
 	const result = await invoke<string>("get_app_config_base_dir");
 	return result;
 };
+
+export const isPortableApp = async () => {
+	const result = await invoke<boolean>("is_portable_app");
+	return result;
+};

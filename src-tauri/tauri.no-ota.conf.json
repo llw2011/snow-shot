@@ -1,0 +1,10 @@
+{
+	"plugins": {
+		"updater": {
+			"endpoints": []
+		}
+	},
+	"bundle": {
+		"createUpdaterArtifacts": false
+	}
+}

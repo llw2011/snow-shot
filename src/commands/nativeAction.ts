@@ -103,6 +103,10 @@ export const nativeTraySetEnabled = async (enabled: boolean) => {
 	await invoke<void>("native_tray_set_enabled", { enabled });
 };
 
+export const nativeShowMainWindow = async () => {
+	await invoke<void>("native_show_main_window");
+};
+
 export const nativeRuntimeListenersReady = async () => {
 	runtimeListenersReadyRequested = true;
 	await nativeRuntimeStart();

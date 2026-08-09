@@ -2049,6 +2049,15 @@ pub async fn native_tray_set_enabled(
 }
 
 #[tauri::command]
+pub async fn native_show_main_window(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    if window.label() != MAIN_WINDOW_LABEL {
+        return Err("only the main window can request the main runtime to be shown".to_owned());
+    }
+
+    show_main_window(&app, false).await
+}
+
+#[tauri::command]
 pub fn native_runtime_start(
     state: State<'_, NativeActionState>,
     window: WebviewWindow,

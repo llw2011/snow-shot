@@ -373,6 +373,7 @@ pub fn run() {
             native_action::native_shortcut_set_full_screen_policy,
             native_action::native_tray_set_click_action,
             native_action::native_tray_set_enabled,
+            native_action::native_show_main_window,
             native_action::native_runtime_start,
             native_action::native_runtime_ready,
             native_action::native_main_runtime_probe_ack,

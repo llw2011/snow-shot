@@ -6,6 +6,7 @@
 		"autostart:default",
 		"autostart:default",
 		"autostart:default",
+		"updater:default",
 		"window-state:default"
 	]
 }
