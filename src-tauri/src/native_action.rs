@@ -150,6 +150,8 @@ pub struct NativeActionState {
     next_draw_generation: AtomicU64,
     session_generation: AtomicU64,
     main_rebuild_active: AtomicBool,
+    terminal_process_recovery_started: AtomicBool,
+    shutdown_requested: AtomicBool,
     action_dispatch_lock: AsyncMutex<()>,
     main_recovery_lock: AsyncMutex<()>,
 }
@@ -253,6 +255,8 @@ impl Default for NativeActionState {
             next_draw_generation: AtomicU64::new(1),
             session_generation: AtomicU64::new(1),
             main_rebuild_active: AtomicBool::new(false),
+            terminal_process_recovery_started: AtomicBool::new(false),
+            shutdown_requested: AtomicBool::new(false),
             action_dispatch_lock: AsyncMutex::new(()),
             main_recovery_lock: AsyncMutex::new(()),
         }
@@ -433,6 +437,30 @@ impl NativeActionState {
 
     fn set_main_rebuild_active(&self, active: bool) {
         self.main_rebuild_active.store(active, Ordering::Release);
+    }
+
+    /// Opens the one-way circuit breaker for a host event-loop failure.
+    ///
+    /// Once a main-thread roundtrip or window destruction has timed out, further
+    /// actions must not enqueue more work on the same Tao loop while a recovery
+    /// child is taking over.
+    fn begin_terminal_process_recovery(&self) -> bool {
+        self.terminal_process_recovery_started
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    fn terminal_process_recovery_started(&self) -> bool {
+        self.terminal_process_recovery_started
+            .load(Ordering::Acquire)
+    }
+
+    pub(crate) fn request_shutdown(&self) {
+        self.shutdown_requested.store(true, Ordering::Release);
+    }
+
+    fn shutdown_requested(&self) -> bool {
+        self.shutdown_requested.load(Ordering::Acquire)
     }
 
     fn clear_main_runtime(&self) {
@@ -1053,7 +1081,10 @@ pub fn handle_shortcut_event(app: &AppHandle, shortcut: &Shortcut, event: Shortc
     }
 
     let state = app.state::<NativeActionState>();
-    if state.shortcuts_blocked() {
+    if state.shortcuts_blocked()
+        || state.terminal_process_recovery_started()
+        || state.shutdown_requested()
+    {
         return;
     }
 
@@ -1083,6 +1114,12 @@ pub fn handle_shortcut_event(app: &AppHandle, shortcut: &Shortcut, event: Shortc
 }
 
 pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+    if app
+        .state::<NativeActionState>()
+        .terminal_process_recovery_started()
+    {
+        return;
+    }
     let Some(action) = menu_id_to_action(event.id().as_ref()) else {
         return;
     };
@@ -1090,10 +1127,16 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
 }
 
 pub fn handle_tray_icon_event(app: &AppHandle, event: TrayIconEvent) {
+    if app
+        .state::<NativeActionState>()
+        .terminal_process_recovery_started()
+    {
+        return;
+    }
     let TrayIconEvent::Click {
         id,
-        button: MouseButton::Left,
-        button_state: MouseButtonState::Up,
+        button,
+        button_state,
         ..
     } = event
     else {
@@ -1104,8 +1147,42 @@ pub fn handle_tray_icon_event(app: &AppHandle, event: TrayIconEvent) {
         return;
     }
 
-    let action = app.state::<NativeActionState>().tray_click_action();
-    queue_action(app, action, "trayIcon");
+    match (button, button_state) {
+        (MouseButton::Left, MouseButtonState::Up) => {
+            let action = app.state::<NativeActionState>().tray_click_action();
+            queue_action(app, action, "trayIcon");
+        }
+        // tray-icon opens the Windows popup from the right-button-down
+        // callback and returns from TrackPopupMenu before right-button-up.
+        // Probe only after that nested menu loop has returned, otherwise a
+        // healthy app with a menu left open would look hung.
+        #[cfg(target_os = "windows")]
+        (MouseButton::Right, MouseButtonState::Up) => {
+            if app
+                .state::<NativeActionState>()
+                .tray_enabled
+                .load(Ordering::Acquire)
+            {
+                queue_tray_host_probe(app);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn queue_tray_host_probe(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) =
+            ensure_host_event_loop_for_recovery(&app, "tray-menu-host-loop-timeout").await
+        {
+            log::warn!(
+                target: "snow-shot-recovery",
+                "[native_action] tray menu host probe failed: {error}"
+            );
+        }
+    });
 }
 
 pub fn handle_single_instance(app: &AppHandle) {
@@ -1114,6 +1191,9 @@ pub fn handle_single_instance(app: &AppHandle) {
 
 pub(crate) fn handle_runtime_session_event(app: &AppHandle, event: RuntimeSessionEvent) {
     let state = app.state::<NativeActionState>();
+    if state.shutdown_requested() {
+        return;
+    }
     let Some(transition) = state.begin_runtime_session_recovery(event) else {
         log::info!(target: "snow-shot-recovery", "[native_action] coalesced {} into the active session recovery", event.as_str());
         return;
@@ -1181,7 +1261,14 @@ async fn runtime_session_is_healthy(app: &AppHandle) -> bool {
 }
 
 fn queue_action(app: &AppHandle, action: String, source: &'static str) {
+    let state = app.state::<NativeActionState>();
+    if state.terminal_process_recovery_started() || state.shutdown_requested() {
+        return;
+    }
     if action == ACTION_EXIT {
+        // Mark shutdown only from the actual ExitRequested callback.  Setting
+        // it here would strand a still-running process if the host event loop
+        // is the very thing that failed to deliver app.exit(0).
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             crate::core::exit_app(app).await;
@@ -1257,9 +1344,38 @@ pub async fn ensure_main_tray(app: &AppHandle) -> Result<(), String> {
     }
 }
 
-async fn ensure_main_tray_best_effort(app: &AppHandle, context: &str) {
-    if let Err(error) = ensure_main_tray(app).await {
-        log::warn!(target: "snow-shot-recovery", "[native_action] {context}: {error}");
+async fn ensure_main_tray_for_recovery(
+    app: &AppHandle,
+    context: &'static str,
+) -> Result<(), String> {
+    let mut last_error = None;
+    for attempt in 1..=2 {
+        match ensure_main_tray(app).await {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                log::warn!(target: "snow-shot-recovery", "[native_action] {context} (host check {attempt}/2): {error}");
+                if !is_host_tray_roundtrip_failure(&error) {
+                    return Err(error);
+                }
+                last_error = Some(error);
+            }
+        }
+    }
+
+    trigger_terminal_process_recovery(app, context);
+    Err(last_error.unwrap_or_else(|| "main-thread tray mutation failed".to_owned()))
+}
+
+fn is_host_tray_roundtrip_failure(error: &str) -> bool {
+    error.starts_with("failed to schedule tray mutation:")
+        || error.starts_with("main-thread tray mutation timed out")
+        || error == "main-thread tray mutation was cancelled"
+}
+
+fn trigger_terminal_process_recovery(app: &AppHandle, reason: &'static str) {
+    let state = app.state::<NativeActionState>();
+    if !state.shutdown_requested() && state.begin_terminal_process_recovery() {
+        crate::process_recovery::restart_after_terminal_failure(reason);
     }
 }
 
@@ -1275,11 +1391,7 @@ async fn settle_pending_system_recovery(app: &AppHandle) -> Result<bool, String>
         };
 
         destroy_draw_runtime_windows(app, pending_draw_labels).await;
-        ensure_main_tray_best_effort(
-            app,
-            "failed to restore fallback tray during session recovery",
-        )
-        .await;
+        ensure_main_tray_for_recovery(app, "session-recovery-tray-main-thread-timeout").await?;
         recover_main_runtime(app, false, None, RuntimeRequirement::Main).await?;
         settled = true;
     }
@@ -1288,6 +1400,9 @@ async fn settle_pending_system_recovery(app: &AppHandle) -> Result<bool, String>
 async fn dispatch_action(app: &AppHandle, action: &str, source: &str) -> Result<(), String> {
     let state = app.state::<NativeActionState>();
     let _dispatch_guard = state.action_dispatch_lock.lock().await;
+    if state.terminal_process_recovery_started() || state.shutdown_requested() {
+        return Err("terminal process recovery is already in progress".to_owned());
+    }
     settle_pending_system_recovery(app).await?;
 
     match action {
@@ -1318,6 +1433,13 @@ async fn dispatch_action(app: &AppHandle, action: &str, source: &str) -> Result<
         Ok(false) => {
             app.state::<NativeActionState>()
                 .invalidate_main_action_channel(&delivery_runtime_id);
+            // A stale ready/claim handshake can otherwise leave a process
+            // looking alive when the host queue is the part that stopped
+            // dispatching.  Probe the host after the bounded ACK wait; a
+            // healthy host simply leaves the runtime invalidated for the next
+            // action, while a dead host enters terminal process recovery.
+            let _ = ensure_host_event_loop_for_recovery(app, "native-action-ack-host-loop-timeout")
+                .await;
             Err(format!(
                 "main WebView did not acknowledge {action}; the action was not retried"
             ))
@@ -1325,6 +1447,11 @@ async fn dispatch_action(app: &AppHandle, action: &str, source: &str) -> Result<
         Err(error) => {
             app.state::<NativeActionState>()
                 .invalidate_main_action_channel(&delivery_runtime_id);
+            let _ = ensure_host_event_loop_for_recovery(
+                app,
+                "native-action-delivery-host-loop-timeout",
+            )
+            .await;
             Err(format!(
                 "failed to deliver {action}; the action was not retried: {error}"
             ))
@@ -1365,6 +1492,7 @@ async fn ensure_action_runtime_claim(
 }
 
 async fn show_main_window(app: &AppHandle, toggle: bool) -> Result<(), String> {
+    ensure_host_event_loop_for_recovery(app, "show-main-window-host-loop-timeout").await?;
     let requirement = RuntimeRequirement::Main;
     let window = ensure_main_window_exists(app, requirement).await?;
     if toggle {
@@ -1452,6 +1580,40 @@ fn wake_main_window(window: &WebviewWindow) -> Result<(), String> {
         .map_err(|error| format!("failed to focus main window: {error}"))
 }
 
+async fn ensure_host_event_loop_for_recovery(
+    app: &AppHandle,
+    reason: &'static str,
+) -> Result<(), String> {
+    let mut last_error = None;
+    for attempt in 1..=2 {
+        let (sender, receiver) = oneshot::channel();
+        if let Err(error) = app.run_on_main_thread(move || {
+            let _ = sender.send(());
+        }) {
+            last_error = Some(format!("failed to schedule host probe: {error}"));
+        } else if tokio::time::timeout(TRAY_MUTATION_TIMEOUT, receiver)
+            .await
+            .is_ok()
+        {
+            return Ok(());
+        } else {
+            last_error = Some(format!(
+                "host event-loop probe timed out after {} ms",
+                TRAY_MUTATION_TIMEOUT.as_millis()
+            ));
+        }
+
+        log::warn!(
+            target: "snow-shot-recovery",
+            "[native_action] {reason} (host probe {attempt}/2): {}",
+            last_error.as_deref().unwrap_or("host probe failed")
+        );
+    }
+
+    trigger_terminal_process_recovery(app, reason);
+    Err(last_error.unwrap_or_else(|| "host event-loop probe failed".to_owned()))
+}
+
 async fn recover_main_runtime(
     app: &AppHandle,
     show_main: bool,
@@ -1481,11 +1643,7 @@ async fn recover_main_runtime(
 
     destroy_draw_runtime_windows(app, Vec::new()).await;
     state.clear_main_runtime();
-    ensure_main_tray_best_effort(
-        app,
-        "failed to preserve fallback tray during runtime reload",
-    )
-    .await;
+    ensure_main_tray_for_recovery(app, "runtime-recovery-tray-main-thread-timeout").await?;
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         stop_window_input_services(app, MAIN_WINDOW_LABEL).await;
         if show_main {
@@ -1569,7 +1727,7 @@ async fn rebuild_main_window(
     let rebuild_flag = MainRebuildFlagGuard::new(&state);
     destroy_draw_runtime_windows(app, Vec::new()).await;
     state.clear_main_runtime();
-    ensure_main_tray_best_effort(app, "failed to preserve fallback tray during main rebuild").await;
+    ensure_main_tray_for_recovery(app, "main-rebuild-tray-main-thread-timeout").await?;
 
     let config = app
         .config()
@@ -1585,6 +1743,9 @@ async fn rebuild_main_window(
         let destroyed = state.register_window_destroyed_waiter(MAIN_WINDOW_LABEL);
         if let Err(error) = window.destroy() {
             state.remove_window_destroyed_waiter(MAIN_WINDOW_LABEL);
+            if app.get_webview_window(MAIN_WINDOW_LABEL).is_some() {
+                trigger_terminal_process_recovery(app, "main-window-destroy-failed");
+            }
             return Err(format!("failed to destroy unhealthy main window: {error}"));
         }
         let destroyed_event = matches!(
@@ -1593,6 +1754,7 @@ async fn rebuild_main_window(
         );
         state.remove_window_destroyed_waiter(MAIN_WINDOW_LABEL);
         if !destroyed_event && app.get_webview_window(MAIN_WINDOW_LABEL).is_some() {
+            trigger_terminal_process_recovery(app, "main-window-destroy-timeout");
             return Err("unhealthy main window did not close in time".to_owned());
         }
     }
@@ -2174,6 +2336,33 @@ mod tests {
         assert!(state.main_rebuild_active());
         guard.finish();
         assert!(!state.main_rebuild_active());
+    }
+
+    #[test]
+    fn terminal_process_recovery_is_a_one_way_circuit_breaker() {
+        let state = NativeActionState::default();
+        assert!(state.begin_terminal_process_recovery());
+        assert!(!state.begin_terminal_process_recovery());
+        assert!(state.terminal_process_recovery_started());
+    }
+
+    #[test]
+    fn tray_recovery_only_escalates_host_roundtrip_failures() {
+        assert!(is_host_tray_roundtrip_failure(
+            "main-thread tray mutation timed out after 2000 ms"
+        ));
+        assert!(is_host_tray_roundtrip_failure(
+            "failed to schedule tray mutation: event loop closed"
+        ));
+        assert!(is_host_tray_roundtrip_failure(
+            "main-thread tray mutation was cancelled"
+        ));
+        assert!(!is_host_tray_roundtrip_failure(
+            "failed to build fallback tray menu: invalid item"
+        ));
+        assert!(!is_host_tray_roundtrip_failure(
+            "default window icon is unavailable for the tray"
+        ));
     }
 
     #[test]

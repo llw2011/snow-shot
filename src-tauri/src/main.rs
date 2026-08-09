@@ -14,6 +14,7 @@ async fn main() {
     #[cfg(feature = "dhat-heap")]
     PROFILER.lock().await.replace(dhat::Profiler::new_heap());
 
+    snow_shot_lib::process_recovery::wait_for_recovery_parent();
     snow_shot_lib::run();
 }
 
@@ -33,6 +34,11 @@ fn main() {
         log::error!("Panic: {info}\n{backtrace}");
         default_panic(info);
     }));
+
+    // A terminal WebView/Tao failure is recovered by a child process carrying
+    // the old PID.  Wait before initializing Tauri so the Windows
+    // single-instance plugin cannot synchronously message the unhealthy parent.
+    snow_shot_lib::process_recovery::wait_for_recovery_parent();
 
     // 检测命令行参数是否包含 --auto_start
     // 如果是自动启动可能会失败，尝试延迟一段时间再启动

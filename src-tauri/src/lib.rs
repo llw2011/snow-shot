@@ -5,6 +5,7 @@ pub mod hot_load_page;
 pub mod listen_key;
 pub mod native_action;
 pub mod plugin;
+pub mod process_recovery;
 pub mod screenshot;
 pub mod scroll_screenshot;
 pub mod video_record;
@@ -14,7 +15,7 @@ mod windows_session;
 
 use snow_shot_app_services::listen_mouse_service;
 use snow_shot_tauri_commands_core::{FullScreenDrawWindowLabels, VideoRecordWindowLabels};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tauri::Emitter;
 use tokio::sync::Mutex;
 
@@ -65,6 +66,27 @@ pub static PROFILER: std::sync::LazyLock<Mutex<Option<dhat::Profiler>>> =
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Tauri normally forwards tray events through the Tao user-event proxy.
+    // On Windows a WebView2 nested loop can keep pumping HWND messages while
+    // starving that proxy, leaving a tray icon that opens but never acts.  Own
+    // the raw tray callback before Tauri installs its proxy and route the small
+    // native action entrypoint directly to the async dispatcher instead.  The
+    // tray-icon callback is a process-wide OnceCell, so this deliberately
+    // bypasses only Tauri's tray-icon listener; Muda's separate menu handler
+    // remains owned by Tauri for per-item JavaScript channels.
+    let direct_tray_app = Arc::new(OnceLock::<tauri::AppHandle>::new());
+    #[cfg(target_os = "windows")]
+    {
+        let direct_tray_app = direct_tray_app.clone();
+        tray_icon::TrayIconEvent::set_event_handler(Some(
+            move |event: tray_icon::TrayIconEvent| {
+                if let Some(app) = direct_tray_app.get() {
+                    native_action::handle_tray_icon_event(app, event.into());
+                }
+            },
+        ));
+    }
+
     let ocr_instance = Mutex::new(OcrService::new());
     let video_record_service = Mutex::new(video_record_service::VideoRecordService::new());
     let hot_load_page_service = Arc::new(hot_load_page_service::HotLoadPageService::new());
@@ -190,29 +212,33 @@ pub fn run() {
                 })
                 .build(),
         )
-        .setup(|app| {
-            let main_window = app
-                .get_webview_window("main")
-                .expect("[lib::setup] no main window");
+        .setup({
+            let direct_tray_app = direct_tray_app.clone();
+            move |app| {
+                let _ = direct_tray_app.set(app.handle().clone());
+                let main_window = app
+                    .get_webview_window("main")
+                    .expect("[lib::setup] no main window");
 
-            #[cfg(target_os = "macos")]
-            {
-                // macOS 下不在 dock 显示
-                app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
+                #[cfg(target_os = "macos")]
+                {
+                    // macOS 下不在 dock 显示
+                    app.set_activation_policy(tauri::ActivationPolicy::Prohibited);
+                }
+
+                configure_main_window(&main_window);
+                if let Err(error) = native_action::ensure_main_tray_during_setup(app.handle()) {
+                    log::error!(target: "snow-shot-recovery", "[lib::setup] failed to create native fallback tray: {error}");
+                }
+
+                // 如果是调试模式，则显示窗口
+                #[cfg(debug_assertions)]
+                {
+                    main_window.show().unwrap();
+                }
+
+                Ok(())
             }
-
-            configure_main_window(&main_window);
-            if let Err(error) = native_action::ensure_main_tray_during_setup(app.handle()) {
-                log::error!(target: "snow-shot-recovery", "[lib::setup] failed to create native fallback tray: {error}");
-            }
-
-            // 如果是调试模式，则显示窗口
-            #[cfg(debug_assertions)]
-            {
-                main_window.show().unwrap();
-            }
-
-            Ok(())
         })
         .manage(ui_elements)
         .manage(ocr_instance)
@@ -395,14 +421,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
     app.run(|app, event| {
-        if let tauri::RunEvent::ExitRequested { code, api, .. } = event
-            && code.is_none()
-            && app
-                .state::<native_action::NativeActionState>()
-                .main_rebuild_active()
-        {
-            log::warn!(target: "snow-shot-recovery", "[native_action] prevented exit while rebuilding the main window");
-            api.prevent_exit();
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = event {
+            let state = app.state::<native_action::NativeActionState>();
+            if code.is_none() && state.main_rebuild_active() {
+                log::warn!(target: "snow-shot-recovery", "[native_action] prevented exit while rebuilding the main window");
+                api.prevent_exit();
+            } else {
+                state.request_shutdown();
+            }
         }
     });
 }
