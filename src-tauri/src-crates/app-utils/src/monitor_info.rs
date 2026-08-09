@@ -910,7 +910,8 @@ mod tests {
     use super::*;
 
     fn test_output_path(file_name: &str) -> std::path::PathBuf {
-        let output_dir = std::path::PathBuf::from(env::current_dir().unwrap()).join("../../test_output");
+        let output_dir =
+            std::path::PathBuf::from(env::current_dir().unwrap()).join("../../test_output");
         std::fs::create_dir_all(&output_dir).unwrap();
         output_dir.join(file_name)
     }

@@ -737,7 +737,9 @@ pub async fn create_draw_window(
     if let Err(error) = window.hide() {
         ready_state.cancel(&window_label);
         let _ = window.destroy();
-        return Err(format!("failed to hide draw window {window_label}: {error}"));
+        return Err(format!(
+            "failed to hide draw window {window_label}: {error}"
+        ));
     }
 
     if !matches!(
@@ -759,8 +761,7 @@ pub fn draw_window_ready(
     window: tauri::WebviewWindow,
     ready_state: tauri::State<'_, DrawWindowReadyState>,
 ) -> bool {
-    window.label().starts_with(DRAW_WINDOW_LABEL_PREFIX)
-        && ready_state.acknowledge(window.label())
+    window.label().starts_with(DRAW_WINDOW_LABEL_PREFIX) && ready_state.acknowledge(window.label())
 }
 
 #[command]

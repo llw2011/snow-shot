@@ -143,5 +143,4 @@ impl PluginService {
         }
         Ok(plugins_status)
     }
-
 }

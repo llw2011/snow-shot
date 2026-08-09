@@ -737,12 +737,14 @@ impl Plugin {
             })?;
         }
 
-        tokio::fs::write(&temp_file_path, &bytes).await.map_err(|e| {
-            format!(
-                "[Plugin::download_file_source] Failed to write downloaded file: {}",
-                e
-            )
-        })?;
+        tokio::fs::write(&temp_file_path, &bytes)
+            .await
+            .map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to write downloaded file: {}",
+                    e
+                )
+            })?;
 
         if let Some(expected_sha256) = &source.sha256 {
             Self::verify_path_sha256(&temp_file_path, expected_sha256).await?;

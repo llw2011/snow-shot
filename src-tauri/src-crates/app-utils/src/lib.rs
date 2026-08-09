@@ -777,9 +777,12 @@ pub async fn write_bitmap_image_to_clipboard(
         unsafe {
             rgba_image.set_len(image_total_bytes);
         }
-        decoder
-            .read_image(&mut rgba_image)
-            .map_err(|e| format!("[write_bitmap_image_to_clipboard] Failed to read PNG: {}", e))?;
+        decoder.read_image(&mut rgba_image).map_err(|e| {
+            format!(
+                "[write_bitmap_image_to_clipboard] Failed to read PNG: {}",
+                e
+            )
+        })?;
 
         write_bitmap_image_to_clipboard_core(rgba_image.as_ref(), image_width, image_height)
             .await?;
@@ -847,12 +850,8 @@ pub async fn write_bitmap_image_to_clipboard_with_shared_buffer(
         "write_bitmap_image_to_clipboard_with_shared_buffer",
     )?;
 
-    write_bitmap_image_to_clipboard_core(
-        pixel_data,
-        image_width as usize,
-        image_height as usize,
-    )
-    .await?;
+    write_bitmap_image_to_clipboard_core(pixel_data, image_width as usize, image_height as usize)
+        .await?;
 
     Ok(())
 }
