@@ -1,0 +1,292 @@
+name: Recover macOS ARM Release
+
+on:
+    workflow_dispatch:
+
+concurrency:
+    # Keep this recovery path independent of the wedged primary release run.
+    group: release-recovery-v0.7.11-beta-arm
+    cancel-in-progress: false
+
+env:
+    RELEASE_TAG: v0.7.11-beta
+    RELEASE_ID: "368030439"
+    SOURCE_SHA: df52145efb62dc3cb6422f7ae2799bc73edb97f2
+
+jobs:
+    build-arm:
+        name: Build and upload macOS ARM OTA
+        runs-on: macos-15
+        timeout-minutes: 90
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout release tag
+              uses: actions/checkout@v4
+              with:
+                  ref: df52145efb62dc3cb6422f7ae2799bc73edb97f2
+                  fetch-depth: 0
+
+            - name: Validate recovery target
+              env:
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  if [ "$GITHUB_REPOSITORY" != "llw2011/snow-shot" ] || [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+                    echo "Recovery is only allowed from the default branch of llw2011/snow-shot" >&2
+                    exit 1
+                  fi
+
+                  git fetch --force --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+                  TAG_SHA="$(git rev-list -n 1 "$RELEASE_TAG")"
+                  CURRENT_SHA="$(git rev-parse HEAD)"
+                  if [ "$TAG_SHA" != "$SOURCE_SHA" ] || [ "$CURRENT_SHA" != "$SOURCE_SHA" ]; then
+                    echo "Release tag, checkout and expected SHA do not match" >&2
+                    exit 1
+                  fi
+
+                  git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+                  if ! git merge-base --is-ancestor "$SOURCE_SHA" "refs/remotes/origin/$DEFAULT_BRANCH"; then
+                    echo "$SOURCE_SHA is not reachable from the default branch" >&2
+                    exit 1
+                  fi
+
+                  VERSION="${RELEASE_TAG#v}"
+                  CONFIG_VERSION="$(jq -r '.version' src-tauri/tauri.conf.json)"
+                  CARGO_VERSION="$(awk '
+                    /^\[package\]/{in_package=1; next}
+                    /^\[/{in_package=0}
+                    in_package && /^version[[:space:]]*=/ {
+                      sub(/^[^=]*=/, "", $0)
+                      gsub(/[[:space:]]/, "", $0)
+                      gsub(/"/, "", $0)
+                      print; exit
+                    }
+                  ' src-tauri/Cargo.toml)"
+                  LOCK_VERSION="$(awk '
+                    /^\[\[package\]\]/{in_package=0}
+                    /^name = "snow-shot"$/{in_package=1; next}
+                    in_package && /^version[[:space:]]*=/ {
+                      sub(/^[^=]*=/, "", $0)
+                      gsub(/[[:space:]]/, "", $0)
+                      gsub(/"/, "", $0)
+                      print; exit
+                    }
+                  ' src-tauri/Cargo.lock)"
+                  if [ "$VERSION" != "$CONFIG_VERSION" ] || [ "$VERSION" != "$CARGO_VERSION" ] || [ "$VERSION" != "$LOCK_VERSION" ]; then
+                    echo "Release version does not match the checked-out source" >&2
+                    exit 1
+                  fi
+
+                  gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+                    jq -e --arg tag "$RELEASE_TAG" --argjson id "$RELEASE_ID" '
+                      [.[] | select(.tag_name == $tag and .draft == true)]
+                      | length == 1 and .[0].id == $id
+                    ' >/dev/null
+
+            - name: Verify updater signing secrets
+              env:
+                  SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              run: |
+                  if [ -z "$SIGNING_KEY" ] || [ -z "$SIGNING_PASSWORD" ]; then
+                    echo "Updater signing secrets are required" >&2
+                    exit 1
+                  fi
+              shell: bash
+
+            - name: Setup node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v3
+              with:
+                  version: 10.8.1
+
+            - name: Install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Install Rust target
+              run: rustup target add aarch64-apple-darwin
+
+            - name: Rust cache
+              uses: swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+
+            - name: Setup pnpm cache
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install yarn
+              run: npm install -g yarn
+
+            - name: Clone Excalidraw
+              run: |
+                  cd ..
+                  git clone https://github.com/mg-chao/excalidraw.git
+                  cd excalidraw
+                  git checkout d57ac317fc926bba6f7332e9ac24de7a84359d5f
+              shell: bash
+
+            - name: Cache yarn dependencies
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.yarn/cache
+                      ~/.cache/yarn
+                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-yarn-
+
+            - name: Install Excalidraw dependencies
+              run: |
+                  cd ../excalidraw
+                  yarn install --frozen-lockfile
+                  cd ../snow-shot
+              shell: bash
+
+            - name: Configure online build
+              run: echo "PUBLIC_ONLINE_STATUS=true" > .env
+              shell: bash
+
+            - name: Install app dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build Excalidraw
+              run: pnpm update:excalidraw
+
+            - name: Download and setup onnxruntime
+              run: |
+                  curl --fail --location --retry 5 --output onnxruntime.tgz \
+                    "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-osx-universal2-static_lib-1.22.2.tgz"
+                  echo "aaa1a7dc5e4c2888cb5048a79af250c70f6d01d06dd6f7569b8b08a2bea01b98  onnxruntime.tgz" | shasum -a 256 -c -
+                  mkdir -p onnxruntime-temp
+                  tar -xzf onnxruntime.tgz -C onnxruntime-temp
+                  lib_path="$(find onnxruntime-temp -type d -name lib | head -n 1)"
+                  if [ -z "$lib_path" ]; then
+                    echo "onnxruntime lib directory not found" >&2
+                    exit 1
+                  fi
+                  cp -R "$lib_path" src-tauri/lib
+                  rm -f onnxruntime.tgz
+                  rm -rf onnxruntime-temp
+              shell: bash
+
+            - name: Configure macOS build environment
+              run: |
+                  echo "PKG_CONFIG_ALL_STATIC=1" >> "$GITHUB_ENV"
+                  echo "MACOSX_DEPLOYMENT_TARGET=12.3" >> "$GITHUB_ENV"
+                  brew install xz
+                  echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
+              shell: bash
+
+            - name: Build and upload ARM release assets
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+              env:
+                  CI: true
+                  TAURI_BUNDLER_DMG_IGNORE_CI: false
+                  PLATFORM: macos-15
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              with:
+                  releaseId: "368030439"
+                  tagName: v0.7.11-beta
+                  releaseName: Snow Shot v0.7.11-beta
+                  assetNamePattern: Snow Shot_[version]_[platform]-[arch][_setup][ext]
+                  includeUpdaterJson: true
+                  releaseBody: ""
+                  releaseDraft: true
+                  prerelease: false
+                  retryAttempts: 2
+                  args: --verbose --ci --target aarch64-apple-darwin --config src-tauri/tauri.release.conf.json -- --locked
+
+            - name: Verify dependency lockfile was not rewritten
+              run: git diff --exit-code -- src-tauri/Cargo.lock
+
+    publish:
+        name: Validate and publish OTA release
+        needs: build-arm
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: write
+        steps:
+            - name: Validate updater manifest and publish release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  EXPECTED_VERSION="${RELEASE_TAG#v}"
+
+                  release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+                  jq -e --arg tag "$RELEASE_TAG" --argjson id "$RELEASE_ID" '
+                    .id == $id and .tag_name == $tag and .draft == true
+                  ' <<<"$release_json" >/dev/null
+
+                  TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+                  if [ "$TAG_SHA" != "$SOURCE_SHA" ]; then
+                    echo "Release tag no longer points to the audited source SHA" >&2
+                    exit 1
+                  fi
+
+                  assets_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100")"
+                  jq -e --arg version "$EXPECTED_VERSION" '
+                    def has_asset($name):
+                      any(.[]; .name == $name and .state == "uploaded" and .size > 0);
+                    has_asset("Snow.Shot_" + $version + "_darwin-aarch64.dmg")
+                    and has_asset("Snow.Shot_" + $version + "_darwin-aarch64.app.tar.gz")
+                    and has_asset("Snow.Shot_" + $version + "_darwin-aarch64.app.tar.gz.sig")
+                  ' <<<"$assets_json" >/dev/null
+                  manifest_asset_url="$(
+                    jq -er '[.[] | select(.name == "latest.json")] | if length == 1 then .[0].url else error("expected exactly one latest.json") end' \
+                      <<<"$assets_json"
+                  )"
+
+                  manifest_file="$(mktemp)"
+                  published_file="$(mktemp)"
+                  trap 'rm -f "$manifest_file" "$published_file"' EXIT
+                  gh api "$manifest_asset_url" -H 'Accept: application/octet-stream' > "$manifest_file"
+
+                  jq -e --arg expected "$EXPECTED_VERSION" --arg tag "$RELEASE_TAG" '
+                    . as $manifest
+                    | ($manifest.version == $expected)
+                    and ($manifest.platforms | type == "object")
+                    and (["windows-x86_64", "darwin-aarch64", "darwin-x86_64"]
+                      | all(.[]; . as $platform |
+                          ($manifest.platforms[$platform] | type == "object")
+                          and ($manifest.platforms[$platform].signature | type == "string" and length > 0)
+                          and ($manifest.platforms[$platform].url | type == "string"
+                            and startswith("https://github.com/llw2011/snow-shot/releases/download/" + $tag + "/"))
+                        ))
+                  ' "$manifest_file" >/dev/null
+
+                  existing_body="$(jq -r '.body // ""' <<<"$release_json")"
+                  release_body="$(printf '%s\n\n%s\n%s\n' \
+                    "$existing_body" \
+                    '## Windows users' \
+                    'If rendering performance regresses after a Windows update, use the bundled WebView2 build.')"
+
+                  jq -n --arg tag "$RELEASE_TAG" --arg body "$release_body" '
+                    {
+                      tag_name: $tag,
+                      name: ("Snow Shot " + $tag),
+                      body: $body,
+                      draft: false,
+                      prerelease: false,
+                      make_latest: "true"
+                    }
+                  ' | gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --input - > "$published_file"
+
+                  jq -e --arg tag "$RELEASE_TAG" '
+                    .tag_name == $tag and .draft == false and .prerelease == false
+                  ' "$published_file" >/dev/null
+                  echo "Published $RELEASE_TAG after validating all OTA platforms. The latest-release endpoint is checked separately after CDN propagation."
+              shell: bash

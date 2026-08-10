@@ -3,7 +3,11 @@
 name: Release CI
 
 concurrency:
-    group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    # Manual reruns must not inherit a stale concurrency lock from the previous
+    # attempt. GitHub can otherwise leave the run queued without creating jobs.
+    # Independent dispatches for the same tag still share attempt 1 and remain
+    # serialized; only an explicit rerun gets a fresh group.
+    group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}-${{ github.run_attempt }}
     cancel-in-progress: false
 
 # 指定此工作流的触发器
@@ -184,7 +188,7 @@ jobs:
             matrix:
                 include:
                     # macOS Apple Silicon (M1/M2/M3)
-                    - platform: "macos-latest"
+                    - platform: "macos-15"
                       target: "aarch64-apple-darwin"
                       ota: true
                       config: "src-tauri/tauri.release.conf.json"
@@ -468,6 +472,7 @@ jobs:
                   releaseBody: ""
                   releaseDraft: true
                   prerelease: false
+                  retryAttempts: 2
                   args: --ci --target ${{ matrix.target }} --config ${{ matrix.config }} -- --locked
 
             - name: Verify dependency lockfiles were not rewritten
