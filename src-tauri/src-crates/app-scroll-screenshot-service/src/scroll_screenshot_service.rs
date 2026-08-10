@@ -298,6 +298,72 @@ pub struct ScrollImage {
     pub overlay_size: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RejectedFrameDecision {
+    ProcessNew,
+    RetryOnce,
+    SkipDuplicate,
+}
+
+struct RejectedFrameCandidate {
+    image: DynamicImage,
+    scroll_image_list: ScrollImageList,
+    retry_attempted: bool,
+}
+
+#[derive(Default)]
+struct RejectedFrameRetry {
+    candidate: Option<RejectedFrameCandidate>,
+}
+
+impl RejectedFrameRetry {
+    fn begin(
+        &mut self,
+        image: &DynamicImage,
+        scroll_image_list: ScrollImageList,
+    ) -> RejectedFrameDecision {
+        let Some(candidate) = self.candidate.as_mut() else {
+            return RejectedFrameDecision::ProcessNew;
+        };
+
+        let exact_duplicate = candidate.scroll_image_list == scroll_image_list
+            && candidate.image.dimensions() == image.dimensions()
+            && candidate.image.color() == image.color()
+            && candidate.image.as_bytes() == image.as_bytes();
+
+        if !exact_duplicate {
+            self.candidate = None;
+            return RejectedFrameDecision::ProcessNew;
+        }
+
+        if candidate.retry_attempted {
+            RejectedFrameDecision::SkipDuplicate
+        } else {
+            candidate.retry_attempted = true;
+            RejectedFrameDecision::RetryOnce
+        }
+    }
+
+    fn record_rejection(
+        &mut self,
+        image: DynamicImage,
+        scroll_image_list: ScrollImageList,
+        decision: RejectedFrameDecision,
+    ) {
+        if decision == RejectedFrameDecision::ProcessNew {
+            self.candidate = Some(RejectedFrameCandidate {
+                image,
+                scroll_image_list,
+                retry_attempted: false,
+            });
+        }
+    }
+
+    fn clear(&mut self) {
+        self.candidate = None;
+    }
+}
+
 pub struct ScrollScreenshotService {
     /// 滚动截图列表（上或左）
     pub top_image_list: Vec<ScrollImage>,
@@ -347,6 +413,9 @@ pub struct ScrollScreenshotService {
     pub min_sample_size: u32,
     /// 最大采样尺寸
     pub max_sample_size: u32,
+    /// A rejected candidate may be re-estimated only when the next raw frame
+    /// is an exact duplicate. Further duplicates are treated as no movement.
+    rejected_frame_retry: RejectedFrameRetry,
 }
 
 impl ScrollScreenshotService {
@@ -540,6 +609,7 @@ impl ScrollScreenshotService {
             sample_rate: 0.0,
             min_sample_size: 0,
             max_sample_size: 0,
+            rejected_frame_retry: RejectedFrameRetry::default(),
         }
     }
 
@@ -548,6 +618,7 @@ impl ScrollScreenshotService {
         self.bottom_image_list.clear();
         self.top_image_ann_index = ScrollIndex::new(0);
         self.bottom_image_ann_index = ScrollIndex::new(0);
+        self.rejected_frame_retry.clear();
     }
 
     pub fn init(
@@ -580,6 +651,7 @@ impl ScrollScreenshotService {
         self.sample_rate = sample_rate;
         self.min_sample_size = min_sample_size;
         self.max_sample_size = max_sample_size;
+        self.rejected_frame_retry.clear();
     }
 
     pub fn init_image_size(
@@ -1206,7 +1278,7 @@ impl ScrollScreenshotService {
         )
     }
 
-    pub fn try_handle_image(
+    fn try_handle_image_once(
         &mut self,
         image: DynamicImage,
         scroll_image_list: ScrollImageList,
@@ -1369,6 +1441,48 @@ impl ScrollScreenshotService {
             false,
             result_scroll_image_list,
         ))
+    }
+
+    pub fn try_handle_image(
+        &mut self,
+        image: DynamicImage,
+        scroll_image_list: ScrollImageList,
+    ) -> Result<
+        (
+            Option<(i32, Option<ScrollImageList>)>,
+            bool,
+            ScrollImageList,
+        ),
+        ScrollScreenshotError,
+    > {
+        let decision = self.rejected_frame_retry.begin(&image, scroll_image_list);
+
+        if decision == RejectedFrameDecision::SkipDuplicate {
+            return Ok((None, true, scroll_image_list));
+        }
+
+        // Keep one copy only for a newly rejected frame. Accepted frames and
+        // explicit errors release it immediately; a repeated retry reuses the
+        // candidate retained by the state machine.
+        let rejected_image = (decision == RejectedFrameDecision::ProcessNew).then(|| image.clone());
+        let result = self.try_handle_image_once(image, scroll_image_list);
+
+        match result.as_ref() {
+            Ok((Some(_), _, _)) | Ok((None, true, _)) | Err(_) => {
+                self.rejected_frame_retry.clear();
+            }
+            Ok((None, false, _)) => {
+                if let Some(rejected_image) = rejected_image {
+                    self.rejected_frame_retry.record_rejection(
+                        rejected_image,
+                        scroll_image_list,
+                        decision,
+                    );
+                }
+            }
+        }
+
+        result
     }
 
     /// Compatibility wrapper for callers that only understand the historical
@@ -1553,6 +1667,64 @@ mod tests {
             overlay_size: 0,
         });
         service
+    }
+
+    #[test]
+    fn rejected_duplicate_is_retried_once_then_skipped() {
+        let mut service = ScrollScreenshotService::new();
+        service.init(ScrollDirection::Vertical, 1.0, 1, 64, 64, 9, 64, false);
+        let frame = rgba_image(8, 8, 7);
+
+        let first = service
+            .try_handle_image(frame.clone(), ScrollImageList::Bottom)
+            .unwrap();
+        let retry = service
+            .try_handle_image(frame.clone(), ScrollImageList::Bottom)
+            .unwrap();
+        let duplicate = service
+            .try_handle_image(frame, ScrollImageList::Bottom)
+            .unwrap();
+
+        assert_eq!(first, (None, false, ScrollImageList::Bottom));
+        assert_eq!(retry, (None, false, ScrollImageList::Bottom));
+        assert_eq!(duplicate, (None, true, ScrollImageList::Bottom));
+    }
+
+    #[test]
+    fn new_frame_and_direction_each_get_their_own_retry() {
+        let first = rgba_image(2, 2, 1);
+        let second = rgba_image(2, 2, 2);
+        let mut retry = RejectedFrameRetry::default();
+
+        let first_decision = retry.begin(&first, ScrollImageList::Bottom);
+        retry.record_rejection(first.clone(), ScrollImageList::Bottom, first_decision);
+        assert_eq!(
+            retry.begin(&first, ScrollImageList::Bottom),
+            RejectedFrameDecision::RetryOnce
+        );
+
+        let second_decision = retry.begin(&second, ScrollImageList::Bottom);
+        assert_eq!(second_decision, RejectedFrameDecision::ProcessNew);
+        retry.record_rejection(second.clone(), ScrollImageList::Bottom, second_decision);
+        assert_eq!(
+            retry.begin(&second, ScrollImageList::Top),
+            RejectedFrameDecision::ProcessNew
+        );
+    }
+
+    #[test]
+    fn accepted_frame_clears_rejected_retry_state() {
+        let frame = rgba_image(2, 2, 3);
+        let mut retry = RejectedFrameRetry::default();
+        let decision = retry.begin(&frame, ScrollImageList::Bottom);
+        retry.record_rejection(frame.clone(), ScrollImageList::Bottom, decision);
+
+        retry.clear();
+
+        assert_eq!(
+            retry.begin(&frame, ScrollImageList::Bottom),
+            RejectedFrameDecision::ProcessNew
+        );
     }
 
     #[test]
