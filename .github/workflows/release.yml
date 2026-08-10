@@ -313,7 +313,7 @@ jobs:
                   # 下载 npm.zip
                   Write-Host "Downloading npm.zip..."
                   Invoke-WebRequest -Uri "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/Resources_20251107/npm.zip" -OutFile "npm.zip"
-                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "npm.zip").Hash.ToLowerInvariant() -ne "6547bd788af982a9d3c7a3cdb4fed88acebd93be81cb1bbc72c121abdf00") {
+                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "npm.zip").Hash.ToLowerInvariant() -ne "6547bd788af982a9d3c7a3cdb4fed88acebd93be81ee81cb1bbc72c121abdf00") {
                     throw "npm.zip SHA-256 does not match the pinned release asset"
                   }
 
