@@ -119,7 +119,7 @@ pub async fn scroll_screenshot_handle_image(
     scroll_screenshot_service: tauri::State<'_, Mutex<ScrollScreenshotService>>,
     scroll_screenshot_image_service: tauri::State<'_, Mutex<ScrollScreenshotImageService>>,
     thumbnail_size: u32,
-) -> Result<Response, ()> {
+) -> Result<Response, String> {
     let mut scroll_screenshot_service = scroll_screenshot_service.lock().await;
 
     // 把 scroll_screenshot_image_service.lock 后置，降低阻塞截图的概率，让截图堆积在截图队列中
@@ -136,8 +136,9 @@ pub async fn scroll_screenshot_handle_image(
         }
     };
 
-    let (handle_result, is_origin, result_scroll_image_list) =
-        scroll_screenshot_service.handle_image(scroll_image.image, scroll_image.direction);
+    let (handle_result, is_origin, result_scroll_image_list) = scroll_screenshot_service
+        .try_handle_image(scroll_image.image, scroll_image.direction)
+        .map_err(|error| format!("[scroll_screenshot_handle_image] {error}"))?;
 
     if is_origin {
         return Ok(Response::new(vec![1])); // 特殊标记，表示是未变化
@@ -223,7 +224,9 @@ pub async fn scroll_screenshot_save_to_file(
 ) -> Result<(), String> {
     let mut scroll_screenshot_service = scroll_screenshot_service.lock().await;
 
-    let image = scroll_screenshot_service.export();
+    let image = scroll_screenshot_service
+        .try_export()
+        .map_err(|error| format!("[scroll_screenshot_save_to_file] {error}"))?;
     let image = match image {
         Some(image) => image,
         None => {
@@ -247,7 +250,9 @@ where
 {
     let mut scroll_screenshot_service = scroll_screenshot_service.lock().await;
 
-    let image = scroll_screenshot_service.export();
+    let image = scroll_screenshot_service
+        .try_export()
+        .map_err(|error| format!("[scroll_screenshot_save_to_clipboard] {error}"))?;
     match image {
         Some(image) => match write_image_to_clipboard(&image) {
             Ok(_) => (),
@@ -295,7 +300,9 @@ pub async fn scroll_screenshot_get_image_data(
     let mut scroll_screenshot_service = scroll_screenshot_service.lock().await;
     let force_to_png = force_to_png.unwrap_or(false);
 
-    let image = scroll_screenshot_service.export();
+    let image = scroll_screenshot_service
+        .try_export()
+        .map_err(|error| format!("[scroll_screenshot_get_image_data] {error}"))?;
     let image_data = match image {
         Some(image) => image,
         None => {
