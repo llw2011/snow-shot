@@ -206,12 +206,12 @@ fn remove_and_close_channel(id: &str, operation: &str) -> Result<bool, String> {
 fn insert_channel(id: String, channel: SharedBufferChannel) -> Result<(), String> {
     let replaced =
         SHARED_BUFFER_CHANNELS.with(|channels| channels.borrow_mut().insert(id, channel));
-    if let Some(replaced) = replaced {
-        if let Err(error) = close_channel(replaced, "SharedBufferService::replace_channel") {
-            // Channel ids should be unique. A stale channel failing to close
-            // must not orphan the newly inserted replacement.
-            log::warn!(target: RECOVERY_LOG_TARGET, "{error}");
-        }
+    if let Some(replaced) = replaced
+        && let Err(error) = close_channel(replaced, "SharedBufferService::replace_channel")
+    {
+        // Channel ids should be unique. A stale channel failing to close
+        // must not orphan the newly inserted replacement.
+        log::warn!(target: RECOVERY_LOG_TARGET, "{error}");
     }
     Ok(())
 }
@@ -295,6 +295,7 @@ fn schedule_channel_cleanup(webview: tauri::Webview, id: String) {
 
 /// Coordinates JavaScript shared-buffer channels without moving COM objects
 /// away from the WebView UI apartment.
+#[derive(Default)]
 pub struct SharedBufferService;
 
 impl SharedBufferService {

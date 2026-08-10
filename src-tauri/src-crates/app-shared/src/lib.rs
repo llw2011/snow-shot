@@ -3,6 +3,7 @@ use enigo::Settings;
 use serde::Deserialize;
 use serde::Serialize;
 
+#[derive(Default)]
 pub struct EnigoManager {
     pub enigo: Option<Enigo>,
 }
@@ -13,19 +14,16 @@ impl EnigoManager {
     }
 
     pub fn get_enigo(&mut self) -> Result<&mut Enigo, String> {
-        if self.enigo.is_some() {
-            return Ok(self.enigo.as_mut().unwrap());
+        if self.enigo.is_none() {
+            let enigo = Enigo::new(&Settings::default())
+                .map_err(|error| format!("[EnigoManager] Could not get enigo: {error}"))?;
+            self.enigo = Some(enigo);
         }
 
-        let enigo = match Enigo::new(&Settings::default()) {
-            Ok(enigo) => enigo,
-            Err(e) => {
-                return Err(format!("[EnigoManager] Could not get enigo: {}", e));
-            }
+        let Some(enigo) = self.enigo.as_mut() else {
+            return Err("[EnigoManager] Failed to initialize enigo".to_string());
         };
-
-        self.enigo = Some(enigo);
-        Ok(self.enigo.as_mut().unwrap())
+        Ok(enigo)
     }
 }
 
