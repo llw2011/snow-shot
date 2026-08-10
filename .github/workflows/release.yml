@@ -493,7 +493,16 @@ jobs:
                   EXPECTED_VERSION: ${{ needs.create-release.outputs.app_version }}
               run: |
                   set -euo pipefail
-                  release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.id')"
+                  release_id="$(
+                    gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+                      jq -er --arg tag "$RELEASE_TAG" '
+                        [.[] | select(.tag_name == $tag and .draft == true)] as $matches
+                        | if ($matches | length) == 1
+                          then $matches[0].id
+                          else error("expected exactly one draft release for " + $tag)
+                          end
+                      '
+                  )"
                   asset_url="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" --jq '.[] | select(.name == "latest.json") | .url' | head -n 1)"
                   if [ -z "$asset_url" ]; then
                     echo "The release does not contain latest.json; refusing to publish OTA." >&2
