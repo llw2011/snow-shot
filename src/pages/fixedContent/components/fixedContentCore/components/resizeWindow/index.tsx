@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { throttle } from "es-toolkit";
 import type React from "react";
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect } from "react";
 import { startResizeWindow } from "@/commands/core";
 import { EventListenerContext } from "@/components/eventListener";
 import { ResizeWindowSide } from "@/utils/types";
@@ -13,25 +13,30 @@ export const ResizeWindow: React.FC<{
 	getMinWidth: () => number;
 	getMaxWidth: () => number;
 	onResize: (size: { width: number; height: number }) => void;
-}> = ({ getAspectRatio, getMinWidth, getMaxWidth, onResize }) => {
+	disabled?: boolean;
+}> = ({ getAspectRatio, getMinWidth, getMaxWidth, onResize, disabled }) => {
 	const onSideMouseDown = useCallback(
 		(event: React.MouseEvent<HTMLDivElement>, side: ResizeWindowSide) => {
 			event.preventDefault();
 			event.stopPropagation();
 
+			if (disabled) {
+				return;
+			}
+
 			startResizeWindow(side, getAspectRatio(), getMinWidth(), getMaxWidth());
 		},
-		[getAspectRatio, getMinWidth, getMaxWidth],
+		[disabled, getAspectRatio, getMinWidth, getMaxWidth],
 	);
 
 	const { addListener, removeListener } = useContext(EventListenerContext);
 
-	const onResizeThrottle = useMemo(
-		() => throttle(onResize, 1000 / 15),
-		[onResize],
-	);
-
 	useEffect(() => {
+		if (disabled) {
+			return;
+		}
+
+		const onResizeThrottle = throttle(onResize, 1000 / 15);
 		const windowLabel = getCurrentWindow().label;
 		const listenerId = addListener(
 			"resize-window-service:resize-window",
@@ -55,11 +60,16 @@ export const ResizeWindow: React.FC<{
 
 		return () => {
 			removeListener(listenerId);
+			onResizeThrottle.cancel();
 		};
-	}, [addListener, removeListener, onResizeThrottle]);
+	}, [addListener, disabled, onResize, removeListener]);
 
 	return (
-		<div className="resize-window-container">
+		<div
+			className={`resize-window-container ${
+				disabled ? "resize-window-container-disabled" : ""
+			}`}
+		>
 			<div
 				className="resize-window-container-top"
 				onMouseDown={(e) => onSideMouseDown(e, ResizeWindowSide.Top)}
@@ -89,6 +99,10 @@ export const ResizeWindow: React.FC<{
                 .resize-window-container > :global(div) {
                     pointer-events: auto;
                 }
+
+				.resize-window-container-disabled > :global(div) {
+					pointer-events: none;
+				}
 
                 .resize-window-container-top {
                     position: absolute;

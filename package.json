@@ -23,6 +23,7 @@
 		"dev:rsdoctor": "cross-env RSDOCTOR=true rsbuild dev",
 		"build:rsdoctor": "cross-env RSDOCTOR=true rsbuild build",
 		"build:analyze": "cross-env BUNDLE_ANALYZE=true pnpm build",
+		"test:fixed-content": "rimraf .tmp/fixed-content-regression && tsc -p tsconfig.fixed-content-regression.json && node .tmp/fixed-content-regression/src/pages/fixedContent/components/fixedContentCore/windowLayout.test.js",
 		"test:translation": "rimraf .tmp/qwen-translation-regression && tsc -p tsconfig.qwen-translation-regression.json && node .tmp/qwen-translation-regression/src/core/translations/structuredProtocol.test.js",
 		"prepare": "husky"
 	},

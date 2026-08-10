@@ -101,6 +101,11 @@ import {
 } from "./components/imageLayer";
 import { ResizeWindow } from "./components/resizeWindow";
 import { getHtmlContent, getStyleProps, needSwapWidthAndHeight } from "./extra";
+import {
+	canInteractivelyResizeFixedContent,
+	getDrawWindowTargetSize,
+	getInitialImageScale,
+} from "./windowLayout";
 
 export type FixedContentInitDrawParams = {
 	captureBoundingBoxInfo: CaptureBoundingBoxInfo;
@@ -472,17 +477,15 @@ const FixedContentCoreInner: React.FC<{
 				const monitorInfo = await monitorInfoPromise;
 
 				// 如果自动缩放窗口，则根据显示器大小和图片大小计算初始缩放比例
-				const initialScale = getAppSettings()[
-					AppSettingsGroup.FunctionFixedContent
-				].autoResizeWindow
-					? Math.min(
-							1,
-							Math.min(
-								monitorInfo.monitor_width / baseImageSize.width,
-								monitorInfo.monitor_height / baseImageSize.height,
-							),
-						)
-					: 1;
+				const initialScale = getInitialImageScale(
+					baseImageSize,
+					{
+						width: monitorInfo.monitor_width,
+						height: monitorInfo.monitor_height,
+					},
+					getAppSettings()[AppSettingsGroup.FunctionFixedContent]
+						.autoResizeWindow,
+				);
 
 				onImageLoad?.(
 					{
@@ -2417,37 +2420,15 @@ const FixedContentCoreInner: React.FC<{
 		}
 
 		const currentWindowSize = getWindowPhysicalSize(scale.x);
-		const targetWindowSize = {
-			...currentWindowSize,
-		};
-
 		const toolbarSize = drawActionRef.current.getToolbarSize();
-		toolbarSize.width = Math.ceil(toolbarSize.width * window.devicePixelRatio);
-		toolbarSize.height = Math.ceil(
-			toolbarSize.height * window.devicePixelRatio,
-		);
-
 		const drawMenuSize = drawActionRef.current.getDrawMenuSize();
-		drawMenuSize.width = Math.ceil(
-			drawMenuSize.width * window.devicePixelRatio,
-		);
-		drawMenuSize.height = Math.ceil(
-			drawMenuSize.height * window.devicePixelRatio,
-		);
-
-		const minHeight = Math.max(
-			currentWindowSize.height + toolbarSize.height,
-			drawMenuSize.height,
-		);
-		const minWidth = Math.max(
-			drawMenuSize.width + currentWindowSize.width,
-			toolbarSize.width,
-		);
-
-		if (enableDraw) {
-			targetWindowSize.height = minHeight;
-			targetWindowSize.width = minWidth;
-		}
+		const targetWindowSize = getDrawWindowTargetSize({
+			contentSize: currentWindowSize,
+			toolbarSize,
+			drawMenuSize,
+			devicePixelRatio: window.devicePixelRatio,
+			enableDraw,
+		});
 		appWindowRef.current.setSize(
 			new PhysicalSize(targetWindowSize.width, targetWindowSize.height),
 		);
@@ -2478,6 +2459,11 @@ const FixedContentCoreInner: React.FC<{
 	const getAspectRatio = useCallback(() => {
 		return windowSizeRef.current.height / windowSizeRef.current.width;
 	}, [windowSizeRef]);
+	const interactiveResizeEnabled = canInteractivelyResizeFixedContent({
+		enableDraw,
+		enableSelectText,
+		isThumbnail,
+	});
 	const getMinWidth = useCallback(() => {
 		const windowSize = getWindowPhysicalSize(SCALE_WINDOW_MIN_SCALE);
 
@@ -2782,6 +2768,7 @@ const FixedContentCoreInner: React.FC<{
 						getMinWidth={getMinWidth}
 						getMaxWidth={getMaxWidth}
 						onResize={onResize}
+						disabled={!interactiveResizeEnabled}
 					/>
 				</div>
 
@@ -2941,7 +2928,7 @@ const FixedContentCoreInner: React.FC<{
                     height: calc(${isThumbnail ? "100vh" : `${documentSize.height}px`});
                     pointer-events: none;
                     z-index: ${zIndexs.FixedToScreen_ResizeWindow};
-                    display: ${isThumbnail || enableDraw || enableSelectText ? "none" : "block"};
+                    display: ${interactiveResizeEnabled ? "block" : "none"};
                 }
 
                 .fixed-image-container-inner:active {
