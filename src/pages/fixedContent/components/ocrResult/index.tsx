@@ -15,7 +15,7 @@ import {
 import { FormattedMessage, useIntl } from "react-intl";
 import { ocrDetect, ocrDetectWithSharedBuffer } from "@/commands/ocr";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
-import { HARDENED_CUSTOM_MODEL_PREFIX } from "@/constants/appSettings";
+import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import {
 	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
@@ -49,8 +49,6 @@ import {
 	alignTranslatedBySourceProportion,
 	getOcrResultIframeSrcDoc,
 } from "./extra";
-
-const CUSTOM_MODEL_PREFIX = HARDENED_CUSTOM_MODEL_PREFIX;
 
 // 定义角度阈值常量（以度为单位）
 const ROTATION_THRESHOLD = 3; // 小于3度的旋转被视为误差，不进行旋转
@@ -146,19 +144,27 @@ export const useVisionModelList = () => {
 	const getVisionModelList = useCallback(async () => {
 		const settings = getAppSettings();
 		const glmOcrModel = settings[AppSettingsGroup.FunctionOcr].glmOcrApiConfig;
-		const visionModelList: VisionModel[] = [
-			{
-				config: {
-					...glmOcrModel,
-					api_model: `${CUSTOM_MODEL_PREFIX}${glmOcrModel.api_model}`,
-				},
-				isOfficial: false,
-			},
-		];
+		const visionModelList: VisionModel[] =
+			glmOcrModel.api_uri.trim() && glmOcrModel.api_model.trim()
+				? [
+						{
+							config: {
+								...glmOcrModel,
+								api_model: `${CUSTOM_MODEL_PREFIX}${glmOcrModel.api_model}`,
+							},
+							isOfficial: false,
+						},
+					]
+				: [];
 		const chatVisionModelList = settings[
 			AppSettingsGroup.FunctionChat
 		].chatApiConfigList
-			.filter((config) => config.support_vision)
+			.filter(
+				(config) =>
+					config.support_vision &&
+					config.api_uri.trim() &&
+					config.api_model.trim(),
+			)
 			.map((config) => {
 				return {
 					config: {

@@ -78,7 +78,8 @@ const installTauriBrowserShim = () => {
 	const storesByPath = new Map<string, number>();
 	const storeDataByRid = new Map<number, Map<string, unknown>>();
 
-	const baseConfigDir = "C:\\SnowShotDev";
+	// The browser shim uses an in-memory namespace; it never touches a host path.
+	const baseConfigDir = "snow-shot-dev";
 	const appConfigDir = `${baseConfigDir}\\config`;
 
 	const invoke = async <T = unknown>(
@@ -136,7 +137,7 @@ const installTauriBrowserShim = () => {
 			case "plugin:path|extname":
 				return `${(args as Record<string, unknown>)?.path ?? ""}` as T;
 			case "plugin:path|is_absolute":
-				return true as T;
+				return false as T;
 
 			case "plugin:store|load": {
 				const record = args as Record<string, unknown> | undefined;

@@ -2,7 +2,7 @@ import { trim } from "es-toolkit";
 import OpenAI from "openai";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { HARDENED_CUSTOM_MODEL_PREFIX } from "@/constants/appSettings";
+import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import {
 	defaultTranslationPrompt,
 	strictStructuredTranslationPrompt,
@@ -76,7 +76,6 @@ type TranslationCachePayload = {
 const TRANSLATION_CACHE_VERSION = "qwen-translation-cache-v1";
 const TRANSLATION_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
 const TRANSLATION_CACHE_KEY_PREFIX = "translation:";
-const CUSTOM_MODEL_PREFIX = HARDENED_CUSTOM_MODEL_PREFIX;
 const TRANSLATION_CACHE_PROTOCOL_VERSION =
 	"single-stream-v1;structured-json-v1;legacy-separator-v1";
 
@@ -285,7 +284,8 @@ export const useTranslationRequest = (options?: {
 		Promise<[undefined, undefined]> | undefined
 	>(undefined);
 	const reloadOnlineConfigs = useCallback(async () => {
-		// Cloud backend disabled — no online configs to load
+		// Hosted provider defaults are not injected; user-configured providers
+		// are loaded from application settings below.
 	}, []);
 
 	useEffect(() => {

@@ -34,6 +34,12 @@
 		"macOSPrivateApi": true,
 		"security": {
 			"csp": null,
+			"capabilities": [
+				"default",
+				"desktop-capability",
+				"drag-capability",
+				"file-capability"
+			],
 			"assetProtocol": {
 				"enable": true,
 				"scope": ["*", "**"]

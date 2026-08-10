@@ -1,0 +1,17 @@
+{
+	"build": {
+		"beforeDevCommand": "cross-env PUBLIC_BUILD_FLAVOR=custom pnpm dev",
+		"beforeBuildCommand": "cross-env PUBLIC_BUILD_FLAVOR=custom pnpm build"
+	},
+	"app": {
+		"security": {
+			"capabilities": [
+				"default",
+				"desktop-capability",
+				"drag-capability",
+				"file-capability",
+				"custom-network-capability"
+			]
+		}
+	}
+}

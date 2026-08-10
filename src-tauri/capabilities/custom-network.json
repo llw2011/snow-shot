@@ -1,0 +1,16 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "custom-network-capability",
+	"description": "Opt-in capability for custom builds that connect to user-managed HTTP services.",
+	"windows": ["*"],
+	"permissions": [
+		{
+			"identifier": "http:default",
+			"allow": [
+				{
+					"url": "http://*:*"
+				}
+			]
+		}
+	]
+}

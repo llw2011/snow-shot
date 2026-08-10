@@ -10,7 +10,7 @@ export const plugin = {
 	"plugin.rapid_ocr.functionDescription": "本地文本识别",
 	"plugin.glm_ocr.name": "GLM OCR",
 	"plugin.glm_ocr.description":
-		"启用基于 OpenAI 兼容接口的 GLM OCR 文本识别。默认指向本地 Ollama；实际运行位置和端口由 API 地址决定，可在功能设置中修改。",
+		"启用基于 OpenAI 兼容接口的 GLM OCR 文本识别。请在功能设置中填写服务地址、端口和模型。",
 	"plugin.glm_ocr.functionDescription": "API 文本识别",
 	"plugin.ai_chat.name": "AI 对话",
 	"plugin.ai_chat.description":

@@ -7,6 +7,7 @@ import {
 	pluginInit,
 	pluginRegisterPlugin,
 } from "@/commands/plugin";
+import { getBuildPluginFileSources } from "@/constants/buildFlavor";
 import {
 	PLUGIN_ID_AI_CHAT,
 	PLUGIN_ID_FFMPEG,
@@ -43,7 +44,7 @@ export const PluginServiceContextProvider: React.FC<{
 					"ch_PP-OCRv4_rec_infer.onnx",
 					"ch_PP-OCRv5_rec_mobile_infer.onnx",
 				],
-				file_source_list: [
+				file_source_list: getBuildPluginFileSources(PLUGIN_ID_RAPID_OCR) ?? [
 					{
 						path: "ch_ppocr_mobile_v2.0_cls_infer.onnx",
 						url: "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.0/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx",
@@ -73,6 +74,7 @@ export const PluginServiceContextProvider: React.FC<{
 			{
 				id: PLUGIN_ID_FFMPEG,
 				file_list: getPlatform() === "windows" ? ["ffmpeg.exe"] : ["ffmpeg"],
+				file_source_list: getBuildPluginFileSources(PLUGIN_ID_FFMPEG),
 			},
 			{
 				id: PLUGIN_ID_TRANSLATE,

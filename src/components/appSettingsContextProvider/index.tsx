@@ -25,16 +25,8 @@ import {
 	nativeRuntimeSettingsReady,
 } from "@/commands/nativeAction";
 import { defaultAppFunctionConfigs } from "@/constants/appFunction";
-import {
-	defaultAppSettingsData,
-	HARDENED_CUSTOM_MODEL_PREFIX,
-	HARDENED_GLM_OCR_CHAT_API_CONFIG,
-	HARDENED_GLM_OCR_CUSTOM_MODEL,
-	HARDENED_QWEN35_CHAT_API_CONFIG,
-	HARDENED_QWEN35_CUSTOM_MODEL,
-	HARDENED_QWEN35_LEGACY_API_MODELS,
-	HARDENED_QWEN35_TRANSLATION_API_CONFIG,
-} from "@/constants/appSettings";
+import { defaultAppSettingsData } from "@/constants/appSettings";
+import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import { defaultCommonKeyEventSettings } from "@/constants/commonKeyEvent";
 import { defaultDrawToolbarKeyEventSettings } from "@/constants/drawToolbarKeyEvent";
 import {
@@ -168,9 +160,6 @@ const getFilePath = async (group: AppSettingsGroup) => {
 	return `${configDirPath}/${group}.json`;
 };
 
-const isLegacyQwenFlashModel = (model: unknown) =>
-	model === "qwen-flash" || model === "snow_shot_custom_qwen-flash";
-
 const isAppSettingsTheme = (value: unknown): value is AppSettingsTheme =>
 	value === AppSettingsTheme.Light ||
 	value === AppSettingsTheme.Dark ||
@@ -183,109 +172,36 @@ type TranslationApiConfig =
 
 const normalizeCustomModelValue = (model: unknown) => {
 	const modelName = `${model ?? ""}`;
-	return modelName.startsWith(HARDENED_CUSTOM_MODEL_PREFIX)
-		? modelName.slice(HARDENED_CUSTOM_MODEL_PREFIX.length)
+	return modelName.startsWith(CUSTOM_MODEL_PREFIX)
+		? modelName.slice(CUSTOM_MODEL_PREFIX.length)
 		: modelName;
 };
 
 const getCustomTranslationType = (apiModel: unknown) =>
-	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
+	`${CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
 
 const getCustomChatModelType = (apiModel: unknown) =>
-	`${HARDENED_CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
-
-const getApiConfigType = (
-	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
-) => (config && "api_type" in config ? config.api_type : undefined);
-
-const isOpenAiCompatibleTranslationApiConfig = (
-	config: Partial<TranslationApiConfig> | undefined,
-) =>
-	config?.api_type === undefined ||
-	config.api_type === TranslationApiType.OpenAiCompatible;
-
-const isGlmOcrApiConfig = (
-	config: Partial<ChatApiConfig | TranslationApiConfig> | undefined,
-) =>
-	getApiConfigType(config) !== TranslationApiType.DeepL &&
-	(normalizeCustomModelValue(config?.api_model) ===
-		HARDENED_GLM_OCR_CHAT_API_CONFIG.api_model ||
-		`${config?.model_name ?? ""}` ===
-			HARDENED_GLM_OCR_CHAT_API_CONFIG.model_name);
-
-const isQwen35ChatApiConfig = (config: Partial<ChatApiConfig> | undefined) =>
-	[HARDENED_QWEN35_CHAT_API_CONFIG.api_model]
-		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
-		.includes(normalizeCustomModelValue(config?.api_model)) ||
-	`${config?.model_name ?? ""}` === HARDENED_QWEN35_CHAT_API_CONFIG.model_name;
-
-const isQwen35TranslationApiConfig = (
-	config: Partial<TranslationApiConfig> | undefined,
-) =>
-	isOpenAiCompatibleTranslationApiConfig(config) &&
-	([HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model]
-		.concat(HARDENED_QWEN35_LEGACY_API_MODELS)
-		.includes(normalizeCustomModelValue(config?.api_model)) ||
-		`${config?.model_name ?? ""}` ===
-			HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name);
-
-const normalizeQwen35ChatApiConfig = (config: ChatApiConfig): ChatApiConfig =>
-	isQwen35ChatApiConfig(config)
-		? {
-				...config,
-				api_uri: config.api_uri || HARDENED_QWEN35_CHAT_API_CONFIG.api_uri,
-				api_key: config.api_key || HARDENED_QWEN35_CHAT_API_CONFIG.api_key,
-				api_model: HARDENED_QWEN35_CHAT_API_CONFIG.api_model,
-				model_name:
-					config.model_name || HARDENED_QWEN35_CHAT_API_CONFIG.model_name,
-				support_thinking:
-					typeof config.support_thinking === "boolean"
-						? config.support_thinking
-						: HARDENED_QWEN35_CHAT_API_CONFIG.support_thinking,
-				support_vision:
-					typeof config.support_vision === "boolean"
-						? config.support_vision
-						: HARDENED_QWEN35_CHAT_API_CONFIG.support_vision,
-			}
-		: config;
-
-const normalizeQwen35TranslationApiConfig = (
-	config: TranslationApiConfig,
-): TranslationApiConfig =>
-	isQwen35TranslationApiConfig(config)
-		? {
-				...config,
-				api_uri:
-					config.api_uri || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_uri,
-				api_key:
-					config.api_key || HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_key,
-				api_model: HARDENED_QWEN35_TRANSLATION_API_CONFIG.api_model,
-				model_name:
-					config.model_name ||
-					HARDENED_QWEN35_TRANSLATION_API_CONFIG.model_name,
-			}
-		: config;
+	`${CUSTOM_MODEL_PREFIX}${normalizeCustomModelValue(apiModel)}`;
 
 const normalizeChatApiConfig = (
 	config: Partial<ChatApiConfig> | undefined,
 	fallback?: ChatApiConfig,
-): ChatApiConfig =>
-	normalizeQwen35ChatApiConfig({
-		api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
-		api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
-		api_model: normalizeCustomModelValue(
-			config?.api_model ?? fallback?.api_model,
-		),
-		model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
-		support_thinking:
-			typeof config?.support_thinking === "boolean"
-				? config.support_thinking
-				: (fallback?.support_thinking ?? false),
-		support_vision:
-			typeof config?.support_vision === "boolean"
-				? config.support_vision
-				: (fallback?.support_vision ?? false),
-	});
+): ChatApiConfig => ({
+	api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
+	api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
+	api_model: normalizeCustomModelValue(
+		config?.api_model ?? fallback?.api_model,
+	),
+	model_name: `${config?.model_name ?? fallback?.model_name ?? ""}`,
+	support_thinking:
+		typeof config?.support_thinking === "boolean"
+			? config.support_thinking
+			: (fallback?.support_thinking ?? false),
+	support_vision:
+		typeof config?.support_vision === "boolean"
+			? config.support_vision
+			: (fallback?.support_vision ?? false),
+});
 
 const normalizeTranslationApiConfig = (
 	config: Partial<TranslationApiConfig> | undefined,
@@ -315,14 +231,14 @@ const normalizeTranslationApiConfig = (
 		config?.api_type === TranslationApiType.OpenAiCompatible ||
 		config?.api_type === undefined
 	) {
-		return normalizeQwen35TranslationApiConfig({
+		return {
 			api_type: TranslationApiType.OpenAiCompatible,
 			api_uri: `${config?.api_uri ?? fallback?.api_uri ?? ""}`,
 			api_key: `${config?.api_key ?? fallback?.api_key ?? ""}`,
 			api_model: apiModel,
 			model_name: modelName,
 			deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
-		});
+		};
 	}
 
 	return undefined;
@@ -334,11 +250,6 @@ const getTranslationApiConfigType = (config: TranslationApiConfig) =>
 		: config.api_type;
 
 const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
-	const qwen35Config = configList.find(isQwen35TranslationApiConfig);
-	if (qwen35Config?.api_model) {
-		return getCustomTranslationType(qwen35Config.api_model);
-	}
-
 	const openAiConfig = configList.find(
 		(config) =>
 			config.api_type === TranslationApiType.OpenAiCompatible &&
@@ -354,15 +265,10 @@ const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
 		return TranslationApiType.DeepL;
 	}
 
-	return HARDENED_QWEN35_CUSTOM_MODEL;
+	return "";
 };
 
 const getFallbackChatModel = (configList: ChatApiConfig[]) => {
-	const qwen35Config = configList.find(isQwen35ChatApiConfig);
-	if (qwen35Config?.api_model) {
-		return getCustomChatModelType(qwen35Config.api_model);
-	}
-
 	const openAiConfig = configList.find(
 		(config) => !!normalizeCustomModelValue(config.api_model),
 	);
@@ -370,7 +276,7 @@ const getFallbackChatModel = (configList: ChatApiConfig[]) => {
 		return getCustomChatModelType(openAiConfig.api_model);
 	}
 
-	return HARDENED_QWEN35_CUSTOM_MODEL;
+	return "";
 };
 
 const normalizeChatModel = (
@@ -378,18 +284,8 @@ const normalizeChatModel = (
 	configList: ChatApiConfig[],
 ) => {
 	const fallbackChatModel = getFallbackChatModel(configList);
-	const normalizedModel = normalizeCustomModelValue(chatModel);
-	const shouldUseFallback =
-		typeof chatModel !== "string" ||
-		isLegacyQwenFlashModel(chatModel) ||
-		HARDENED_QWEN35_LEGACY_API_MODELS.includes(normalizedModel) ||
-		chatModel === HARDENED_GLM_OCR_CUSTOM_MODEL;
-
-	if (shouldUseFallback) {
-		return fallbackChatModel;
-	}
-
 	if (
+		typeof chatModel === "string" &&
 		configList.some(
 			(config) => getCustomChatModelType(config.api_model) === chatModel,
 		)
@@ -397,7 +293,7 @@ const normalizeChatModel = (
 		return chatModel;
 	}
 
-	return configList.length > 0 ? fallbackChatModel : chatModel;
+	return fallbackChatModel;
 };
 
 const normalizeTranslationType = (
@@ -405,16 +301,8 @@ const normalizeTranslationType = (
 	configList: TranslationApiConfig[],
 ) => {
 	const fallbackTranslationType = getFallbackTranslationType(configList);
-	const shouldUseFallback =
-		typeof translationType === "number" ||
-		isLegacyQwenFlashModel(translationType) ||
-		translationType === HARDENED_GLM_OCR_CUSTOM_MODEL;
-
-	if (shouldUseFallback || typeof translationType !== "string") {
-		return fallbackTranslationType;
-	}
-
 	if (
+		typeof translationType === "string" &&
 		configList.some(
 			(config) => getTranslationApiConfigType(config) === translationType,
 		)
@@ -422,7 +310,7 @@ const normalizeTranslationType = (
 		return translationType;
 	}
 
-	return configList.length > 0 ? fallbackTranslationType : translationType;
+	return fallbackTranslationType;
 };
 
 const AppSettingsContextProviderCore: React.FC<{
@@ -1136,10 +1024,6 @@ const AppSettingsContextProviderCore: React.FC<{
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
-				const legacyGlmOcrApiConfig =
-					appSettingsRef.current[
-						AppSettingsGroup.FunctionChat
-					].chatApiConfigList.find(isGlmOcrApiConfig);
 
 				settings = {
 					ocrModel: (() => {
@@ -1159,7 +1043,6 @@ const AppSettingsContextProviderCore: React.FC<{
 					glmOcrApiConfig: normalizeChatApiConfig(
 						newSettings?.glmOcrApiConfig,
 						prevSettings?.glmOcrApiConfig ??
-							legacyGlmOcrApiConfig ??
 							defaultAppSettingsData[group].glmOcrApiConfig,
 					),
 					htmlVisionModel:
@@ -1197,7 +1080,10 @@ const AppSettingsContextProviderCore: React.FC<{
 								defaultAppSettingsData[group].autoCreateNewSession),
 					chatApiConfigList: chatApiConfigList
 						.map((item) => normalizeChatApiConfig(item))
-						.filter((item) => !isGlmOcrApiConfig(item)),
+						.filter(
+							(item) =>
+								item.api_uri.trim() !== "" && item.api_model.trim() !== "",
+						),
 					autoCreateNewSessionOnCloseWindow:
 						typeof newSettings?.autoCreateNewSessionOnCloseWindow === "boolean"
 							? newSettings.autoCreateNewSessionOnCloseWindow
@@ -1245,11 +1131,6 @@ const AppSettingsContextProviderCore: React.FC<{
 				const prevSettings = appSettingsRef.current[group] as
 					| AppSettingsData[typeof group]
 					| undefined;
-				const defaultTranslationApiConfigInitialized =
-					typeof newSettings?.defaultTranslationApiConfigInitialized ===
-					"boolean"
-						? newSettings.defaultTranslationApiConfigInitialized
-						: (prevSettings?.defaultTranslationApiConfigInitialized ?? false);
 				const previousTranslationApiConfigList =
 					prevSettings?.translationApiConfigList;
 				const newTranslationApiConfigList = Array.isArray(
@@ -1262,7 +1143,7 @@ const AppSettingsContextProviderCore: React.FC<{
 					Array.isArray(newSettings?.translationApiConfigList) &&
 					previousTranslationApiConfigList?.length ===
 						newTranslationApiConfigList.length;
-				let translationApiConfigList = newTranslationApiConfigList
+				const translationApiConfigList = newTranslationApiConfigList
 					.map((item, index) =>
 						normalizeTranslationApiConfig(
 							item,
@@ -1272,17 +1153,12 @@ const AppSettingsContextProviderCore: React.FC<{
 						),
 					)
 					.filter((item): item is TranslationApiConfig => !!item)
-					.filter((item) => !isGlmOcrApiConfig(item));
-
-				if (
-					!defaultTranslationApiConfigInitialized &&
-					!translationApiConfigList.some(isQwen35TranslationApiConfig)
-				) {
-					translationApiConfigList = [
-						HARDENED_QWEN35_TRANSLATION_API_CONFIG,
-						...translationApiConfigList,
-					];
-				}
+					.filter(
+						(item) =>
+							item.api_uri.trim() !== "" &&
+							(item.api_type === TranslationApiType.DeepL ||
+								!!item.api_model?.trim()),
+					);
 
 				settings = {
 					translationSystemPrompt:

@@ -22,7 +22,7 @@ export const tools = {
 	"tools.translation.getSelectText.loading": "获取选中的文本中",
 	"tools.translation.getSelectText.failed": "获取失败",
 	"tools.translation.requestTimeout":
-		"本地翻译模型响应超时，请确认服务正在运行，或调大翻译超时时间",
+		"翻译模型响应超时，请确认服务正在运行，或调大翻译超时时间",
 	"tools.chat.placeholder": "发消息",
 	"tools.chat.welcome.title": "👋 Hello, 有什么可以帮你的吗？",
 	"tools.chat.welcome.description":

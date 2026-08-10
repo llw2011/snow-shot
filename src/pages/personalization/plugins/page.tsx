@@ -19,7 +19,6 @@ import {
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { PluginStatus } from "@/types/commands/plugin";
 import { appError } from "@/utils/log";
-import { getPlatformValue } from "@/utils/platform";
 
 export const PluginsPage = () => {
 	const intl = useIntl();
@@ -70,22 +69,15 @@ export const PluginsPage = () => {
 		}
 	};
 
-	const getDefaultLocalPluginSourceDir = useCallback((pluginId: string) => {
-		switch (pluginId) {
-			case PLUGIN_ID_FFMPEG:
-				return getPlatformValue("D:\\ffmpeg", "/usr/local/bin", "/usr/bin");
-			default:
-				return undefined;
-		}
-	}, []);
-
 	const installPlugin = useCallback(
 		async (pluginId: string, force: boolean = false) => {
 			try {
-				if (pluginId === PLUGIN_ID_FFMPEG) {
+				const plugin = pluginConfig?.plugins.get(pluginId);
+				const hasConfiguredRemoteSource =
+					(plugin?.file_source_list?.length ?? 0) > 0;
+				if (pluginId === PLUGIN_ID_FFMPEG && !hasConfiguredRemoteSource) {
 					const sourceDir = await open({
 						directory: true,
-						defaultPath: getDefaultLocalPluginSourceDir(pluginId),
 					});
 
 					if (!sourceDir || Array.isArray(sourceDir)) {
@@ -101,7 +93,7 @@ export const PluginsPage = () => {
 				appError("[PluginsPage] install plugin error", error);
 			}
 		},
-		[getDefaultLocalPluginSourceDir],
+		[pluginConfig],
 	);
 
 	return (
