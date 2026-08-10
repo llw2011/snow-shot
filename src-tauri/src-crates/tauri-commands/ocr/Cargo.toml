@@ -9,7 +9,6 @@ tokio = { workspace = true }
 serde = { workspace = true }
 image = { workspace = true }
 log = { workspace = true }
-rayon = { workspace = true }
 
 snow-shot-app-services = { workspace = true }
 
