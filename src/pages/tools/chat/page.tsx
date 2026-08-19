@@ -79,6 +79,7 @@ import {
 	CommonKeyEventKey,
 	type CommonKeyEventValue,
 } from "@/types/core/commonKeyEvent";
+import { isUsableChatApiConfig } from "@/utils/apiConfig";
 import { ChatHistoryStore } from "@/utils/appStore";
 import { decodeParamsValue } from "@/utils/base64";
 import {
@@ -339,7 +340,9 @@ const Chat = () => {
 					settings[AppSettingsGroup.Cache].chatModelEnableThinking,
 				);
 				setCustomModelConfigList(
-					settings[AppSettingsGroup.FunctionChat].chatApiConfigList,
+					settings[AppSettingsGroup.FunctionChat].chatApiConfigList.filter(
+						isUsableChatApiConfig,
+					),
 				);
 			},
 			[setSelectedModel, setEnableThinking],

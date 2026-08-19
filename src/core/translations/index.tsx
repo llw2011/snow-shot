@@ -32,6 +32,7 @@ import {
 	TranslationType,
 	type TranslationTypeOption,
 } from "@/types/servies/translation";
+import { isUsableTranslationApiConfig } from "@/utils/apiConfig";
 import { getCachedData, setCachedData } from "@/utils/cache";
 import { appError } from "@/utils/log";
 import {
@@ -329,30 +330,32 @@ export const useTranslationRequest = (options?: {
 	useEffect(() => {
 		setSupportedTranslationTypesLoading(true);
 		setSupportedTranslationTypes([
-			...(translationApiConfigList?.map((item): TranslationServiceConfig => {
-				if (item.api_type === TranslationApiType.OpenAiCompatible) {
+			...(translationApiConfigList
+				?.filter(isUsableTranslationApiConfig)
+				.map((item): TranslationServiceConfig => {
+					if (item.api_type === TranslationApiType.OpenAiCompatible) {
+						return {
+							type: `${CUSTOM_MODEL_PREFIX}${item.api_model ?? ""}`,
+							name: getTranslationApiConfigTypeName(item),
+							apiConfig: {
+								api_uri: item.api_uri,
+								api_key: item.api_key,
+								api_model: item.api_model ?? "",
+								model_name: item.model_name ?? item.api_model ?? "",
+								support_thinking: false,
+								support_vision: false,
+							},
+							isOfficial: false,
+						};
+					}
+
 					return {
-						type: `${CUSTOM_MODEL_PREFIX}${item.api_model ?? ""}`,
+						type: item.api_type,
 						name: getTranslationApiConfigTypeName(item),
-						apiConfig: {
-							api_uri: item.api_uri,
-							api_key: item.api_key,
-							api_model: item.api_model ?? "",
-							model_name: item.model_name ?? item.api_model ?? "",
-							support_thinking: false,
-							support_vision: false,
-						},
+						translationApiConfig: item,
 						isOfficial: false,
 					};
-				}
-
-				return {
-					type: item.api_type,
-					name: getTranslationApiConfigTypeName(item),
-					translationApiConfig: item,
-					isOfficial: false,
-				};
-			}) ?? []),
+				}) ?? []),
 		]);
 		setSupportedTranslationTypesLoading(false);
 	}, [

@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"incremental": false,
+		"isolatedModules": false,
+		"lib": ["es2022", "dom"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": false,
+		"outDir": ".tmp/api-config-regression",
+		"rootDir": ".",
+		"target": "es2022",
+		"tsBuildInfoFile": ".tmp/api-config-regression.tsbuildinfo"
+	},
+	"include": ["src/utils/apiConfig.ts", "src/utils/apiConfig.test.ts"]
+}

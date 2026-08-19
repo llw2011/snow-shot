@@ -16,7 +16,7 @@ members = [
 
 [package]
 name = "snow-shot"
-version = "0.7.11-beta"
+version = "0.7.12-beta"
 description = "Simple and elegant screenshot tool"
 authors = ["mg-chao"]
 repository = "https://github.com/llw2011/snow-shot"

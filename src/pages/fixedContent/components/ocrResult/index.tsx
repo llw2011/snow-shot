@@ -39,6 +39,7 @@ import { appFetch } from "@/services/tools";
 import { AppSettingsGroup, type ChatApiConfig } from "@/types/appSettings";
 import type { OcrDetectResult } from "@/types/commands/ocr";
 import type { ElementRect } from "@/types/commands/screenshot";
+import { isUsableChatApiConfig } from "@/utils/apiConfig";
 import { writeHtmlToClipboard, writeTextToClipboard } from "@/utils/clipboard";
 import { appError } from "@/utils/log";
 import { canUseOcr, isGlmOcrModel } from "@/utils/ocr";
@@ -160,10 +161,7 @@ export const useVisionModelList = () => {
 			AppSettingsGroup.FunctionChat
 		].chatApiConfigList
 			.filter(
-				(config) =>
-					config.support_vision &&
-					config.api_uri.trim() &&
-					config.api_model.trim(),
+				(config) => config.support_vision && isUsableChatApiConfig(config),
 			)
 			.map((config) => {
 				return {

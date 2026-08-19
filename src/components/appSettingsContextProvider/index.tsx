@@ -83,6 +83,10 @@ import type {
 } from "@/types/core/commonKeyEvent";
 import { DrawState } from "@/types/draw";
 import { ImageFormat } from "@/types/utils/file";
+import {
+	isUsableChatApiConfig,
+	isUsableTranslationApiConfig,
+} from "@/utils/apiConfig";
 import { getConfigDirPath } from "@/utils/environment";
 import { appError, appWarn, formatErrorDetails } from "@/utils/log";
 import { canUseOcr } from "@/utils/ocr";
@@ -252,6 +256,7 @@ const getTranslationApiConfigType = (config: TranslationApiConfig) =>
 const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
 	const openAiConfig = configList.find(
 		(config) =>
+			isUsableTranslationApiConfig(config) &&
 			config.api_type === TranslationApiType.OpenAiCompatible &&
 			!!normalizeCustomModelValue(config.api_model),
 	);
@@ -260,7 +265,11 @@ const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
 	}
 
 	if (
-		configList.some((config) => config.api_type === TranslationApiType.DeepL)
+		configList.some(
+			(config) =>
+				isUsableTranslationApiConfig(config) &&
+				config.api_type === TranslationApiType.DeepL,
+		)
 	) {
 		return TranslationApiType.DeepL;
 	}
@@ -270,7 +279,9 @@ const getFallbackTranslationType = (configList: TranslationApiConfig[]) => {
 
 const getFallbackChatModel = (configList: ChatApiConfig[]) => {
 	const openAiConfig = configList.find(
-		(config) => !!normalizeCustomModelValue(config.api_model),
+		(config) =>
+			isUsableChatApiConfig(config) &&
+			!!normalizeCustomModelValue(config.api_model),
 	);
 	if (openAiConfig?.api_model) {
 		return getCustomChatModelType(openAiConfig.api_model);
@@ -287,7 +298,9 @@ const normalizeChatModel = (
 	if (
 		typeof chatModel === "string" &&
 		configList.some(
-			(config) => getCustomChatModelType(config.api_model) === chatModel,
+			(config) =>
+				isUsableChatApiConfig(config) &&
+				getCustomChatModelType(config.api_model) === chatModel,
 		)
 	) {
 		return chatModel;
@@ -304,7 +317,9 @@ const normalizeTranslationType = (
 	if (
 		typeof translationType === "string" &&
 		configList.some(
-			(config) => getTranslationApiConfigType(config) === translationType,
+			(config) =>
+				isUsableTranslationApiConfig(config) &&
+				getTranslationApiConfigType(config) === translationType,
 		)
 	) {
 		return translationType;
@@ -1078,12 +1093,10 @@ const AppSettingsContextProviderCore: React.FC<{
 							? newSettings.autoCreateNewSession
 							: (prevSettings?.autoCreateNewSession ??
 								defaultAppSettingsData[group].autoCreateNewSession),
-					chatApiConfigList: chatApiConfigList
-						.map((item) => normalizeChatApiConfig(item))
-						.filter(
-							(item) =>
-								item.api_uri.trim() !== "" && item.api_model.trim() !== "",
-						),
+					// Keep incomplete rows as editable drafts. Runtime consumers filter them.
+					chatApiConfigList: chatApiConfigList.map((item) =>
+						normalizeChatApiConfig(item),
+					),
 					autoCreateNewSessionOnCloseWindow:
 						typeof newSettings?.autoCreateNewSessionOnCloseWindow === "boolean"
 							? newSettings.autoCreateNewSessionOnCloseWindow
@@ -1152,13 +1165,7 @@ const AppSettingsContextProviderCore: React.FC<{
 								: undefined,
 						),
 					)
-					.filter((item): item is TranslationApiConfig => !!item)
-					.filter(
-						(item) =>
-							item.api_uri.trim() !== "" &&
-							(item.api_type === TranslationApiType.DeepL ||
-								!!item.api_model?.trim()),
-					);
+					.filter((item): item is TranslationApiConfig => !!item);
 
 				settings = {
 					translationSystemPrompt:
