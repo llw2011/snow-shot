@@ -91,7 +91,7 @@ export const SettingsSection: React.FC<{
 
 			<style jsx>{`
 				.settings-section {
-					scroll-margin-top: 58px;
+					scroll-margin-top: 72px;
 					overflow: hidden;
 					border: 1px solid var(--snow-shot-hairline-soft);
 					border-radius: var(--snow-shot-radius-lg);
@@ -103,7 +103,7 @@ export const SettingsSection: React.FC<{
 					display: grid;
 					grid-template-columns: minmax(0, 1fr) auto;
 					align-items: center;
-					min-height: 56px;
+					min-height: 72px;
 					transition-property: background-color;
 					transition-duration: var(--snow-shot-motion-fast);
 					transition-timing-function: ease;
@@ -126,13 +126,13 @@ export const SettingsSection: React.FC<{
 
 				.settings-section-toggle {
 					display: flex;
-					align-items: center;
+					align-items: flex-start;
 					justify-content: space-between;
-					gap: 16px;
+					gap: 20px;
 					width: 100%;
 					min-width: 0;
-					min-height: 56px;
-					padding: 11px 16px;
+					min-height: 72px;
+					padding: 16px 20px;
 					border: 0;
 					background: transparent;
 					color: var(--snow-shot-ink);
@@ -152,26 +152,26 @@ export const SettingsSection: React.FC<{
 					display: flex;
 					min-width: 0;
 					flex-direction: column;
-					gap: 2px;
+					gap: 4px;
 				}
 
 				.settings-section-title {
-					font-size: 15px;
+					font-size: 17px;
 					font-weight: 600;
-					line-height: 22px;
+					line-height: 24px;
 				}
 
 				.settings-section-description {
-					overflow: hidden;
 					color: var(--snow-shot-muted);
-					font-size: 12px;
-					line-height: 18px;
-					text-overflow: ellipsis;
-					white-space: nowrap;
+					font-size: 13px;
+					line-height: 20px;
+					max-width: 68ch;
+					white-space: normal;
 				}
 
 				.settings-section-chevron {
 					flex: 0 0 auto;
+					margin-top: 4px;
 					color: var(--snow-shot-muted);
 					font-size: 12px;
 					transition: transform 0.16s ease;
@@ -184,15 +184,132 @@ export const SettingsSection: React.FC<{
 				.settings-section-extra {
 					display: flex;
 					align-items: center;
-					padding-right: 12px;
+					padding: 0 16px 0 8px;
 				}
 
 				.settings-section-body {
-					padding: 18px 18px 2px;
+					padding: 24px 24px 8px;
+					background: color-mix(
+						in srgb,
+						var(--snow-shot-surface) 94%,
+						var(--snow-shot-ink)
+					);
 				}
 
 				.settings-section-body[hidden] {
 					display: none;
+				}
+
+				:global(.settings-section-body .ant-form) {
+					width: 100%;
+				}
+
+				:global(.settings-section-body .ant-row) {
+					row-gap: 6px;
+				}
+
+				:global(.settings-section-body .ant-col) {
+					min-width: 0;
+				}
+
+				:global(.settings-section-body .ant-form-item) {
+					margin-bottom: 22px;
+				}
+
+				:global(.settings-section-body .ant-form-item-label) {
+					padding: 0 0 8px;
+				}
+
+				:global(.settings-section-body .ant-form-item-label > label),
+				:global(.settings-section-body .ant-pro-form-item-label > label) {
+					font-size: 14px;
+					line-height: 22px;
+				}
+
+				:global(.settings-section-body .ant-form-item-extra),
+				:global(.settings-section-body .ant-form-item-explain) {
+					padding-top: 6px;
+					font-size: 13px;
+					line-height: 20px;
+				}
+
+				:global(.settings-section-body .ant-input),
+				:global(.settings-section-body .ant-input-affix-wrapper),
+				:global(.settings-section-body .ant-input-number),
+				:global(.settings-section-body .ant-select-selector),
+				:global(.settings-section-body .ant-picker),
+				:global(.settings-section-body .ant-color-picker-trigger),
+				:global(.settings-section-body .ant-btn) {
+					min-height: 40px;
+					border-radius: var(--snow-shot-radius);
+				}
+
+				:global(.settings-section-body .ant-select-single .ant-select-selector) {
+					height: 40px;
+				}
+
+				:global(.settings-section-body .ant-radio-group) {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 8px 16px;
+				}
+
+				:global(.settings-section-body .ant-radio-wrapper) {
+					min-height: 32px;
+					margin-inline-end: 0;
+					align-items: center;
+				}
+
+				@container snow-content (max-width: 680px) {
+					.settings-section-body {
+						padding: 20px 20px 6px;
+					}
+
+					:global(.settings-section-body .ant-form-horizontal .ant-form-item-row) {
+						flex-direction: column;
+						align-items: stretch;
+						gap: 6px;
+					}
+
+					:global(.settings-section-body .ant-form-horizontal .ant-form-item-label),
+					:global(.settings-section-body .ant-form-horizontal .ant-form-item-control) {
+						flex: 0 0 100% !important;
+						max-width: 100% !important;
+						min-width: 0;
+					}
+
+					:global(.settings-section-body .ant-form-horizontal .ant-form-item-label) {
+						padding: 0 0 2px;
+						text-align: left;
+					}
+				}
+
+				@container snow-content (max-width: 520px) {
+					.settings-section-toggle {
+						gap: 12px;
+						padding: 14px 16px;
+					}
+
+					.settings-section-header {
+						min-height: 64px;
+					}
+
+					.settings-section-toggle {
+						min-height: 64px;
+					}
+
+					.settings-section-title {
+						font-size: 16px;
+						line-height: 22px;
+					}
+
+					.settings-section-extra {
+						padding-right: 12px;
+					}
+
+					.settings-section-body {
+						padding: 18px 16px 4px;
+					}
 				}
 
 				@media (prefers-reduced-motion: reduce) {

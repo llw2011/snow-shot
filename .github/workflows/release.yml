@@ -1,51 +1,62 @@
 # Snow Shot 项目 Release 自动构建工作流
-# 将显示在 GitHub 存储库的"操作"选项卡中的工作流名称
+#
+# 发布分成三个明确阶段：
+#   prepare  — 只校验不可变的 tag、提交、版本和签名配置；不创建 Release
+#   build    — 每个平台独立构建并上传 Actions artifact；不写 GitHub Release
+#   publish  — 唯一拥有 contents:write 的 job，集中上传并在校验后公开 Release
 name: Release CI
 
-concurrency:
-    # Manual reruns must not inherit a stale concurrency lock from the previous
-    # attempt. GitHub can otherwise leave the run queued without creating jobs.
-    # Independent dispatches for the same tag still share attempt 1 and remain
-    # serialized; only an explicit rerun gets a fresh group.
-    group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}-${{ github.run_attempt }}
-    cancel-in-progress: false
+run-name: Release ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
-# 指定此工作流的触发器
 on:
     push:
-        # 匹配特定标签 (refs/tags)
         tags:
-            - "v*" # 推送事件匹配 v*, 例如 v1.0，v20.15.10 等来触发工作流
+            - "v*"
     workflow_dispatch:
         inputs:
             version:
-                description: "Version (e.g. v1.0.0)"
+                description: "Existing version tag (e.g. v1.0.0)"
                 required: true
                 type: string
 
+# 不在 workflow 层设置 concurrency。这样一个旧的 queued run 不会阻塞新的
+# prepare/build job；只有最终 publish job 对同一 tag 做互斥，并且新发布会接管旧发布。
+permissions:
+    contents: read
+
 jobs:
-    create-release:
-        runs-on: ubuntu-latest
+    prepare:
+        name: Prepare immutable release inputs
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
         permissions:
-            contents: write
+            contents: read
+        outputs:
+            release_tag: ${{ steps.vars.outputs.tag }}
+            app_version: ${{ steps.vars.outputs.version }}
+            release_sha: ${{ steps.vars.outputs.sha }}
         steps:
-            - uses: actions/checkout@v4
+            - name: Checkout release commit
+              uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+                  persist-credentials: false
 
-            - name: Set version
+            - name: Validate tag, commit, versions and updater configuration
               id: vars
               env:
                   EVENT_NAME: ${{ github.event_name }}
                   RELEASE_INPUT: ${{ inputs.version }}
                   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              shell: bash
               run: |
-                  if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
-                    echo "workflow_dispatch releases must run from the default branch ($DEFAULT_BRANCH)" >&2
-                    exit 1
-                  fi
+                  set -euo pipefail
 
                   if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                    if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+                      echo "workflow_dispatch releases must run from the default branch ($DEFAULT_BRANCH)" >&2
+                      exit 1
+                    fi
                     TAG="$RELEASE_INPUT"
                   else
                     TAG="${GITHUB_REF#refs/tags/}"
@@ -56,25 +67,35 @@ jobs:
                     exit 1
                   fi
 
-                  # A signing release may only be built from code that is already
-                  # reachable from the protected default branch. This prevents a
-                  # tag on an arbitrary feature branch from exposing the signing
-                  # secret to that branch's workflow contents.
+                  # Always resolve the peeled commit of the remote tag. This also
+                  # handles annotated tags and makes every matrix job build one
+                  # immutable source tree.
+                  git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+                  TAG_TYPE="$(git cat-file -t "refs/tags/$TAG")"
+                  if [ "$TAG_TYPE" != "tag" ]; then
+                    echo "Release tag $TAG must be an annotated tag" >&2
+                    exit 1
+                  fi
+                  TAG_SHA="$(git rev-parse "refs/tags/$TAG^{commit}")"
+                  CURRENT_SHA="$(git rev-parse "HEAD^{commit}")"
+                  if [ "$EVENT_NAME" = "push" ] && [ "$TAG_SHA" != "$CURRENT_SHA" ]; then
+                    echo "The pushed tag does not resolve to the checked-out commit" >&2
+                    exit 1
+                  fi
+                  if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$TAG_SHA" != "$CURRENT_SHA" ]; then
+                    echo "Manual releases require the existing tag to point to the current default-branch commit" >&2
+                    exit 1
+                  fi
+
                   git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
-                  MAIN_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")"
-                  if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-                    RELEASE_SHA="$(git rev-parse HEAD)"
-                    if [ "$RELEASE_SHA" != "$MAIN_SHA" ]; then
-                      echo "Manual releases must run at the current default-branch commit ($MAIN_SHA)" >&2
-                      exit 1
-                    fi
-                  elif ! git merge-base --is-ancestor "$GITHUB_SHA" "$MAIN_SHA"; then
-                    echo "Tag $TAG does not point to a commit reachable from the default branch" >&2
+                  MAIN_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH^{commit}")"
+                  if [ "$TAG_SHA" != "$MAIN_SHA" ]; then
+                    echo "Tag $TAG must point to the current default-branch commit ($MAIN_SHA)" >&2
                     exit 1
                   fi
 
                   VERSION="${TAG#v}"
-                  CONFIG_VERSION="$(jq -r '.version' src-tauri/tauri.conf.json)"
+                  CONFIG_VERSION="$(jq -er '.version' src-tauri/tauri.conf.json)"
                   CARGO_VERSION="$(awk '
                     /^\[package\]/{in_package=1; next}
                     /^\[/{in_package=0}
@@ -122,432 +143,518 @@ jobs:
                   {
                     echo "tag=$TAG"
                     echo "version=$VERSION"
+                    echo "sha=$TAG_SHA"
                   } >> "$GITHUB_OUTPUT"
+
+            - name: Test release helper scripts
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Run release helper tests
               shell: bash
+              run: node scripts/release-scripts.test.mjs
 
             - name: Verify updater signing secrets
               env:
                   SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                   SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              shell: bash
               run: |
+                  set -euo pipefail
                   if [ -z "$SIGNING_KEY" ] || [ -z "$SIGNING_PASSWORD" ]; then
                     echo "TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be configured before a release." >&2
                     exit 1
                   fi
-              shell: bash
 
-            # 手动重跑只接受已经存在、且指向当前默认分支提交的 tag。
-            # 不在 workflow 中 push tag，避免 workflow_dispatch 触发第二次
-            # push-tags workflow 并重复发布同一个 Release。
-            - name: Verify existing tag (manual trigger)
-              if: github.event_name == 'workflow_dispatch'
-              env:
-                  RELEASE_TAG: ${{ steps.vars.outputs.tag }}
-              run: |
-                  if ! git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
-                    git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-                  fi
-                  EXISTING_SHA="$(git rev-list -n 1 "$RELEASE_TAG")"
-                  CURRENT_SHA="$(git rev-parse HEAD)"
-                  if [ "$EXISTING_SHA" != "$CURRENT_SHA" ]; then
-                    echo "Manual releases require $RELEASE_TAG to point to the current default-branch commit" >&2
-                    exit 1
-                  fi
-            # 安装 Node.js
-            - name: Setup node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-
-            # 发布 Release，使用自定义名称
-            - name: Generate changelog
-              id: create_release
-              env:
-                  RELEASE_TAG: ${{ steps.vars.outputs.tag }}
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: npx --yes changelogithub@14.0.0 --draft --name "$RELEASE_TAG"
-
-            - name: Set app version output
-              id: app_version
-              run: |
-                  echo "tag=${{ steps.vars.outputs.tag }}" >> "$GITHUB_OUTPUT"
-                  echo "version=${{ steps.vars.outputs.version }}" >> "$GITHUB_OUTPUT"
-
-        outputs:
-            release_tag: ${{ steps.app_version.outputs.tag }}
-            app_version: ${{ steps.app_version.outputs.version }}
-
-    # 编译 Tauri 应用
     build-app:
-        needs: create-release
+        name: Build ${{ matrix.kind }}
+        needs: prepare
+        runs-on: ${{ matrix.platform }}
+        # The slowest historical macOS Intel build is ~34 minutes. Ninety
+        # minutes leaves room for one bounded retry while still preventing an
+        # overnight zombie; all five variants run concurrently.
+        timeout-minutes: 90
         permissions:
-            contents: write
+            contents: read
         strategy:
             fail-fast: false
-            max-parallel: 1
+            max-parallel: 5
             matrix:
                 include:
-                    # macOS Apple Silicon (M1/M2/M3)
-                    - platform: "macos-15"
-                      target: "aarch64-apple-darwin"
+                    - kind: darwin-aarch64
+                      platform: macos-15
+                      target: aarch64-apple-darwin
                       ota: true
-                      config: "src-tauri/tauri.release.conf.json"
-
-                    # macOS Intel x64
-                    - platform: "macos-15-intel"
-                      target: "x86_64-apple-darwin"
+                      config: src-tauri/tauri.release.conf.json
+                      extra_config: ""
+                    - kind: darwin-x86_64
+                      platform: macos-15-intel
+                      target: x86_64-apple-darwin
                       ota: true
-                      config: "src-tauri/tauri.release.conf.json"
-
-                    # Windows standard
-                    - platform: "windows-latest"
-                      target: "x86_64-pc-windows-msvc"
+                      config: src-tauri/tauri.release.conf.json
+                      extra_config: ""
+                    - kind: windows-standard
+                      platform: windows-latest
+                      target: x86_64-pc-windows-msvc
                       ota: true
-                      config: "src-tauri/tauri.release.conf.json"
-
-                    # Windows with fixed runtime
-                    - platform: "windows-latest"
-                      target: "x86_64-pc-windows-msvc"
-                      fixedRuntime: true
+                      config: src-tauri/tauri.release.conf.json
+                      extra_config: ""
+                    - kind: windows-fixed
+                      platform: windows-latest
+                      target: x86_64-pc-windows-msvc
+                      fixed_runtime: true
                       ota: false
-                      config: "src-tauri/tauri.no-ota.conf.json"
-
-                    # Windows offline version
-                    - platform: "windows-latest"
-                      target: "x86_64-pc-windows-msvc"
+                      config: src-tauri/tauri.no-ota.conf.json
+                      extra_config: "--config src-tauri/webview2.x64.json"
+                    - kind: windows-offline
+                      platform: windows-latest
+                      target: x86_64-pc-windows-msvc
                       offline: true
                       ota: false
-                      config: "src-tauri/tauri.no-ota.conf.json"
+                      config: src-tauri/tauri.no-ota.conf.json
+                      extra_config: ""
 
-        runs-on: ${{ matrix.platform }}
         steps:
-            - name: Checkout repository
+            - name: Checkout immutable release commit
               uses: actions/checkout@v4
-
-            # 安装 Node.js 和 pnpm
-            - name: Setup node
-              uses: actions/setup-node@v4
               with:
-                  node-version: 20
+                  ref: ${{ needs.prepare.outputs.release_sha }}
+                  fetch-depth: 1
+                  persist-credentials: false
 
             - name: Setup pnpm
               uses: pnpm/action-setup@v3
               with:
                   version: 10.8.1
 
-            # 安装 Rust
-            - name: Install Rust stable
-              uses: dtolnay/rust-toolchain@stable
-
-            - name: Install rust target
-              run: rustup target add ${{ matrix.target }}
-
-            # 使用 Rust 缓存，加快安装速度
-            - name: Rust cache
-              uses: swatinem/rust-cache@v2
-              with:
-                  workspaces: src-tauri -> target
-
-            # 配置 pnpm 缓存
-            - name: Setup pnpm cache
+            - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: pnpm
 
-            # 安装 yarn
-            - name: Install yarn
-              run: npm install -g yarn
+            - name: Install Rust 1.90.0
+              uses: dtolnay/rust-toolchain@1.90.0
 
-            # 准备 Excalidraw 依赖
-            - name: Clone Excalidraw
-              run: |
-                  cd ..
-                  git clone https://github.com/mg-chao/excalidraw.git
-                  cd excalidraw
-                  git checkout d57ac317fc926bba6f7332e9ac24de7a84359d5f # custom/master snapshot
+            - name: Install Rust target
+              run: rustup target add ${{ matrix.target }}
+
+            - name: Rust cache
+              uses: swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+
+            - name: Install Yarn
+              run: npm install --global yarn@1.22.22
+
+            - name: Clone pinned Excalidraw
               shell: bash
+              run: |
+                  set -euo pipefail
+                  git clone https://github.com/mg-chao/excalidraw.git ../excalidraw
+                  git -C ../excalidraw checkout --detach d57ac317fc926bba6f7332e9ac24de7a84359d5f
 
-            # 配置 yarn 缓存
-            - name: Cache yarn dependencies
+            - name: Cache Excalidraw dependencies
               uses: actions/cache@v4
               with:
                   path: |
                       ~/.yarn/cache
                       ~/.cache/yarn
-                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-yarn-
+                  key: ${{ runner.os }}-yarn-d57ac317fc926bba6f7332e9ac24de7a84359d5f
 
-            # 安装 Excalidraw 依赖
             - name: Install Excalidraw dependencies
-              run: |
-                  cd ../excalidraw
-                  yarn install --frozen-lockfile
-                  cd ../snow-shot
               shell: bash
-
-            # 创建 .env 文件以支持联网功能
-            - name: Create .env file
               run: |
+                  set -euo pipefail
+                  yarn --cwd ../excalidraw install --frozen-lockfile
+
+            - name: Configure online/offline frontend
+              shell: bash
+              run: |
+                  set -euo pipefail
                   if [ "${{ matrix.offline }}" = "true" ]; then
-                    echo "PUBLIC_ONLINE_STATUS=false" > .env
+                    printf '%s\n' 'PUBLIC_ONLINE_STATUS=false' > .env
                   else
-                    echo "PUBLIC_ONLINE_STATUS=true" > .env
+                    printf '%s\n' 'PUBLIC_ONLINE_STATUS=true' > .env
                   fi
-              shell: bash
 
-            # 安装前端依赖并打包
-            - name: Install app dependencies and build web
+            - name: Install app dependencies
               run: pnpm install --frozen-lockfile
 
-            # 安装 offline 版本额外依赖
-            - name: Install offline version dependencies
+            - name: Build Excalidraw package
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  yarn --cwd ../excalidraw build:packages
+
+            - name: Download offline resources
               if: matrix.offline == true
-              run: pnpm install qr-scanner-wechat@0.1.3
-
-            # 构建 Excalidraw
-            - name: Build Excalidraw
-              run: pnpm update:excalidraw
-
-            # 下载 offline 资源 (Windows offline only)
-            - name: Download and setup offline resources
-              if: matrix.platform == 'windows-latest' && matrix.offline == true
-              run: |
-                  # 下载 npm.zip
-                  Write-Host "Downloading npm.zip..."
-                  Invoke-WebRequest -Uri "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/Resources_20251107/npm.zip" -OutFile "npm.zip"
-                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "npm.zip").Hash.ToLowerInvariant() -ne "6547bd788af982a9d3c7a3cdb4fed88acebd93be81ee81cb1bbc72c121abdf00") {
-                    throw "npm.zip SHA-256 does not match the pinned release asset"
-                  }
-
-                  # 解压 npm.zip 到 public 目录
-                  Write-Host "Extracting npm.zip to public directory..."
-                  Expand-Archive -Path "npm.zip" -DestinationPath "public" -Force
-
-                  # 删除不需要的 npm/qr-scanner-wechat 文件夹
-                  Write-Host "Removing npm/qr-scanner-wechat folder..."
-                  Remove-Item -Path "public\npm\qr-scanner-wechat" -Recurse -Force -ErrorAction SilentlyContinue
-
-                  # 清理临时文件
-                  Remove-Item -Path "npm.zip" -Force
-
-                  Write-Host "Offline resources setup completed successfully"
               shell: pwsh
-
-            # 下载并配置 onnxruntime (Windows only)
-            - name: Download and setup onnxruntime (Windows)
-              if: matrix.platform == 'windows-latest'
               run: |
-                  # 下载 onnxruntime
-                  Invoke-WebRequest -Uri "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-win-x64-static_lib-1.22.2.zip" -OutFile "onnxruntime.zip"
-                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath "onnxruntime.zip").Hash.ToLowerInvariant() -ne "6d44e096a5e1eab6dbf47dc6ff4c70e838cd72a161507e3dca239fbb85d63b66") {
-                    throw "onnxruntime.zip SHA-256 does not match the pinned release asset"
-                  }
+                   $ErrorActionPreference = 'Stop'
+                   $archive = Join-Path $env:RUNNER_TEMP 'snow-shot-npm.zip'
+                   for ($attempt = 1; $attempt -le 3; $attempt++) {
+                     try {
+                       Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+                       Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/Resources_20251107/npm.zip' -OutFile $archive
+                       break
+                     } catch {
+                       if ($attempt -eq 3) { throw }
+                       Start-Sleep -Seconds (5 * $attempt)
+                     }
+                   }
+                   if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant() -ne '6547bd788af982a9d3c7a3cdb4fed88acebd93be81ee81cb1bbc72c121abdf00') { throw 'npm.zip SHA-256 mismatch' }
+                   Expand-Archive -LiteralPath $archive -DestinationPath public -Force
+                   Remove-Item -LiteralPath (Join-Path (Get-Location) 'public\npm\qr-scanner-wechat') -Recurse -Force -ErrorAction SilentlyContinue
+                   Remove-Item -LiteralPath $archive -Force
 
-                  # 解压文件
-                  Expand-Archive -Path "onnxruntime.zip" -DestinationPath "onnxruntime-temp" -Force
-
-                  # 查找并移动 lib 文件夹到 src-tauri
-                  $libPath = Get-ChildItem -Path "onnxruntime-temp" -Recurse -Directory -Filter "lib" | Select-Object -First 1
-                  if ($libPath) {
-                    Copy-Item -Path $libPath.FullName -Destination "src-tauri\lib" -Recurse -Force
-                    Write-Host "Successfully copied lib folder to src-tauri"
-                  } else {
-                    Write-Error "lib folder not found in extracted files"
-                    exit 1
-                  }
-
-                  # 清理临时文件
-                  Remove-Item -Path "onnxruntime.zip" -Force
-                  Remove-Item -Path "onnxruntime-temp" -Recurse -Force
+            - name: Download Windows ONNX Runtime
+              if: runner.os == 'Windows'
               shell: pwsh
-
-            # 下载并配置 WebView2 Fixed Runtime (Windows fixedRuntime only)
-            - name: Download and setup WebView2 Fixed Runtime
-              if: matrix.platform == 'windows-latest' && matrix.fixedRuntime == true
               run: |
-                  # 下载 WebView2 Fixed Runtime v141.0.3537.99
-                  $runtimeVersion = "141.0.3537.99"
-                  $cabUrl = "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/v141.0.3537.99/Microsoft.WebView2.FixedVersionRuntime.141.0.3537.99.x64.cab"
-                  $cabFile = "Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64.cab"
+                   $ErrorActionPreference = 'Stop'
+                   $archive = Join-Path $env:RUNNER_TEMP 'onnxruntime.zip'
+                   for ($attempt = 1; $attempt -le 3; $attempt++) {
+                     try {
+                       Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+                       Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-win-x64-static_lib-1.22.2.zip' -OutFile $archive
+                       break
+                     } catch {
+                       if ($attempt -eq 3) { throw }
+                       Start-Sleep -Seconds (5 * $attempt)
+                     }
+                   }
+                   if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant() -ne '6d44e096a5e1eab6dbf47dc6ff4c70e838cd72a161507e3dca239fbb85d63b66') { throw 'onnxruntime.zip SHA-256 mismatch' }
+                   $extract = Join-Path $env:RUNNER_TEMP 'onnxruntime-extract'
+                   Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+                   $lib = Get-ChildItem -LiteralPath $extract -Recurse -Directory -Filter lib | Select-Object -First 1
+                   if (-not $lib) { throw 'onnxruntime lib directory not found' }
+                   New-Item -ItemType Directory -Path 'src-tauri\lib' -Force | Out-Null
+                   Get-ChildItem -LiteralPath $lib.FullName -Force | Copy-Item -Destination 'src-tauri\lib' -Recurse -Force
+                   Remove-Item -LiteralPath $archive -Force
+                   Remove-Item -LiteralPath $extract -Recurse -Force
 
-                  Write-Host "Downloading WebView2 Fixed Runtime $runtimeVersion..."
-                  Invoke-WebRequest -Uri $cabUrl -OutFile $cabFile
-                  if ((Get-FileHash -Algorithm SHA256 -LiteralPath $cabFile).Hash.ToLowerInvariant() -ne "a1dfd3992543afb6c44da3db0bd5c43d750b00068253ebd41e23f4d610052514") {
-                    throw "WebView2 CAB SHA-256 does not match the pinned release asset"
-                  }
-
-                  # 解压 cab 文件到 src-tauri 目录
-                  Write-Host "Extracting WebView2 Fixed Runtime..."
-                  $targetDir = ".\src-tauri\Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64"
-
-                  # 创建目标目录
-                  New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-
-                  # 使用 expand 命令解压
-                  Expand -F:* $cabFile $targetDir
-
-                  Write-Host "Successfully extracted WebView2 Fixed Runtime to $targetDir"
-
-                  # 清理临时文件
-                  Remove-Item -Path $cabFile -Force
-
-                  # 移除原有的 tauri.windows.conf.json 并使用 webview2.x64.json
-                  Write-Host "Replacing tauri.windows.conf.json with webview2.x64.json..."
-                  Remove-Item -Path ".\src-tauri\tauri.windows.conf.json" -Force -ErrorAction SilentlyContinue
-                  Move-Item -Path ".\src-tauri\webview2.x64.json" -Destination ".\src-tauri\tauri.windows.conf.json" -Force
-                  Write-Host "Configuration files updated successfully"
+            - name: Download fixed WebView2 runtime
+              if: matrix.fixed_runtime == true
               shell: pwsh
+              run: |
+                   $ErrorActionPreference = 'Stop'
+                   $runtimeVersion = '141.0.3537.99'
+                   $archive = Join-Path $env:RUNNER_TEMP "Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64.cab"
+                   for ($attempt = 1; $attempt -le 3; $attempt++) {
+                     try {
+                       Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+                       Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/mg-chao/snow-shot-webview-runtime/releases/download/v$runtimeVersion/Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64.cab" -OutFile $archive
+                       break
+                     } catch {
+                       if ($attempt -eq 3) { throw }
+                       Start-Sleep -Seconds (5 * $attempt)
+                     }
+                   }
+                   if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant() -ne 'a1dfd3992543afb6c44da3db0bd5c43d750b00068253ebd41e23f4d610052514') { throw 'WebView2 CAB SHA-256 mismatch' }
+                   $target = Join-Path (Get-Location) "src-tauri\Microsoft.WebView2.FixedVersionRuntime.$runtimeVersion.x64"
+                   New-Item -ItemType Directory -Path $target -Force | Out-Null
+                   expand -F:* $archive $target
+                   Remove-Item -LiteralPath $archive -Force
 
-            # 下载并配置 onnxruntime (macOS only)
-            - name: Download and setup onnxruntime (macOS)
+            - name: Download macOS ONNX Runtime
               if: runner.os == 'macOS'
+              shell: bash
               run: |
-                  # 下载 onnxruntime
-                  curl -L -o onnxruntime.tgz "https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-osx-universal2-static_lib-1.22.2.tgz"
-                  echo "aaa1a7dc5e4c2888cb5048a79af250c70f6d01d06dd6f7569b8b08a2bea01b98  onnxruntime.tgz" | shasum -a 256 -c -
-
-                  # 解压文件
-                  mkdir -p onnxruntime-temp
-                  tar -xzf onnxruntime.tgz -C onnxruntime-temp
-
-                  # 查找并移动 lib 文件夹到 src-tauri
-                  libPath=$(find onnxruntime-temp -type d -name "lib" | head -n 1)
-                  if [ -n "$libPath" ]; then
-                    cp -r "$libPath" src-tauri/lib
-                    echo "Successfully copied lib folder to src-tauri"
-                  else
-                    echo "Error: lib folder not found in extracted files"
+                  set -euo pipefail
+                  archive="$RUNNER_TEMP/onnxruntime.tgz"
+                  curl --fail --location --retry 3 --retry-delay 2 \
+                    -o "$archive" \
+                    'https://github.com/supertone-inc/onnxruntime-build/releases/download/v1.22.2/onnxruntime-osx-universal2-static_lib-1.22.2.tgz'
+                  echo 'aaa1a7dc5e4c2888cb5048a79af250c70f6d01d06dd6f7569b8b08a2bea01b98  '"$archive" | shasum -a 256 -c -
+                  extract="$RUNNER_TEMP/onnxruntime-macos"
+                  rm -rf "$extract"
+                  mkdir -p "$extract"
+                  tar -xzf "$archive" -C "$extract"
+                  lib_path="$(find "$extract" -type d -name lib -print -quit)"
+                  if [ -z "$lib_path" ]; then
+                    echo 'ONNX Runtime lib directory not found' >&2
                     exit 1
                   fi
+                  mkdir -p src-tauri/lib
+                  cp -R "$lib_path/./" src-tauri/lib/
+                  rm -f "$archive"
+                  rm -rf "$extract"
 
-                  # 清理临时文件
-                  rm -f onnxruntime.tgz
-                  rm -rf onnxruntime-temp
-              shell: bash
-
-            # macOS 专用：配置构建环境
-            - name: Configure build environment (macOS)
+            - name: Configure macOS build environment
               if: runner.os == 'macOS'
-              run: |
-                  # 设置环境变量强制静态链接
-                  echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
-                  echo "MACOSX_DEPLOYMENT_TARGET=12.3" >> $GITHUB_ENV
-
-                  # 安装必要的库
-                  brew install xz
-
-                  # 设置 pkg-config 路径，确保能找到静态库
-                  echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig" >> $GITHUB_ENV
               shell: bash
-
-            # 设置文件名模式
-            - name: Set asset name pattern
-              id: asset_pattern
               run: |
-                  if [ "${{ matrix.fixedRuntime }}" = "true" ]; then
-                    echo "pattern=Snow Shot_[version]_[platform]-[arch]_webview[_setup][ext]" >> $GITHUB_OUTPUT
-                  elif [ "${{ matrix.offline }}" = "true" ]; then
-                    echo "pattern=Snow Shot_[version]_[platform]-[arch]_offline[_setup][ext]" >> $GITHUB_OUTPUT
-                  else
-                    echo "pattern=Snow Shot_[version]_[platform]-[arch][_setup][ext]" >> $GITHUB_OUTPUT
+                  set -euo pipefail
+                  echo 'PKG_CONFIG_ALL_STATIC=1' >> "$GITHUB_ENV"
+                  echo 'MACOSX_DEPLOYMENT_TARGET=12.3' >> "$GITHUB_ENV"
+                  export HOMEBREW_NO_AUTO_UPDATE=1
+                  if ! brew list --versions xz >/dev/null 2>&1; then
+                    for attempt in 1 2 3; do
+                      if brew install xz; then break; fi
+                      if [ "$attempt" -eq 3 ]; then exit 1; fi
+                      sleep $((attempt * 5))
+                    done
                   fi
-              shell: bash
+                  echo 'PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig' >> "$GITHUB_ENV"
 
-            # 执行构建，以及推送 github release
-            - name: Build the app
-              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+            - name: Build Tauri bundle (no Release writes)
+              id: tauri_build
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5
               env:
-                  CI: false
-                  PLATFORM: ${{ matrix.platform }}
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  CI: true
+                  # hdiutil on the pinned macOS 15 runners must be allowed to
+                  # create the DMG even though this is a CI build.
+                  TAURI_BUNDLER_DMG_IGNORE_CI: "false"
                   TAURI_SIGNING_PRIVATE_KEY: ${{ matrix.ota && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
                   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.ota && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
               with:
-                  tagName: ${{ needs.create-release.outputs.release_tag }}
-                  releaseName: Snow Shot ${{ needs.create-release.outputs.release_tag }}
-                  assetNamePattern: ${{ steps.asset_pattern.outputs.pattern }}
-                  includeUpdaterJson: ${{ matrix.ota }}
-                  releaseBody: ""
-                  releaseDraft: true
-                  prerelease: false
+                  includeUpdaterJson: false
                   retryAttempts: 2
-                  args: --ci --target ${{ matrix.target }} --config ${{ matrix.config }} -- --locked
+                  args: --ci --target ${{ matrix.target }} --config ${{ matrix.config }} ${{ matrix.extra_config }} -- --locked
 
-            - name: Verify dependency lockfiles were not rewritten
-              run: git diff --exit-code -- src-tauri/Cargo.lock
-
-    # 更新 Release 下载引导
-    update-release-notes:
-        name: Update Release Notes with Download Guide
-        runs-on: ubuntu-latest
-        needs: [create-release, build-app]
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-
-            - name: Validate updater manifest
+            - name: Stage release assets (Unix)
+              if: runner.os != 'Windows'
+              shell: bash
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  RELEASE_TAG: ${{ needs.create-release.outputs.release_tag }}
-                  EXPECTED_VERSION: ${{ needs.create-release.outputs.app_version }}
+                  STAGE_DIR: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
               run: |
                   set -euo pipefail
-                  release_id="$(
-                    gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
-                      jq -er --arg tag "$RELEASE_TAG" '
-                        [.[] | select(.tag_name == $tag and .draft == true)] as $matches
-                        | if ($matches | length) == 1
-                          then $matches[0].id
-                          else error("expected exactly one draft release for " + $tag)
-                          end
-                      '
-                  )"
-                  asset_url="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" --jq '.[] | select(.name == "latest.json") | .url' | head -n 1)"
-                  if [ -z "$asset_url" ]; then
-                    echo "The release does not contain latest.json; refusing to publish OTA." >&2
+                  node scripts/stage-release-assets.mjs \
+                    --bundle-dir "src-tauri/target/${{ matrix.target }}/release/bundle" \
+                    --output "$STAGE_DIR" \
+                    --kind "${{ matrix.kind }}" \
+                    --version "${{ needs.prepare.outputs.app_version }}"
+
+            - name: Stage release assets (Windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              env:
+                  STAGE_DIR: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
+              run: |
+                   $ErrorActionPreference = 'Stop'
+                   node scripts/stage-release-assets.mjs `
+                     --bundle-dir "src-tauri/target/${{ matrix.target }}/release/bundle" `
+                     --output "$env:STAGE_DIR" `
+                     --kind "${{ matrix.kind }}" `
+                     --version "${{ needs.prepare.outputs.app_version }}"
+                   if ($LASTEXITCODE -ne 0) { throw "stage-release-assets exited with code $LASTEXITCODE" }
+
+            - name: Verify Cargo lockfile was not rewritten
+              shell: bash
+              run: git diff --exit-code -- pnpm-lock.yaml src-tauri/Cargo.lock
+
+            - name: Upload build artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: snow-shot-assets-${{ matrix.kind }}
+                  path: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
+                  if-no-files-found: error
+                  retention-days: 2
+                  compression-level: 0
+
+    publish-release:
+        name: Assemble, verify and publish Release
+        needs: [prepare, build-app]
+        if: ${{ needs.prepare.result == 'success' && needs.build-app.result == 'success' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        permissions:
+            contents: write
+        concurrency:
+            group: release-publish-${{ needs.prepare.outputs.release_tag }}
+            cancel-in-progress: true
+        steps:
+            - name: Checkout immutable release commit
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ needs.prepare.outputs.release_sha }}
+                  fetch-depth: 1
+                  persist-credentials: false
+
+            - name: Download all build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: snow-shot-assets-*
+                  path: ${{ runner.temp }}/snow-shot-release-assets
+                  merge-multiple: true
+
+            - name: Generate and verify local OTA manifest
+              env:
+                  RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+                  APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+                  ASSET_DIR: ${{ runner.temp }}/snow-shot-release-assets
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  node scripts/release-manifest.mjs generate \
+                    --tag "$RELEASE_TAG" \
+                    --version "$APP_VERSION" \
+                    --assets-dir "$ASSET_DIR" \
+                    --output "$ASSET_DIR/latest.json" \
+                    --checksums "$ASSET_DIR/checksums.json"
+                  node scripts/release-manifest.mjs verify \
+                    --tag "$RELEASE_TAG" \
+                    --version "$APP_VERSION" \
+                    --manifest "$ASSET_DIR/latest.json" \
+                    --assets-dir "$ASSET_DIR" \
+                    --checksums "$ASSET_DIR/checksums.json"
+
+            - name: Resolve or create one draft Release
+              id: release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+                  RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  repo="$GITHUB_REPOSITORY"
+                  matches="$(gh api --paginate --slurp "repos/$repo/releases?per_page=100" | jq -c --arg tag "$RELEASE_TAG" 'add | map(select(.tag_name == $tag))')"
+                  count="$(jq 'length' <<<"$matches")"
+                  if [ "$count" -gt 1 ]; then
+                    echo "More than one Release exists for $RELEASE_TAG; refusing to guess." >&2
                     exit 1
                   fi
+                  if [ "$count" -eq 1 ]; then
+                     release_id="$(jq -er '.[0].id' <<<"$matches")"
+                     draft="$(jq -er '.[0].draft' <<<"$matches")"
+                     target_commitish="$(jq -r '.[0].target_commitish // empty' <<<"$matches")"
+                     if [[ "$target_commitish" =~ ^[0-9a-fA-F]{40}$ ]] && [ "$target_commitish" != "$RELEASE_SHA" ]; then
+                       echo "Draft Release points at $target_commitish, expected $RELEASE_SHA" >&2
+                       exit 1
+                     fi
+                     if [ "$draft" != "true" ]; then
+                      echo "A public Release already exists for $RELEASE_TAG; publish job will verify it without overwriting." >&2
+                      {
+                        echo "id=$release_id"
+                        echo "published=true"
+                      } >> "$GITHUB_OUTPUT"
+                      exit 0
+                    fi
+                    echo "Reusing draft Release $release_id for $RELEASE_TAG"
+                  else
+                    release_id="$(gh api --method POST "repos/$repo/releases" \
+                      -H 'Accept: application/vnd.github+json' \
+                      -f "tag_name=$RELEASE_TAG" \
+                      -f "target_commitish=$RELEASE_SHA" \
+                      -f "name=Snow Shot $RELEASE_TAG" \
+                      -f 'body=Automated release. Assets and OTA manifest are verified before publication.' \
+                      -F draft=true -F prerelease=false -F generate_release_notes=true \
+                      --jq '.id')"
+                  fi
+                  {
+                    echo "id=$release_id"
+                    echo "published=false"
+                  } >> "$GITHUB_OUTPUT"
 
-                  manifest_file="$(mktemp)"
-                  trap 'rm -f "$manifest_file"' EXIT
-                  gh api "$asset_url" -H 'Accept: application/octet-stream' > "$manifest_file"
-
-                  jq -e --arg expected "$EXPECTED_VERSION" --arg tag "$RELEASE_TAG" '
-                    . as $manifest
-                    | ($manifest.version == $expected)
-                    and ($manifest.platforms | type == "object")
-                    and (["windows-x86_64", "darwin-aarch64", "darwin-x86_64"]
-                      | all(.[]; . as $platform |
-                          ($manifest.platforms[$platform] | type == "object")
-                          and ($manifest.platforms[$platform].signature | type == "string" and length > 0)
-                          and ($manifest.platforms[$platform].url | type == "string"
-                            and startswith("https://github.com/llw2011/snow-shot/releases/download/" + $tag + "/"))
-                        ))
-                  ' "$manifest_file" >/dev/null
-
-                  echo "Updater manifest validated for $RELEASE_TAG ($EXPECTED_VERSION)."
-
-            - name: Generate Release Notes
+            - name: Upload staged assets to the draft Release
+              if: steps.release.outputs.published != 'true'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+                  ASSET_DIR: ${{ runner.temp }}/snow-shot-release-assets
+              shell: bash
               run: |
-                  cat > release_notes.md << EOF
-                  ## ⚠️ Windows 用户注意
+                  set -euo pipefail
+                  # gh handles draft Releases by tag and --clobber makes reruns
+                  # idempotent. The Release remains draft until the next step.
+                  # Accept either artifact layout (flat or a preserved kind
+                  # directory); manifest generation and GitHub asset names are
+                  # based on basenames and still fail on duplicate names.
+                  mapfile -t assets < <(find "$ASSET_DIR" -type f -printf '%p\n' | sort)
+                  if [ "${#assets[@]}" -eq 0 ]; then
+                    echo "No staged Release assets found" >&2
+                    exit 1
+                  fi
+                   gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
 
-                  由于 Windows 系统更新导致应用渲染性能下降，建议暂时使用 **WebView2 内置版**以获得更好的使用体验。
+            - name: Verify draft assets and updater manifest
+              id: verify_draft
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_ID: ${{ steps.release.outputs.id }}
+                  RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+                  APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+                  ASSET_DIR: ${{ runner.temp }}/snow-shot-release-assets
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  repo="$GITHUB_REPOSITORY"
+                  assets_json="$(gh api "repos/$repo/releases/$RELEASE_ID/assets?per_page=100")"
+                  expected=(
+                    "latest.json"
+                    "checksums.json"
+                    "Snow.Shot_${APP_VERSION}_darwin-aarch64.app.tar.gz"
+                    "Snow.Shot_${APP_VERSION}_darwin-aarch64.app.tar.gz.sig"
+                    "Snow.Shot_${APP_VERSION}_darwin-aarch64.dmg"
+                    "Snow.Shot_${APP_VERSION}_darwin-x64.app.tar.gz"
+                    "Snow.Shot_${APP_VERSION}_darwin-x64.app.tar.gz.sig"
+                    "Snow.Shot_${APP_VERSION}_darwin-x64.dmg"
+                    "Snow.Shot_${APP_VERSION}_windows-x64_setup.exe"
+                    "Snow.Shot_${APP_VERSION}_windows-x64_setup.exe.sig"
+                    "Snow.Shot_${APP_VERSION}_windows-x64_webview_setup.exe"
+                    "Snow.Shot_${APP_VERSION}_windows-x64_offline_setup.exe"
+                  )
+                  for name in "${expected[@]}"; do
+                    jq -e --arg name "$name" 'any(.[]; .name == $name)' <<<"$assets_json" >/dev/null || {
+                      echo "Draft Release is missing asset: $name" >&2
+                      exit 1
+                    }
+                  done
+                  latest_url="$(jq -er --arg name latest.json '.[] | select(.name == $name) | .url' <<<"$assets_json" | head -n 1)"
+                  checksums_url="$(jq -er --arg name checksums.json '.[] | select(.name == $name) | .url' <<<"$assets_json" | head -n 1)"
+                  gh api "$latest_url" -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/remote-latest.json"
+                  gh api "$checksums_url" -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/remote-checksums.json"
+                  node scripts/release-manifest.mjs verify \
+                    --tag "$RELEASE_TAG" \
+                    --version "$APP_VERSION" \
+                    --manifest "$RUNNER_TEMP/remote-latest.json" \
+                    --assets-dir "$ASSET_DIR" \
+                    --checksums "$RUNNER_TEMP/remote-checksums.json"
 
-                  EOF
+            - name: Publish verified Release
+              if: steps.release.outputs.published != 'true'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_ID: ${{ steps.release.outputs.id }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                    -H 'Accept: application/vnd.github+json' \
+                    -F draft=false -F prerelease=false >/dev/null
 
-            - name: Update Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: ${{ needs.create-release.outputs.release_tag }}
-                  name: "Snow Shot ${{ needs.create-release.outputs.release_tag }}"
-                  body_path: release_notes.md
-                  draft: false
-                  prerelease: false
-                  token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Verify public OTA endpoint
+              env:
+                  RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+                  APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  public_manifest="$RUNNER_TEMP/public-latest.json"
+                  public_checksums="$RUNNER_TEMP/public-checksums.json"
+                  verified=false
+                  for delay in 0 5 15; do
+                    if [ "$delay" -gt 0 ]; then sleep "$delay"; fi
+                    if curl --fail --location --retry 2 --retry-all-errors --retry-delay 2 --retry-max-time 20 \
+                      -o "$public_manifest" \
+                      'https://github.com/llw2011/snow-shot/releases/latest/download/latest.json' \
+                      && curl --fail --location --retry 2 --retry-all-errors --retry-delay 2 --retry-max-time 20 \
+                      -o "$public_checksums" \
+                      'https://github.com/llw2011/snow-shot/releases/latest/download/checksums.json' \
+                      && node scripts/release-manifest.mjs verify \
+                        --tag "$RELEASE_TAG" \
+                        --version "$APP_VERSION" \
+                        --manifest "$public_manifest" \
+                        --checksums "$public_checksums"; then
+                      verified=true
+                      break
+                    fi
+                    echo "Public latest endpoint is not serving the new manifest yet; retrying after CDN propagation." >&2
+                  done
+                  if [ "$verified" != true ]; then
+                    echo "Public latest endpoint did not converge within the bounded verification window." >&2
+                    exit 1
+                  fi
