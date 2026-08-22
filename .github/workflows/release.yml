@@ -149,7 +149,7 @@ jobs:
             - name: Test release helper scripts
               uses: actions/setup-node@v4
               with:
-                  node-version: 20
+                  node-version: 22
 
             - name: Run release helper tests
               shell: bash
@@ -231,7 +231,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: 20
+                  node-version: 22
                   cache: pnpm
 
             - name: Install Rust 1.90.0

@@ -74,7 +74,7 @@ node scripts/release-manifest.mjs verify `
 
 ## 依赖与固定校验
 
-- CI 固定 Node.js 20、pnpm 10.8.1、Rust 1.90.0；本地 Rust 必须满足 `rust-version >= 1.90`。
+- CI 固定 Node.js 22、pnpm 10.8.1、Rust 1.90.0；本地 Rust 必须满足 `rust-version >= 1.90`。
 - `../excalidraw` 必须是 `d57ac317fc926bba6f7332e9ac24de7a84359d5f`。
 - Windows CI 下载 `onnxruntime-win-x64-static_lib-1.22.2.zip` 后校验固定 SHA-256。
 - offline 资源和 WebView2 fixed runtime 在解压前校验 SHA-256。

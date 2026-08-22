@@ -44,7 +44,7 @@ Published OTA updates use the public GitHub release manifest and Tauri's minisig
 
 ### Requirements
 
-- Node.js 20+, pnpm 10+, and Yarn 1.x.
+- Node.js 22+, pnpm 10+, and Yarn 1.x.
 - Rust 1.90+ (see [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml)).
 - Windows: MSVC Build Tools, Windows SDK, NSIS, and WebView2.
 - macOS: Xcode Command Line Tools.
