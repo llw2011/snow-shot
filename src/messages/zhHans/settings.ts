@@ -79,6 +79,7 @@ export const settings = {
 	"settings.pleasePressTheKey": "请按下按键",
 	"settings.keyConfig": "“{title}”按键配置",
 	"settings.resetSettings": "确定重置“{title}”为默认设置吗？",
+	"settings.resetSettingsAction": "恢复默认",
 	"settings.antialias": "抗锯齿",
 	"settings.renderSettings": "渲染",
 	"settings.drawLine": "绘制线条",

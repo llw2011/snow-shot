@@ -4,6 +4,7 @@ import type React from "react";
 export type RouteMapItem = {
 	items: TabsProps["items"];
 	hideTabs?: boolean;
+	contentNavigation?: "settings-workspace";
 };
 
 export type RouteItem = {
@@ -12,6 +13,7 @@ export type RouteItem = {
 	label: string;
 	icon?: React.ReactNode;
 	hideTabs?: boolean;
+	contentNavigation?: "settings-workspace";
 	children?: RouteItem[];
 	tabs?: TabsProps["items"];
 };

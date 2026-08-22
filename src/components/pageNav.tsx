@@ -136,6 +136,7 @@ export const PageNav: React.FC<{
 							className={`page-nav-item${selected ? " is-active" : ""}`}
 							key={key}
 							aria-current={selected ? "location" : undefined}
+							title={typeof item.label === "string" ? item.label : undefined}
 							ref={(element) => {
 								if (element) {
 									buttonRefs.current.set(key, element);
@@ -162,7 +163,15 @@ export const PageNav: React.FC<{
 
 								if (nextIndex !== undefined) {
 									event.preventDefault();
-									buttonRefs.current.get(itemKeys[nextIndex])?.focus();
+									const nextButton = buttonRefs.current.get(
+										itemKeys[nextIndex],
+									);
+									nextButton?.focus();
+									nextButton?.scrollIntoView({
+										block: "nearest",
+										inline: "nearest",
+										behavior: prefersReducedMotion() ? "auto" : "smooth",
+									});
 								}
 							}}
 						>
@@ -172,38 +181,48 @@ export const PageNav: React.FC<{
 				})}
 			</div>
 
-			<style jsx>{`
+			<style jsx global>{`
 				.page-nav {
 					position: relative;
 					z-index: 2;
-					flex: 0 0 auto;
-					padding: 12px 24px 11px;
-					border-bottom: 1px solid var(--snow-shot-hairline-soft);
-					background: color-mix(
-						in srgb,
-						var(--snow-shot-panel-bg) 94%,
-						transparent
-					);
-					backdrop-filter: var(--snow-shot-backdrop-filter);
+					display: flex;
+					flex: 0 0 176px;
+					min-width: 0;
+					min-height: 0;
+					padding: 18px 10px;
+					border-inline-end: 1px solid var(--snow-shot-hairline);
+					background: var(--snow-shot-surface);
 				}
 
 				.page-nav-track {
 					display: flex;
-					gap: 6px;
-					overflow-x: auto;
-					overflow-y: hidden;
-					scrollbar-width: none;
+					flex: 1 1 auto;
+					flex-direction: column;
+					gap: 3px;
+					min-width: 0;
+					min-height: 0;
+					overflow-x: hidden;
+					overflow-y: auto;
+					scroll-padding-block: 2px;
+					scrollbar-width: thin;
+					-webkit-overflow-scrolling: touch;
 				}
 
 				.page-nav-track::-webkit-scrollbar {
-					display: none;
+					width: 4px;
+				}
+
+				.page-nav-track::-webkit-scrollbar-thumb {
+					background: var(--snow-shot-hairline);
 				}
 
 				.page-nav-item {
-					flex: 0 0 auto;
-					min-height: 36px;
-					padding: 7px 13px;
-					border: 0;
+					position: relative;
+					display: block;
+					width: 100%;
+					min-height: 38px;
+					padding: 8px 10px 8px 12px;
+					border: 1px solid transparent;
 					border-radius: var(--snow-shot-radius-sm);
 					background: transparent;
 					color: var(--snow-shot-muted);
@@ -211,23 +230,59 @@ export const PageNav: React.FC<{
 					font-size: 14px;
 					font-weight: 500;
 					line-height: 20px;
+					text-align: left;
 					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
 					cursor: pointer;
+					transition:
+						background-color 140ms ease,
+						border-color 140ms ease,
+						color 140ms ease,
+						transform 140ms ease;
 				}
 
 				.page-nav-item:hover {
 					background: var(--snow-shot-surface-elevated);
+					border-color: var(--snow-shot-hairline-soft);
 					color: var(--snow-shot-ink);
 				}
 
 				.page-nav-item.is-active {
-					background: var(--snow-shot-primary-soft);
+					border-color: var(--snow-shot-hairline-strong);
+					background: var(--snow-shot-surface-elevated);
 					color: var(--snow-shot-ink);
+					font-weight: 600;
+				}
+
+				.page-nav-item.is-active::before {
+					content: "";
+					position: absolute;
+					inset-block: 7px;
+					inset-inline-start: -1px;
+					width: 2px;
+					border-radius: 1px;
+					background: var(--snow-shot-primary);
+				}
+
+				.page-nav-item:active {
+					transform: translateY(1px);
 				}
 
 				.page-nav-item:focus-visible {
 					outline: 2px solid var(--snow-shot-primary);
 					outline-offset: -2px;
+				}
+
+				@media (max-width: 800px) {
+					.page-nav {
+						flex-basis: 152px;
+						padding-inline: 8px;
+					}
+
+					.page-nav-item {
+						padding-inline: 10px;
+					}
 				}
 			`}</style>
 		</nav>

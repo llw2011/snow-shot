@@ -21,12 +21,21 @@ export const GroupTitle: React.FC<{
 			</Typography.Title>
 			{extra && <div className="components_group-title-extra">{extra}</div>}
 
-			<style jsx>{`
+			<style jsx global>{`
 				.components_group-title-row {
 					display: flex;
 					align-items: center;
 					justify-content: space-between;
 					gap: 12px;
+					min-height: 30px;
+					padding: 0 0 0 10px;
+					border-inline-start: 2px solid var(--snow-shot-primary);
+					border-bottom: 1px solid var(--snow-shot-hairline-soft);
+				}
+
+				.components_group-title-row :global(.components_group-title) {
+					font-size: 16px !important;
+					line-height: 24px;
 				}
 
 				.components_group-title-extra {

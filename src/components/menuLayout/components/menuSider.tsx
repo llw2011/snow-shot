@@ -93,8 +93,8 @@ const MenuSiderCore: React.FC<{
 		<Sider
 			className="snow-shot-sider"
 			collapsed={collapsed}
-			width={220}
-			collapsedWidth={72}
+			width={200}
+			collapsedWidth={64}
 			collapsible
 			onCollapse={(value) => {
 				setCollapsed(value);
@@ -134,9 +134,10 @@ const MenuSiderCore: React.FC<{
 						)}
 					</div>
 				)}
-				<RSC>
+				<RSC className="menu-sider-scroll">
 					<Menu
 						aria-label="Snow Shot"
+						className="menu-sider-menu"
 						selectedKeys={[pathname]}
 						mode="inline"
 						items={menuItems}
@@ -154,31 +155,43 @@ const MenuSiderCore: React.FC<{
 			</div>
 			<style jsx>{`
                 .logo-wrap {
-                    min-height: 72px;
+					position: relative;
+                    min-height: 60px;
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 16px 18px 12px;
+                    padding: 14px 14px 10px;
                     color: var(--snow-shot-ink);
                     user-select: none;
                 }
+
+				.logo-wrap::after {
+					content: "";
+					position: absolute;
+					inset-inline: 14px;
+					bottom: 0;
+					height: 1px;
+					background: var(--snow-shot-hairline-soft);
+				}
 
                 .logo-wrap.collapsed {
                     justify-content: center;
                     padding-inline: 0;
                 }
 
+				.logo-wrap.collapsed::after {
+					inset-inline: 10px;
+				}
+
                 .logo-mark {
                     position: relative;
-                    width: 32px;
-                    height: 32px;
+                    width: 30px;
+                    height: 30px;
                     flex: 0 0 auto;
                     border: 1px solid var(--snow-shot-hairline-strong);
-                    border-radius: 8px;
-                    background: var(--snow-shot-logo-bg);
-                    box-shadow:
-                        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-                        var(--snow-shot-glow);
+                    border-radius: var(--snow-shot-radius-sm);
+					background: var(--snow-shot-surface-card);
+					box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
                 }
 
                 .logo-mark::before,
@@ -190,8 +203,8 @@ const MenuSiderCore: React.FC<{
                 }
 
                 .logo-mark::before {
-                    top: 8px;
-                    left: 8px;
+                    top: 7px;
+                    left: 7px;
                     width: 12px;
                     height: 12px;
                     border-right: 0;
@@ -200,8 +213,8 @@ const MenuSiderCore: React.FC<{
                 }
 
                 .logo-mark::after {
-                    right: 8px;
-                    bottom: 8px;
+                    right: 7px;
+                    bottom: 7px;
                     width: 12px;
                     height: 12px;
                     border-left: 0;
@@ -211,20 +224,17 @@ const MenuSiderCore: React.FC<{
 
                 .logo-mark-core {
                     position: absolute;
-                    left: 13px;
-                    top: 13px;
+                    left: 12px;
+                    top: 12px;
                     width: 6px;
                     height: 6px;
                     border-radius: 999px;
-                    background: var(--snow-shot-ink);
-                    box-shadow:
-                        -6px -4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 62%, transparent),
-                        6px 4px 0 -2px color-mix(in srgb, var(--snow-shot-ink) 42%, transparent);
+					background: var(--snow-shot-primary);
                 }
 
                 .logo-wrap .logo-text {
                     color: var(--snow-shot-ink);
-                    font-size: 16px;
+                    font-size: 15px;
                     font-weight: 600;
                     letter-spacing: 0;
                     line-height: 1;
@@ -232,7 +242,7 @@ const MenuSiderCore: React.FC<{
 
                 .macos-title-bar-margin {
                     width: 100%;
-                    height: 46px;
+                    height: 40px;
                 }
 
                 .menu-sider-wrap {
@@ -241,17 +251,54 @@ const MenuSiderCore: React.FC<{
                     flex-direction: column;
                 }
 
+				.menu-sider-wrap :global(.menu-sider-scroll) {
+					flex: 1 1 auto;
+					min-height: 0;
+				}
+
                 .menu-sider-wrap :global(.ScrollbarsCustom-Wrapper) {
                     inset: 0 0 0 0 !important;
                 }
 
-                .menu-sider-wrap :global(.ant-menu-inline) {
-                    padding-bottom: ${token.padding}px;
+				.menu-sider-wrap :global(.menu-sider-menu.ant-menu-inline) {
+					padding: 8px 0 ${token.padding + 44}px;
                 }
 
-                .menu-wrap {
-                    overflow: auto;
-                }
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-item),
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-submenu-title) {
+					position: relative;
+					min-height: 40px !important;
+					border: 1px solid transparent;
+					border-radius: var(--snow-shot-radius-sm) !important;
+					line-height: 38px !important;
+					transition:
+						background-color 140ms ease,
+						border-color 140ms ease,
+						color 140ms ease;
+				}
+
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-item:hover),
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-submenu-title:hover) {
+					border-color: var(--snow-shot-hairline-soft);
+				}
+
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-item-selected) {
+					border-color: var(--snow-shot-hairline-strong);
+					background: var(--snow-shot-surface-elevated) !important;
+					box-shadow: inset 2px 0 0 var(--snow-shot-primary);
+				}
+
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-submenu-selected > .ant-menu-submenu-title) {
+					color: var(--snow-shot-ink);
+				}
+
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-item::after) {
+					display: none;
+				}
+
+				.menu-sider-wrap :global(.menu-sider-menu .ant-menu-sub) {
+					border-inline-start-color: var(--snow-shot-hairline-soft);
+				}
             `}</style>
 		</Sider>
 	);

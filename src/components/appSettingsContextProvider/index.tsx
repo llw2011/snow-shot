@@ -34,11 +34,11 @@ import {
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
 import {
+	APP_THEME_RADIUS,
 	colorWithAlpha,
 	createThemeCssVariables,
 	getAppThemeRuntime,
 	isAppThemePreset,
-	resolveThemePrimaryColor,
 } from "@/constants/themePresets";
 import { AppContext } from "@/contexts/appContext";
 import {
@@ -1825,16 +1825,11 @@ const AppSettingsContextProviderCore: React.FC<{
 	const currentThemeRuntime = useMemo(
 		() =>
 			getAppThemeRuntime(
-				appSettings[AppSettingsGroup.Common].themePreset,
+				defaultAppSettingsData[AppSettingsGroup.Common].themePreset,
 				appContextValue.currentTheme,
 			),
-		[
-			appContextValue.currentTheme,
-			appSettings[AppSettingsGroup.Common].themePreset,
-		],
+		[appContextValue.currentTheme],
 	);
-	const hasCustomBackground =
-		appSettings[AppSettingsGroup.ThemeSkin].skinPath.trim().length > 0;
 	const themeAlgorithms = useMemo(() => {
 		const algorithms = [
 			appContextValue.currentTheme === AppSettingsTheme.Dark
@@ -1851,20 +1846,8 @@ const AppSettingsContextProviderCore: React.FC<{
 		appSettings[AppSettingsGroup.Common].enableCompactLayout,
 	]);
 	const currentPrimaryColor = useMemo(
-		() =>
-			resolveThemePrimaryColor(
-				appSettings[AppSettingsGroup.Common].mainColor,
-				currentThemeRuntime,
-				(value) =>
-					theme.getDesignToken({
-						algorithm: themeAlgorithms,
-						token: {
-							...currentThemeRuntime.antTokens,
-							colorPrimary: value,
-						},
-					}).colorPrimary,
-			),
-		[appSettings, currentThemeRuntime, themeAlgorithms],
+		() => currentThemeRuntime.recommendedAccent,
+		[currentThemeRuntime],
 	);
 
 	useEffect(() => {
@@ -1930,30 +1913,18 @@ const AppSettingsContextProviderCore: React.FC<{
 			algorithm: themeAlgorithms,
 			token: {
 				...currentThemeRuntime.antTokens,
-				colorTextSecondary: hasCustomBackground
-					? currentThemeRuntime.palette.ink
-					: currentThemeRuntime.palette.body,
-				colorTextTertiary: hasCustomBackground
-					? currentThemeRuntime.palette.body
-					: currentThemeRuntime.palette.muted,
-				colorTextQuaternary: hasCustomBackground
-					? currentThemeRuntime.palette.muted
-					: currentThemeRuntime.palette.ash,
-				colorTextPlaceholder: hasCustomBackground
-					? currentThemeRuntime.palette.body
-					: currentThemeRuntime.palette.muted,
-				colorTextDisabled: hasCustomBackground
-					? currentThemeRuntime.palette.muted
-					: currentThemeRuntime.palette.ash,
-				colorIcon: hasCustomBackground
-					? currentThemeRuntime.palette.body
-					: currentThemeRuntime.palette.muted,
+				colorTextSecondary: currentThemeRuntime.palette.body,
+				colorTextTertiary: currentThemeRuntime.palette.muted,
+				colorTextQuaternary: currentThemeRuntime.palette.ash,
+				colorTextPlaceholder: currentThemeRuntime.palette.muted,
+				colorTextDisabled: currentThemeRuntime.palette.ash,
+				colorIcon: currentThemeRuntime.palette.muted,
 				colorPrimary: currentPrimaryColor,
 				colorPrimaryBg: colorWithAlpha(currentPrimaryColor, 0.12),
 				colorPrimaryBgHover: colorWithAlpha(currentPrimaryColor, 0.2),
 				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
 				colorLink: currentPrimaryColor,
-				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
+				borderRadius: APP_THEME_RADIUS,
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
 					? 36
 					: 42,
@@ -2001,10 +1972,8 @@ const AppSettingsContextProviderCore: React.FC<{
 		};
 	}, [
 		appSettings[AppSettingsGroup.Common].enableCompactLayout,
-		appSettings[AppSettingsGroup.Common].borderRadius,
 		currentPrimaryColor,
 		currentThemeRuntime,
-		hasCustomBackground,
 		themeAlgorithms,
 	]);
 
@@ -2014,8 +1983,8 @@ const AppSettingsContextProviderCore: React.FC<{
 		const cssVariables = createThemeCssVariables(
 			currentThemeRuntime,
 			currentPrimaryColor,
-			appSettings[AppSettingsGroup.Common].borderRadius,
-			hasCustomBackground,
+			APP_THEME_RADIUS,
+			false,
 		);
 
 		root.dataset.snowTheme = appSettings[AppSettingsGroup.Common].themePreset;
@@ -2029,11 +1998,9 @@ const AppSettingsContextProviderCore: React.FC<{
 		document.body.classList.toggle("app-light", !isDarkMode);
 	}, [
 		appContextValue.currentTheme,
-		appSettings[AppSettingsGroup.Common].borderRadius,
 		appSettings[AppSettingsGroup.Common].themePreset,
 		currentPrimaryColor,
 		currentThemeRuntime,
-		hasCustomBackground,
 	]);
 
 	return (

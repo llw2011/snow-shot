@@ -4,8 +4,9 @@ import {
 	getCurrentWindow,
 } from "@tauri-apps/api/window";
 import * as tauriOs from "@tauri-apps/plugin-os";
-import { Button, Layout, Space } from "antd";
+import { Button, Layout, Menu, Space } from "antd";
 import { Header } from "antd/es/layout/layout";
+import type { ItemType, MenuItemType } from "antd/es/menu/interface";
 import React, {
 	useCallback,
 	useEffect,
@@ -15,15 +16,19 @@ import React, {
 } from "react";
 import RSC, { type Scrollbar } from "react-scrollbars-custom";
 import { PageNav } from "@/components/pageNav";
+import { SettingsWorkspace } from "@/components/settingsWorkspace";
 import type { RouteMapItem } from "@/types/components/menuLayout";
 
 const { Content } = Layout;
 
+type MenuItem = ItemType<MenuItemType>;
+
 const MenuContentCore: React.FC<{
+	menuItems: MenuItem[];
 	pathname: string;
 	routeTabsMap: Record<string, RouteMapItem>;
 	children: React.ReactNode;
-}> = ({ pathname, routeTabsMap, children }) => {
+}> = ({ menuItems, pathname, routeTabsMap, children }) => {
 	const appWindowRef = useRef<AppWindow | undefined>(undefined);
 	useEffect(() => {
 		appWindowRef.current = getCurrentWindow();
@@ -32,6 +37,8 @@ const MenuContentCore: React.FC<{
 	const tabItems = useMemo(() => {
 		return routeTabsMap[pathname] ?? routeTabsMap["/"] ?? [];
 	}, [pathname, routeTabsMap]);
+	const usesSettingsWorkspace =
+		tabItems.contentNavigation === "settings-workspace";
 
 	const scrollbarRef = useRef<Scrollbar | null>(null);
 	const setScrollbarRef = useCallback(
@@ -72,14 +79,42 @@ const MenuContentCore: React.FC<{
 		setCurrentPlatform(tauriOs.platform());
 	}, []);
 
+	const pageContent = (
+		<RSC className="app-page-scrollbar" ref={setScrollbarRef}>
+			<main className="content-container app-page-content">{children}</main>
+		</RSC>
+	);
+
 	return (
 		<Layout>
 			<Header
 				data-tauri-drag-region
-				className="app-titlebar app-tauri-drag-region"
+				className={`app-titlebar app-tauri-drag-region ${
+					currentPlatform === "macos" ? "is-macos" : ""
+				}`}
 			>
+				<div data-tauri-drag-region className="app-brand app-tauri-drag-region">
+					<div
+						data-tauri-drag-region
+						className="app-brand-mark"
+						aria-hidden="true"
+					/>
+					<span data-tauri-drag-region className="app-brand-name">
+						Snow Shot
+					</span>
+				</div>
+
+				<Menu
+					aria-label="Snow Shot"
+					className="app-global-nav"
+					items={menuItems}
+					mode="horizontal"
+					selectedKeys={[pathname]}
+					triggerSubMenuAction="click"
+				/>
+
 				{currentPlatform !== "macos" && (
-					<Space className="window-actions">
+					<Space className="window-actions workbench-window-actions">
 						<Button
 							type="text"
 							size="small"
@@ -103,119 +138,205 @@ const MenuContentCore: React.FC<{
 						/>
 					</Space>
 				)}
-
-				{currentPlatform === "macos" && (
-					<div data-tauri-drag-region className="logo-text">
-						<div data-tauri-drag-region className="logo-mark" />
-						<div data-tauri-drag-region>Snow Shot</div>
-					</div>
-				)}
 			</Header>
 			<Content>
 				<div className="content-wrap app-content-shell">
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 					<div className="center app-content-surface">
-						<PageNav tabItems={tabItems} scrollbarRef={scrollbarRef} />
-						<RSC className="app-page-scrollbar" ref={setScrollbarRef}>
-							<main className="content-container app-page-content">
-								{children}
-							</main>
-						</RSC>
+						{usesSettingsWorkspace ? (
+							<SettingsWorkspace
+								scrollbarRef={scrollbarRef}
+								tabItems={tabItems}
+							>
+								{pageContent}
+							</SettingsWorkspace>
+						) : (
+							<>
+								<PageNav tabItems={tabItems} scrollbarRef={scrollbarRef} />
+								{pageContent}
+							</>
+						)}
 					</div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
-					<div data-tauri-drag-region className="app-tauri-drag-region"></div>
 				</div>
 			</Content>
 
-			<style jsx>{`
-                .app-titlebar {
-                    position: relative;
-                    height: 46px !important;
-                    background: var(--snow-shot-header-bg) !important;
-                    border-bottom: 1px solid var(--snow-shot-hairline-soft);
-                }
+			<style jsx global>{`
+				.app-titlebar {
+					display: grid;
+					grid-template-columns: auto minmax(0, 1fr) auto;
+					align-items: center;
+					height: 52px !important;
+					padding: 0 12px 0 16px !important;
+					background: var(--snow-shot-header-bg) !important;
+					border-bottom: 1px solid var(--snow-shot-hairline);
+				}
 
-                .app-titlebar :global(.window-actions .ant-btn) {
-                    color: var(--snow-shot-muted);
-                    width: 32px;
-                    height: 32px;
-                    border-radius: var(--snow-shot-radius-sm);
-                }
+				.app-titlebar.is-macos {
+					padding-inline-start: 76px !important;
+				}
 
-                .app-titlebar :global(.window-actions .ant-btn:hover) {
-                    color: var(--snow-shot-ink);
-                    background: var(--snow-shot-surface-card);
-                }
+				.app-brand {
+					display: inline-flex;
+					align-items: center;
+					gap: 9px;
+					min-width: 146px;
+					height: 100%;
+					padding-inline-end: 18px;
+					color: var(--snow-shot-ink);
+					font-size: 15px;
+					font-weight: 600;
+					user-select: none;
+				}
 
-                    .content-wrap {
-                        display: grid;
-                        grid-template-columns: 16px minmax(0, 1fr) 16px;
-                        grid-template-rows: 16px minmax(0, 1fr) 16px;
-                        height: 100%;
-                        background: transparent;
-                    }
+				.app-brand-mark {
+					position: relative;
+					width: 26px;
+					height: 26px;
+					flex: 0 0 auto;
+					border: 1px solid var(--snow-shot-ink);
+					border-radius: 5px;
+				}
 
-                .content-wrap .center {
-                    grid-column: 2;
-                    grid-row: 2;
-                    overflow-y: hidden;
-                        overflow-x: hidden;
-                        container-name: snow-content;
-                        container-type: inline-size;
-                        border-radius: var(--snow-shot-radius-lg);
-                        background: var(--snow-shot-panel-bg);
-                        border: 1px solid var(--snow-shot-hairline-soft);
-                        box-shadow: var(--snow-shot-shadow);
-                        backdrop-filter: var(--snow-shot-backdrop-filter);
-                        padding: 0;
-                        display: flex;
-                        flex-direction: column;
-                    transform: translateY(0px);
-                }
+				.app-brand-mark::before,
+				.app-brand-mark::after {
+					position: absolute;
+					width: 8px;
+					height: 8px;
+					border: 1px solid currentColor;
+					content: "";
+				}
 
-                .content-wrap .center::-webkit-scrollbar {
-                    display: none;
-                }
+				.app-brand-mark::before {
+					inset: 5px auto auto 5px;
+					border-right: 0;
+					border-bottom: 0;
+				}
 
-                    .content-container {
-                        box-sizing: border-box;
-                    padding: 28px 32px 56px;
-                        width: 100%;
-                    min-height: 100%;
-                    overflow-x: hidden;
-                }
+				.app-brand-mark::after {
+					inset: auto 5px 5px auto;
+					border-top: 0;
+					border-left: 0;
+				}
 
-                .logo-text {
-                    position: absolute;
-                    line-height: initial;
-                    display: flex;
-                    height: 42px;
-                    gap: 8px;
-                    align-items: center;
-                    justify-content: center;
-                    color: var(--snow-shot-ink);
-                    font-weight: 600;
-                    user-select: none;
-                    /* 对齐系统里的 title 位置 */
-                    position: absolute;
-                    left: 0;
-                    right: 0;
-                }
+				.app-titlebar :global(.app-global-nav.ant-menu) {
+					min-width: 0;
+					height: 52px;
+					line-height: 52px;
+					background: transparent;
+					border-bottom: 0;
+					color: var(--snow-shot-muted);
+				}
 
-                .logo-mark {
-                    width: 15px;
-                    height: 15px;
-                    border: 1px solid var(--snow-shot-hairline-strong);
-                    border-radius: 5px;
-                    background: var(--snow-shot-surface-card);
-                    box-shadow: inset 0 0 0 3px var(--snow-shot-canvas);
-                }
-            `}</style>
+				.app-titlebar :global(.app-global-nav .ant-menu-overflow) {
+					display: flex;
+					align-items: center;
+					gap: 2px;
+					overflow: hidden;
+				}
+
+				.app-titlebar :global(.app-global-nav .ant-menu-item),
+				.app-titlebar :global(.app-global-nav .ant-menu-submenu-title) {
+					display: inline-flex;
+					align-items: center;
+					height: 34px;
+					margin: 0 !important;
+					padding: 0 10px !important;
+					border: 1px solid transparent;
+					border-radius: var(--snow-shot-radius-sm);
+					color: var(--snow-shot-muted) !important;
+					font-size: 14px;
+					line-height: 32px !important;
+				}
+
+				.app-titlebar :global(.app-global-nav .ant-menu-item::after),
+				.app-titlebar :global(.app-global-nav .ant-menu-submenu::after) {
+					display: none;
+				}
+
+				.app-titlebar :global(.app-global-nav .ant-menu-item:hover),
+				.app-titlebar :global(.app-global-nav .ant-menu-submenu-title:hover),
+				.app-titlebar :global(.app-global-nav .ant-menu-item-selected),
+				.app-titlebar
+					:global(.app-global-nav .ant-menu-submenu-selected > .ant-menu-submenu-title) {
+					border-color: var(--snow-shot-hairline);
+					background: var(--snow-shot-surface-elevated) !important;
+					color: var(--snow-shot-ink) !important;
+				}
+
+				.app-titlebar :global(.workbench-window-actions) {
+					display: flex;
+					align-items: center;
+					gap: 4px;
+					margin: 0;
+				}
+
+				.app-titlebar :global(.window-actions .ant-btn) {
+					width: 30px;
+					height: 30px;
+					border: 1px solid transparent;
+					border-radius: var(--snow-shot-radius-sm);
+					color: var(--snow-shot-muted);
+					background: transparent;
+				}
+
+				.app-titlebar :global(.window-actions .ant-btn:hover) {
+					border-color: var(--snow-shot-hairline);
+					color: var(--snow-shot-ink);
+					background: var(--snow-shot-surface-elevated);
+				}
+
+				.app-content-shell {
+					display: grid;
+					grid-template-columns: 12px minmax(0, 1fr) 12px;
+					grid-template-rows: 12px minmax(0, 1fr) 12px;
+					height: 100%;
+					background: var(--snow-shot-canvas);
+				}
+
+				.app-content-shell .center {
+					grid-column: 2;
+					grid-row: 2;
+					container-name: snow-app-content;
+					container-type: inline-size;
+					display: flex;
+					min-width: 0;
+					min-height: 0;
+					overflow: hidden;
+					border: 1px solid var(--snow-shot-hairline);
+					border-radius: var(--snow-shot-radius-lg);
+					background: var(--snow-shot-panel-bg);
+				}
+
+				.app-content-shell .center :global(.app-page-scrollbar) {
+					flex: 1 1 auto;
+					min-width: 0;
+					min-height: 0;
+				}
+
+				.content-container {
+					box-sizing: border-box;
+					container-name: snow-content;
+					container-type: inline-size;
+					width: 100%;
+					min-height: 100%;
+					padding: 28px 32px 48px;
+					overflow-x: hidden;
+				}
+
+				@media (max-width: 800px) {
+					.app-brand {
+						min-width: 46px;
+						padding-inline-end: 12px;
+					}
+
+					.app-brand-name {
+						display: none;
+					}
+
+					.content-container {
+						padding: 22px 20px 40px;
+					}
+				}
+			`}</style>
 		</Layout>
 	);
 };

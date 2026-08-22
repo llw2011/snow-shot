@@ -172,7 +172,7 @@ export const ThemePresetSelector = ({
 
                 .theme-preset-layout {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+                    grid-template-columns: minmax(0, 1fr);
                     align-items: start;
                     gap: 12px;
                     min-width: 0;
@@ -180,13 +180,15 @@ export const ThemePresetSelector = ({
 
                 .theme-preset-current {
                     display: grid;
-                    grid-template-columns: minmax(180px, 1.15fr) minmax(0, 0.85fr);
+                    grid-template-columns: minmax(220px, 1.15fr) minmax(180px, 0.85fr);
                     gap: 12px;
                     min-width: 0;
-                    padding: 10px;
+                    padding: 12px;
                     border: 1px solid var(--snow-shot-hairline);
-                    border-radius: var(--snow-shot-radius-lg);
-                    background: var(--snow-shot-surface-elevated);
+                    border-inline-start: 3px solid var(--preview-accent);
+                    border-radius: var(--snow-shot-radius);
+                    background: var(--snow-shot-surface);
+                    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--snow-shot-ink) 4%, transparent);
                 }
 
                 .theme-preview-window {
@@ -195,10 +197,10 @@ export const ThemePresetSelector = ({
                     grid-template-columns: 28% 72%;
                     width: 100%;
                     min-width: 0;
-                    height: 112px;
+                    height: 116px;
                     overflow: hidden;
                     border: 1px solid var(--preview-border);
-                    border-radius: calc(var(--snow-shot-radius) + 2px);
+                    border-radius: var(--snow-shot-radius-sm);
                     background:
                         var(--preview-pattern),
                         var(--preview-atmosphere),
@@ -217,7 +219,7 @@ export const ThemePresetSelector = ({
                     min-width: 0;
                     padding: 10px 7px;
                     border-right: 1px solid var(--preview-border);
-                    background: color-mix(in srgb, var(--preview-canvas) 84%, transparent);
+                    background: var(--preview-card);
                 }
 
                 .theme-preview-logo {
@@ -225,7 +227,7 @@ export const ThemePresetSelector = ({
                     height: 17px;
                     margin-bottom: 6px;
                     border: 1px solid var(--preview-border-strong);
-                    border-radius: 5px;
+                    border-radius: 2px;
                     background: var(--preview-logo);
                 }
 
@@ -233,7 +235,7 @@ export const ThemePresetSelector = ({
                     display: block;
                     width: 100%;
                     height: 6px;
-                    border-radius: 999px;
+                    border-radius: 1px;
                     background: color-mix(in srgb, var(--preview-muted) 48%, transparent);
                 }
 
@@ -260,7 +262,7 @@ export const ThemePresetSelector = ({
                     gap: 3px;
                     padding-right: 7px;
                     border-bottom: 1px solid var(--preview-border);
-                    background: color-mix(in srgb, var(--preview-canvas) 78%, transparent);
+                    background: var(--preview-canvas);
                 }
 
                 .theme-preview-header span {
@@ -278,15 +280,15 @@ export const ThemePresetSelector = ({
                     margin: 6px;
                     padding: 7px;
                     border: 1px solid var(--preview-border);
-                    border-radius: 7px;
-                    background: var(--preview-panel);
+                    border-radius: 3px;
+                    background: var(--preview-surface);
                 }
 
                 .theme-preview-title {
                     width: 44%;
                     height: 5px;
                     margin-bottom: 1px;
-                    border-radius: 999px;
+                    border-radius: 1px;
                     background: var(--preview-ink);
                     opacity: 0.86;
                 }
@@ -300,7 +302,7 @@ export const ThemePresetSelector = ({
                     min-width: 0;
                     padding: 0 4px;
                     border: 1px solid var(--preview-border);
-                    border-radius: 5px;
+                    border-radius: 2px;
                     background: var(--preview-surface);
                 }
 
@@ -336,7 +338,7 @@ export const ThemePresetSelector = ({
                     min-width: 17px;
                     padding: 1px 3px;
                     border: 1px solid var(--preview-border-strong);
-                    border-radius: 3px;
+                    border-radius: 1px;
                     color: var(--preview-body);
                     font-size: 7px;
                     line-height: 9px;
@@ -357,7 +359,7 @@ export const ThemePresetSelector = ({
                     gap: 4px;
                     margin-bottom: 8px;
                     color: var(--snow-shot-muted);
-                    font-size: 12px;
+                    font-size: 14px;
                     font-weight: 600;
                     line-height: 18px;
                 }
@@ -370,7 +372,7 @@ export const ThemePresetSelector = ({
                     max-width: 100%;
                     overflow: hidden;
                     color: var(--snow-shot-ink);
-                    font-size: 15px;
+                    font-size: 16px;
                     font-weight: 600;
                     line-height: 22px;
                     text-overflow: ellipsis;
@@ -378,15 +380,15 @@ export const ThemePresetSelector = ({
                 }
 
                 .theme-current-description {
-                    display: -webkit-box;
+                    display: block;
                     max-width: 100%;
                     margin-top: 4px;
                     overflow: hidden;
                     color: var(--snow-shot-muted);
-                    font-size: 12px;
-                    line-height: 18px;
-                    -webkit-box-orient: vertical;
-                    -webkit-line-clamp: 2;
+                    font-size: 13px;
+                    line-height: 20px;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 .theme-current-swatches {
@@ -399,8 +401,8 @@ export const ThemePresetSelector = ({
 
                 .theme-current-swatches span {
                     width: 18px;
-                    height: 4px;
-                    border-radius: 999px;
+                    height: 3px;
+                    border-radius: 1px;
                     background: var(--preview-accent);
                 }
 
@@ -418,7 +420,7 @@ export const ThemePresetSelector = ({
 
                 .theme-preset-options {
                     display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
                     gap: 8px;
                     min-width: 0;
                 }
@@ -430,11 +432,11 @@ export const ThemePresetSelector = ({
                     align-items: center;
                     gap: 8px;
                     min-width: 0;
-                    min-height: 50px;
+                    min-height: 48px;
                     padding: 7px 9px;
                     border: 1px solid var(--snow-shot-hairline);
                     border-radius: var(--snow-shot-radius);
-                    background: var(--snow-shot-surface-elevated);
+                    background: var(--snow-shot-surface);
                     color: var(--snow-shot-ink);
                     font: inherit;
                     text-align: left;
@@ -458,8 +460,9 @@ export const ThemePresetSelector = ({
 
                 .theme-preset-option.is-selected {
                     border-color: var(--preview-accent);
-                    background: var(--snow-shot-surface-card);
-                    box-shadow: inset 0 0 0 1px var(--preview-accent);
+                    border-inline-start-width: 3px;
+                    background: var(--snow-shot-surface-elevated);
+                    box-shadow: none;
                 }
 
                 .theme-preset-option:disabled {
@@ -474,9 +477,9 @@ export const ThemePresetSelector = ({
                     height: 24px;
                     overflow: hidden;
                     border: 1px solid var(--preview-border);
-                    border-radius: 6px;
+                    border-radius: 2px;
                     background: var(--preview-canvas);
-                    box-shadow: inset 0 0 0 2px var(--preview-surface);
+                    box-shadow: inset 0 0 0 1px var(--preview-surface);
                 }
 
                 .theme-option-palette span {
@@ -503,7 +506,7 @@ export const ThemePresetSelector = ({
                 .theme-option-name {
                     min-width: 0;
                     overflow: hidden;
-                    font-size: 13px;
+                    font-size: 14px;
                     font-weight: 600;
                     line-height: 20px;
                     text-overflow: ellipsis;
@@ -520,7 +523,13 @@ export const ThemePresetSelector = ({
                     font-size: 12px;
                 }
 
-                @media (max-width: 680px) {
+                @container snow-content (max-width: 880px) {
+                    .theme-preset-options {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                }
+
+                @container snow-content (max-width: 620px) {
                     .theme-preset-current {
                         grid-template-columns: minmax(0, 1fr);
                     }
@@ -530,7 +539,7 @@ export const ThemePresetSelector = ({
                     }
                 }
 
-                @media (max-width: 460px) {
+                @container snow-content (max-width: 520px) {
                     .theme-preset-options {
                         grid-template-columns: minmax(0, 1fr);
                     }

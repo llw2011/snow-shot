@@ -5,7 +5,7 @@ import {
 	ToolOutlined,
 } from "@ant-design/icons";
 import { useLocation, useRouter } from "@tanstack/react-router";
-import { Layout, theme } from "antd";
+import { Layout } from "antd";
 import type { ItemType, MenuItemType } from "antd/es/menu/interface";
 import React, { useCallback, useContext, useEffect, useMemo } from "react";
 import { useIntl } from "react-intl";
@@ -13,9 +13,7 @@ import { CheckEnvironment } from "@/components/checkEnvironment";
 import { CheckVersion } from "@/components/checkVersion";
 import { GlobalEventHandler } from "@/components/globalEventHandler";
 import { GlobalShortcut } from "@/components/globalShortcut";
-import { PersonalizationIcon } from "@/components/icons";
 import { InitService } from "@/components/initService";
-import { ThemeSkin } from "@/components/themeSkin";
 import {
 	TrayIconLoader,
 	TrayIconStatePublisher,
@@ -38,7 +36,6 @@ import { AppSettingsGroup, AppSettingsLanguage } from "@/types/appSettings";
 import type { RouteItem, RouteMapItem } from "@/types/components/menuLayout";
 import { getPlatformValue } from "@/utils/platform";
 import { MenuContent } from "./components/menuContent";
-import { MenuSider } from "./components/menuSider";
 
 type MenuItem = ItemType<MenuItemType>;
 
@@ -112,7 +109,6 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 		),
 	);
 
-	const { token } = theme.useToken();
 	const { isReadyStatus } = usePluginServiceContext();
 	const router = useRouter();
 	const routes = useMemo(() => {
@@ -122,6 +118,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 				path: "/",
 				label: intl.formatMessage({ id: "menu.functions" }),
 				icon: <AppstoreOutlined />,
+				hideTabs: true,
 				tabs: [
 					{
 						key: "screenshotFunction",
@@ -215,45 +212,6 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 				}),
 			},
 			{
-				key: "/personalization",
-				path: undefined,
-				label: intl.formatMessage({ id: "menu.personalization" }),
-				icon: <PersonalizationIcon />,
-				tabs: [],
-				children: [
-					{
-						key: "/personalization/appearance",
-						path: "/personalization/appearance",
-						label: intl.formatMessage({
-							id: "menu.personalization.appearance",
-						}),
-						hideTabs: true,
-						tabs: [
-							{
-								key: "appearance",
-								label: intl.formatMessage({
-									id: "menu.personalization.appearance",
-								}),
-							},
-						],
-					},
-					{
-						key: "/personalization/plugins",
-						path: "/personalization/plugins",
-						label: intl.formatMessage({ id: "menu.personalization.plugins" }),
-						hideTabs: true,
-						tabs: [
-							{
-								key: "plugins",
-								label: intl.formatMessage({
-									id: "menu.personalization.plugins",
-								}),
-							},
-						],
-					},
-				],
-			},
-			{
 				key: "/settings",
 				path: undefined,
 				label: intl.formatMessage({ id: "menu.settings" }),
@@ -264,6 +222,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 						key: "/settings/generalSettings",
 						path: "/settings/generalSettings",
 						label: intl.formatMessage({ id: "menu.settings.generalSettings" }),
+						contentNavigation: "settings-workspace",
 						tabs: [
 							{
 								key: "commonSettings",
@@ -293,6 +252,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 						key: "/settings/functionSettings",
 						path: "/settings/functionSettings",
 						label: intl.formatMessage({ id: "menu.settings.functionSettings" }),
+						contentNavigation: "settings-workspace",
 						tabs: [
 							{
 								key: "screenshotSettings",
@@ -387,6 +347,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 						key: "/settings/hotKeySettings",
 						path: "/settings/hotKeySettings",
 						label: intl.formatMessage({ id: "menu.settings.hotKeySettings" }),
+						contentNavigation: "settings-workspace",
 						tabs: [
 							{
 								key: "translation",
@@ -426,6 +387,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 						key: "/settings/systemSettings",
 						path: "/settings/systemSettings",
 						label: intl.formatMessage({ id: "menu.settings.systemSettings" }),
+						contentNavigation: "settings-workspace",
 						tabs: [
 							{
 								key: "commonSettings",
@@ -484,6 +446,36 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 							return true;
 						}),
 					},
+					{
+						key: "/personalization/appearance",
+						path: "/personalization/appearance",
+						label: intl.formatMessage({
+							id: "menu.personalization.appearance",
+						}),
+						hideTabs: true,
+						tabs: [
+							{
+								key: "appearance",
+								label: intl.formatMessage({
+									id: "menu.personalization.appearance",
+								}),
+							},
+						],
+					},
+					{
+						key: "/personalization/plugins",
+						path: "/personalization/plugins",
+						label: intl.formatMessage({ id: "menu.personalization.plugins" }),
+						hideTabs: true,
+						tabs: [
+							{
+								key: "plugins",
+								label: intl.formatMessage({
+									id: "menu.personalization.plugins",
+								}),
+							},
+						],
+					},
 				],
 			},
 			{
@@ -530,6 +522,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 				routeTabsMap[route.path] = {
 					items: route.tabs,
 					hideTabs: route.hideTabs,
+					contentNavigation: route.contentNavigation,
 				};
 			}
 
@@ -549,8 +542,11 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 			<CheckVersion />
 			<div className="menu-layout-wrap">
 				<Layout>
-					<MenuSider menuItems={menuItems} pathname={pathname} />
-					<MenuContent pathname={pathname} routeTabsMap={routeTabsMap}>
+					<MenuContent
+						menuItems={menuItems}
+						pathname={pathname}
+						routeTabsMap={routeTabsMap}
+					>
 						<GlobalShortcut>{children}</GlobalShortcut>
 					</MenuContent>
 				</Layout>
@@ -566,27 +562,10 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
                         height: 100% !important;
                     }
 
-                    .menu-layout-wrap > :global(.ant-layout) {
-                        flex-direction: row !important;
-                    }
-
-                    .menu-layout-wrap :global(.ant-layout-sider-trigger) {
-                        position: absolute !important;
-                    }
-
-                    .menu-layout-wrap :global(.ant-layout-sider) {
-                        box-shadow: ${token.boxShadowSecondary};
-                    }
-
-                    .menu-layout-wrap :global(.ant-layout-header) {
-                        height: 46px !important;
-                        background: var(--snow-shot-header-bg);
-                        display: flex;
-                        align-items: center;
-                        justify-content: flex-end;
-                        padding: 0 18px;
-                    }
-                `}</style>
+					.menu-layout-wrap > :global(.ant-layout) {
+						min-width: 0;
+					}
+				`}</style>
 			</div>
 		</>
 	);
@@ -601,7 +580,6 @@ export const MenuLayout = ({ children }: { children: React.ReactNode }) => {
 		<>
 			<InitService />
 			<div className="snow-shot-window-shell">
-				<ThemeSkin />
 				<ML>{children}</ML>
 			</div>
 		</>

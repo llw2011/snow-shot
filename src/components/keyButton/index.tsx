@@ -402,6 +402,7 @@ export const KeyButton: React.FC<{
 						maxWidth,
 						textOverflow: "ellipsis",
 						overflow: "hidden",
+						whiteSpace: "nowrap",
 					}}
 				>
 					{formatKeyText}

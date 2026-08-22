@@ -1,120 +1,112 @@
-# Snow Shot Design Direction — Snowfield Workbench
+# Snow Shot Design Contract — Capture Workbench
 
-Snow Shot uses a quiet desktop-utility skin built around command shelves and progressively disclosed settings. The product should feel fast, local, precise, and calm rather than decorative, marketing-led, or simultaneously dense.
+Snow Shot is a desktop capture instrument. Its interface must get people to a
+capture target quickly, keep the capture context legible, and make supporting
+tools easy to find without turning the application into a settings catalogue.
 
-## Visual Language
+## Product Shape
 
-- Default canvas is near-black: `#07080A`.
-- Surfaces use a quiet ladder: `#0D0D0D`, `#101111`, `#121212`.
-- Borders are 1px hairlines: `#242728` or soft white alpha.
-- Elevation comes from surface contrast and hairlines, not stacked cards or heavy shadow.
-- Primary actions may use white-on-dark contrast. Chromatic accents are reserved for status, warnings, and tool identity.
-- Radius stays compact: 6px for rows and keycaps, 8px for panels and controls.
+The application has three levels of navigation, each with a single job:
 
-## Product Skin
+1. The top application bar moves between the workbench, independent tools,
+   settings, extensions, and About. It is the only global navigation.
+2. The capture workbench prioritizes capture actions by task: begin capture,
+   target a focused window, capture a full display, or wait for a delay.
+   Secondary workflows such as OCR, translation, recording, pinning, and
+   history remain available, but do not compete with the main capture action.
+3. A settings route uses a local section rail and one active settings board.
+   It never combines a global sidebar, a horizontal tab strip, and a pile of
+   expanded cards in the same viewport.
 
-- The app frame is a desktop workbench: sidebar, window bar, and content panel read as one continuous command surface.
-- The Snow Shot mark should be original: a small capture-frame/snow mark, not a third-party logo or brand copy.
-- The sidebar shows every top-level destination but expands only the active navigation group.
-- Home actions are single-column command rows at the default 1024×632 window: tool icon, action label, and a trailing shortcut/status control.
-- Settings begin with section summaries. One section is open by default; every other section remains visible as a stable heading and expands without unmounting its form fields.
-- A setting is one readable row. At compact desktop widths, labels and controls must not compete in two unrelated side-by-side columns.
-- Toolbars stay icon-first. Selected states use a lifted surface and hairline border.
+Routes, fields, keyboard bindings, reset actions, persistence, plugin gates,
+and native window behavior are retained. Layout changes do not change a
+capture action's meaning or its shortcut.
 
-## Component Treatment
+## Single Black-and-White Theme
 
-- Buttons and form controls: 40px default height, 34px only when compact mode is explicitly enabled, 8px radius, subtle border.
-- Keycaps: compact dark gradient, 4-6px radius, muted text.
-- Page section navigation: a horizontally scrollable row of quiet text buttons with a surface selected state; it reveals collapsed targets before scrolling.
-- Menus: selected row is one surface step lighter; avoid saturated color blocks.
-- Cards and panels: only for repeated command groups, settings sections, modal/tools, and actual framed content. Do not nest a bordered button card inside multiple decorative cards.
+There is one visual system with two luminance modes:
 
-## Motion
+- Dark mode uses near-black canvas, charcoal working surfaces, gray seams, and
+  white current/focus states.
+- Light mode uses off-white canvas, pale-gray working surfaces, gray seams, and
+  black current/focus states.
+- Gray is structural hierarchy, not a second accent. The interface does not use
+  preset finishes, accent-color selection, gradients, glow, glass, background
+  images, or decorative texture.
 
-- Prefer short, functional transitions around 120-180ms.
-- Avoid decorative motion. Interaction feedback should clarify focus, selection, loading, or capture state.
-- `prefers-reduced-motion` removes smooth scrolling and reduces transitions to immediate feedback.
+Historic `themePreset`, `mainColor`, radius, and skin settings remain readable
+in stored data for compatibility. They do not choose the capture workbench's
+runtime visual system. Existing data must never be deleted merely because its
+old appearance is no longer surfaced in the UI.
 
-## Switchable Theme System
+## Frame and Navigation
 
-Snow Shot separates color mode from visual skin. `Light`, `Dark`, and `System`
-control luminance, while `themePreset` selects the product skin. Every preset must
-support both light and dark modes, so changing the skin never disables the system
-theme preference.
+- The top bar is 52px high and includes the Snow Shot mark, global navigation,
+  and native window controls. It is one quiet structural line, not a second
+  content card.
+- Global navigation uses readable 14px labels. A selected item changes surface,
+  border, and text weight; focus is visible without relying on color alone.
+- The content region is a single working surface with a modest 12px outer
+  clearance. Nested floating panels are avoided.
+- A local settings rail is 152–176px wide on desktop. It holds the section
+  names for only the current settings route, scrolls independently when needed,
+  and exposes a clear keyboard focus path. It collapses only when its content
+  would take space away from an essential form control.
 
-- **Obsidian Core / 黑曜核心** is the compatibility default. It preserves the
-  compact near-black command-workbench direction described above.
-- **Aurora Pulse / 极光脉冲** uses violet, magenta, and cyan atmospheric light
-  over translucent dark or light glass.
-- **Prism Bloom / 棱镜霞光** combines coral, lavender, and indigo in a softer,
-  luminous mesh with rounded floating surfaces.
-- **Emerald Matrix / 翡翠矩阵** uses an ink-green technical grid, compact radii,
-  and emerald focus signals.
-- **Chromatic Studio / 彩色工作室** uses a high-contrast frame with alternating
-  pastel accents for creative command groups.
-- **Glacier Crystal / 冰川晶体** uses ice-blue light, pearl surfaces, and deeply
-  layered frosted glass.
+## Capture Workbench
 
-Theme presets own the canvas atmosphere, color ladder, borders, restrained
-material, logo treatment, and recommended accent. All presets share the same
-information hierarchy, layout, component geometry, focus treatment, command-row
-structure, and settings disclosure. Presets must not color groups by DOM order or
-change content density. The user's accent color and radius remain adjustable after
-selecting a preset. Runtime color resolution must reject an accent with insufficient
-contrast against the active canvas and core surfaces, then use the preset's readable
-recommendation instead.
+- The first visible action is the default capture action and its existing
+  shortcut. Focus order begins there.
+- Capture targets are arranged as a compact command deck, not as a category
+  list: the default capture, focused window, full screen, and delay are the
+  first choices; supporting capture transforms follow as a second tier.
+- Independent workflows (translation, AI, video, pinning, and history) appear
+  as a clearly separate secondary area. Plugin-dependent actions retain their
+  existing availability gates.
+- Every command keeps its action name and shortcut on a stable baseline. A
+  missing or conflicting shortcut remains understandable through text/icon
+  state, not color alone.
 
-Theme text tokens have stable readability roles across every preset. `ink`,
-`body`, and informational `muted` text must keep at least 4.5:1 contrast on the
-canvas, standard surfaces, cards, and content panels. `ash` is reserved for
-disabled or non-text UI and must keep at least 3:1. The application uses a
-platform-native UI font stack with explicit CJK fallbacks, standard 400/600
-weights, and a 12px minimum for explanatory copy. Glass themes keep their vivid
-atmosphere outside content surfaces while panels, sidebars, and headers remain
-opaque enough for predictable text contrast.
+## Settings Workspace
 
-Compact layout changes control height, spacing, and padding without shrinking the
-application root type scale or showing more sections at once. Default interface
-copy remains 14px at a 1.5 line height; 12px is reserved for explanatory copy,
-tags, badges, tooltips, and keycaps rather than used as the inherited application
-font size.
+- Settings are master/detail: the local section rail selects exactly one active
+  board. All boards remain mounted so form state and immediate persistence are
+  preserved; inactive boards use `hidden` and are absent from keyboard order.
+- An active board has one heading, optional reset action, and aligned fields.
+  It does not surround every ordinary field with another card.
+- At an actual board width below 880px, ordinary fields use one full-width row.
+  At widths below 700px, horizontal label/control pairs become a label above a
+  full-width control. Type remains 14px or larger.
+- A two-column field grid is permitted only when each field has room for a
+  readable label and a full control. At intermediate widths, its labels sit
+  above controls rather than being squeezed beside them.
+- Shortcut editing is a key table. It has a two-column matrix only when the
+  actual board width is at least 760px; otherwise it becomes one column while
+  keeping action and keycap on one line.
 
-The primary form factor is the 1024×632 Tauri window with either an expanded or
-collapsed sidebar. Responsive decisions use the content container width, not the
-outer viewport: command lists and top-level settings fields become one column when
-the available content surface is 880px or narrower. Long translated labels, paths,
-and model identifiers must wrap or truncate inside their own row without causing
-horizontal page scrolling.
+## Typography, Spacing, and States
 
-Semantic info, success, warning, and error colors are also text colors. Each
-must keep at least 4.5:1 contrast on every core surface in all twelve preset/mode
-combinations. Solid primary and danger controls use a foreground derived from
-the active canvas instead of assuming white text. Decorative accent colors are
-not valid text colors unless they independently pass the same contrast check.
+- Use the platform UI stack with the explicit CJK fallbacks in
+  `--snow-shot-font-ui`. Do not add display fonts or Latin tracking to Chinese
+  body copy.
+- Body and controls are 14px/21px. Section headings are 16px/24px. Compact
+  identifiers and keycaps may be 13px; ordinary labels are never reduced below
+  14px to rescue a tight layout.
+- Prefer flat surfaces, 1px seams, 4–8px radii, and 8px spacing rhythm. One
+  functional surface change is enough for hover. Pressed feedback is brief and
+  restrained.
+- Focus uses a 2px inset black/white ring so it is never clipped by a scroll
+  container. Selected, disabled, error, empty, and shortcut-conflict states
+  retain text, icon, or structural differentiation in addition to color.
+- `prefers-reduced-motion` removes non-essential transitions and smooth scroll.
 
-Third-party content and overlay roots must follow Snow Shot's selected mode,
-not the operating system media query. Markdown variables, embedded display
-iframes, Ant Design's `App` root, portals, messages, modals, dropdowns, tooltips,
-and popovers all live inside or explicitly receive the active theme context.
-The provider order is `ConfigProvider -> Ant App -> application content`.
+## Overlay and Compatibility Rules
 
-User-supplied background images and custom CSS remain the highest-priority skin
-layer. When a custom background is active, layout chrome becomes translucent and
-must not hide the image. Theme presets may still provide readable foreground,
-border, and control tokens above that custom layer. Custom CSS may be used without
-selecting a background image; image position, opacity, blur, and mask controls are
-inactive until an image path is present.
+Ant Design portals (selects, pickers, modals, popovers, tooltips, messages, and
+dropdowns) use the same monochrome surface, seam, type, and focus grammar as the
+application shell. Runtime theme context continues to flow through
+`ConfigProvider -> Ant App -> application content`.
 
-The mask control remains authoritative over custom-background translucency; a
-theme preset must not narrow its range or silently turn the main layout opaque.
-At the default mask level, major surfaces retain the established 83% overlay and
-form controls add their established 42% local surface, so the image stays visible
-without making controls image-dependent. While an image is active,
-secondary `body` text is promoted to `ink`, informational `muted` text is
-promoted to `body`, and disabled `ash` is promoted to `muted`. Users who
-deliberately lower the mask continue to trade foreground contrast for a more
-prominent image.
-
-Existing public skin hooks such as `.menu-layout-wrap`, `.content-wrap`,
-`.snow-command-button`, and `--snow-shot-*` variables remain compatibility aliases
-for user custom CSS when semantic slots are added or internal layout is refined.
+Public CSS hooks such as `.menu-layout-wrap`, `.content-wrap`,
+`.snow-command-button`, and `--snow-shot-*` stay available where practical for
+compatibility, but are not permission to restore the retired preset system.

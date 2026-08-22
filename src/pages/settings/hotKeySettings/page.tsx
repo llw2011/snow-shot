@@ -1,6 +1,6 @@
 "use client";
 
-import { Col, Form, Row, Spin, theme } from "antd";
+import { Form, Spin } from "antd";
 import { useCallback, useContext, useMemo, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { KeyButton } from "@/components/keyButton";
@@ -38,8 +38,6 @@ import {
 import { canUseOcr } from "@/utils/ocr";
 
 export const HotKeySettingsPage = () => {
-	const { token } = theme.useToken();
-
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
 
 	const [appSettingsLoading, setAppSettingsLoading] = useState(true);
@@ -123,7 +121,6 @@ export const HotKeySettingsPage = () => {
 				return true;
 			})
 			.map((key) => {
-				const span = 12;
 				const config = drawToolbarKeyEvent[key as DrawToolbarKeyEventKey];
 				const componentConfig =
 					defaultDrawToolbarKeyEventComponentConfig[
@@ -131,8 +128,12 @@ export const HotKeySettingsPage = () => {
 					];
 
 				return (
-					<Col key={`draw-toolbar-key-event_col-${key}`} span={span}>
+					<div
+						className="hotkey-matrix-item"
+						key={`draw-toolbar-key-event_col-${key}`}
+					>
 						<Form.Item
+							className="hotkey-matrix-form-item"
 							label={<FormattedMessage id={componentConfig.messageId} />}
 							name={key}
 						>
@@ -159,7 +160,7 @@ export const HotKeySettingsPage = () => {
 								maxLength={2}
 							/>
 						</Form.Item>
-					</Col>
+					</div>
 				);
 			});
 	}, [
@@ -178,7 +179,6 @@ export const HotKeySettingsPage = () => {
 		};
 
 		Object.keys(defaultCommonKeyEventSettings).forEach((key) => {
-			const span = 12;
 			const config = commonKeyEvent[key as CommonKeyEventKey];
 			const componentConfig =
 				defaultCommonKeyEventComponentConfig[key as CommonKeyEventKey];
@@ -188,8 +188,9 @@ export const HotKeySettingsPage = () => {
 			}
 
 			groupFormItemMap[config.group].push(
-				<Col key={`key-event_col-${key}`} span={span}>
+				<div className="hotkey-matrix-item" key={`key-event_col-${key}`}>
 					<Form.Item
+						className="hotkey-matrix-form-item"
 						label={<FormattedMessage id={componentConfig.messageId} />}
 						name={key}
 					>
@@ -216,7 +217,7 @@ export const HotKeySettingsPage = () => {
 							maxLength={2}
 						/>
 					</Form.Item>
-				</Col>,
+				</div>,
 			);
 		});
 
@@ -227,11 +228,12 @@ export const HotKeySettingsPage = () => {
 		keyEventFormItemList,
 	) as CommonKeyEventGroup[];
 	return (
-		<div className="settings-wrap">
+		<div className="settings-wrap hot-key-settings-page">
 			{/* 这里用 form 控制值的更新和保存的话反而很麻烦，所以 */}
 			<Form
 				className="settings-form common-settings-form"
 				form={commonKeyEventForm}
+				layout="horizontal"
 			>
 				{keyEventFormItemListKeys
 					.filter((configGroup) => {
@@ -279,9 +281,9 @@ export const HotKeySettingsPage = () => {
 								defaultOpen={index === 0}
 							>
 								<Spin spinning={appSettingsLoading}>
-									<Row gutter={token.marginLG}>
+									<div className="hotkey-matrix">
 										{keyEventFormItemList[configGroup]}
-									</Row>
+									</div>
 								</Spin>
 							</SettingsSection>
 						);
@@ -306,9 +308,12 @@ export const HotKeySettingsPage = () => {
 				<Form
 					className="settings-form common-settings-form"
 					form={drawToolbarKeyEventForm}
+					layout="horizontal"
 				>
 					<Spin spinning={appSettingsLoading}>
-						<Row gutter={token.marginLG}>{drawToolbarKeyEventFormItemList}</Row>
+						<div className="hotkey-matrix">
+							{drawToolbarKeyEventFormItemList}
+						</div>
 					</Spin>
 				</Form>
 			</SettingsSection>

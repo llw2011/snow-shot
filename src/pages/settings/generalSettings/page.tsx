@@ -23,7 +23,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { ContentWrap } from "@/components/contentWrap";
 import { IconLabel } from "@/components/iconLable";
-import { DarkModeIcon, LanguageIcon } from "@/components/icons";
+import { LanguageIcon } from "@/components/icons";
 import { PathInput } from "@/components/pathInput";
 import { ResetSettingsButton } from "@/components/resetSettingsButton";
 import { SettingsSection } from "@/components/settingsSection";
@@ -42,7 +42,6 @@ import {
 	type AppSettingsData,
 	AppSettingsGroup,
 	AppSettingsLanguage,
-	AppSettingsTheme,
 	ColorPickerShowMode,
 	TrayIconDefaultIcon,
 } from "@/types/appSettings";
@@ -319,23 +318,6 @@ export const GeneralSettingsPage = () => {
 		]);
 	}, [intl]);
 
-	const themeOptions = useMemo(() => {
-		return [
-			{
-				label: intl.formatMessage({ id: "settings.theme.light" }),
-				value: AppSettingsTheme.Light,
-			},
-			{
-				label: intl.formatMessage({ id: "settings.theme.dark" }),
-				value: AppSettingsTheme.Dark,
-			},
-			{
-				label: intl.formatMessage({ id: "settings.theme.system" }),
-				value: AppSettingsTheme.System,
-			},
-		];
-	}, [intl]);
-
 	useEffect(() => {
 		initDefaultIconsOptions();
 	}, [initDefaultIconsOptions]);
@@ -374,20 +356,7 @@ export const GeneralSettingsPage = () => {
 				>
 					<Spin spinning={appSettingsLoading}>
 						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<Form.Item
-									label={
-										<IconLabel
-											icon={<DarkModeIcon />}
-											label={<FormattedMessage id="settings.theme" />}
-										/>
-									}
-									name="theme"
-								>
-									<Select options={themeOptions} />
-								</Form.Item>
-							</Col>
-							<Col span={12}>
+							<Col span={24}>
 								<Form.Item
 									className="settings-wrap-language"
 									name="language"

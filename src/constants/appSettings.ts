@@ -65,8 +65,9 @@ export const defaultAppSettingsData: AppSettingsData = {
 	[AppSettingsGroup.Common]: {
 		theme: AppSettingsTheme.Dark,
 		themePreset: AppThemePreset.Obsidian,
-		mainColor: "#FFFFFF",
-		borderRadius: 8,
+		// Legacy storage field. Runtime primary is derived from the active mode.
+		mainColor: "#F5F5F5",
+		borderRadius: 6,
 		enableCompactLayout: true,
 		language: AppSettingsLanguage.ZHHans,
 		browserLanguage: "",
