@@ -586,9 +586,18 @@ export const ResizeModal: React.FC<{
 							className="select-rect-preset-list"
 							min={0}
 							itemRender={({ listDom, action }) => (
-								<Flex align="end" justify="space-between">
-									{listDom}
-									<div>{action}</div>
+								<Flex
+									className="select-rect-preset-list-item"
+									align="end"
+									gap={token.margin}
+									justify="space-between"
+								>
+									<div className="select-rect-preset-list-item-content">
+										{listDom}
+									</div>
+									<div className="select-rect-preset-list-item-action">
+										{action}
+									</div>
 								</Flex>
 							)}
 							creatorRecord={() => ({
@@ -737,6 +746,45 @@ export const ResizeModal: React.FC<{
 					</RSC>
 				)}
 			</div>
+
+			<style jsx>{`
+                :global(.select-rect-preset-list) {
+                    container-name: select-rect-preset-list;
+                    container-type: inline-size;
+                }
+
+                :global(.select-rect-preset-list .select-rect-preset-list-item) {
+                    min-width: 0;
+                }
+
+                :global(.select-rect-preset-list .select-rect-preset-list-item-content) {
+                    flex: 1 1 0;
+                    min-width: 0;
+                }
+
+                :global(.select-rect-preset-list .select-rect-preset-list-item-action) {
+                    display: flex;
+                    flex: 0 0 auto;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    max-width: 100%;
+                }
+
+                @container select-rect-preset-list (max-width: 700px) {
+                    :global(.select-rect-preset-list .select-rect-preset-list-item) {
+                        align-items: stretch !important;
+                        flex-direction: column;
+                    }
+
+                    :global(.select-rect-preset-list .select-rect-preset-list-item-content) {
+                        width: 100%;
+                    }
+
+                    :global(.select-rect-preset-list .select-rect-preset-list-item-action) {
+                        align-self: flex-end;
+                    }
+                }
+            `}</style>
 		</ModalForm>
 	);
 };

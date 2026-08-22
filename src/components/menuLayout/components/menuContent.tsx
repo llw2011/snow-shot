@@ -10,6 +10,7 @@ import type { ItemType, MenuItemType } from "antd/es/menu/interface";
 import React, {
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -51,26 +52,25 @@ const MenuContentCore: React.FC<{
 		[],
 	);
 
-	useEffect(() => {
-		if (pathname.length === 0) {
-			return;
-		}
-
+	const resetPageScroll = useCallback(() => {
 		const scrollbar = scrollbarRef.current;
 		if (!scrollbar) {
 			return;
 		}
 
-		const frame = window.requestAnimationFrame(() => {
-			if (scrollbar.scrollerElement) {
-				scrollbar.scrollerElement.scrollTo({ top: 0, behavior: "auto" });
-			} else {
-				scrollbar.scrollTop = 0;
-			}
-		});
+		scrollbar.scrollTop = 0;
+		scrollbar.update(true);
+	}, []);
 
+	useLayoutEffect(() => {
+		if (pathname.length === 0) {
+			return;
+		}
+
+		resetPageScroll();
+		const frame = window.requestAnimationFrame(resetPageScroll);
 		return () => window.cancelAnimationFrame(frame);
-	}, [pathname]);
+	}, [pathname, resetPageScroll]);
 
 	const [currentPlatform, setCurrentPlatform] = useState<
 		tauriOs.Platform | undefined
@@ -144,6 +144,7 @@ const MenuContentCore: React.FC<{
 					<div className="center app-content-surface">
 						{usesSettingsWorkspace ? (
 							<SettingsWorkspace
+								key={pathname}
 								scrollbarRef={scrollbarRef}
 								tabItems={tabItems}
 							>
@@ -163,8 +164,10 @@ const MenuContentCore: React.FC<{
 				.app-titlebar {
 					display: grid;
 					grid-template-columns: auto minmax(0, 1fr) auto;
+					grid-template-rows: 52px;
 					align-items: center;
 					height: 52px !important;
+					line-height: normal !important;
 					padding: 0 12px 0 16px !important;
 					background: var(--snow-shot-header-bg) !important;
 					border-bottom: 1px solid var(--snow-shot-hairline);
@@ -226,11 +229,23 @@ const MenuContentCore: React.FC<{
 					color: var(--snow-shot-muted);
 				}
 
+				.app-titlebar :global(.app-global-nav.ant-menu.ant-menu-overflow),
 				.app-titlebar :global(.app-global-nav .ant-menu-overflow) {
 					display: flex;
 					align-items: center;
 					gap: 2px;
 					overflow: hidden;
+				}
+
+				.app-titlebar
+					:global(.app-global-nav > .ant-menu-submenu:not(.ant-menu-overflow-item-rest)) {
+					display: flex;
+					align-items: center;
+					height: 34px;
+					margin: 0 !important;
+					padding: 0 !important;
+					line-height: normal !important;
+					top: auto !important;
 				}
 
 				.app-titlebar :global(.app-global-nav .ant-menu-item),
@@ -245,6 +260,10 @@ const MenuContentCore: React.FC<{
 					color: var(--snow-shot-muted) !important;
 					font-size: 14px;
 					line-height: 32px !important;
+				}
+
+				.app-titlebar :global(.app-global-nav > .ant-menu-item) {
+					top: auto !important;
 				}
 
 				.app-titlebar :global(.app-global-nav .ant-menu-item::after),

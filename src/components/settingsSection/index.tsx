@@ -214,7 +214,7 @@ export const SettingsSection: React.FC<{
 				.settings-section-toggle:focus-visible {
 					position: relative;
 					z-index: 1;
-					outline: 2px solid var(--snow-shot-primary);
+					outline: 2px solid var(--snow-shot-primary-strong);
 					outline-offset: -2px;
 				}
 
@@ -321,14 +321,20 @@ export const SettingsSection: React.FC<{
 				:global(.settings-section-body .ant-input-number),
 				:global(.settings-section-body .ant-select-selector),
 				:global(.settings-section-body .ant-picker),
-				:global(.settings-section-body .ant-color-picker-trigger),
-				:global(.settings-section-body .ant-btn) {
-					min-height: 40px;
+				:global(.settings-section-body .ant-color-picker-trigger) {
+					min-height: 36px;
+					border-radius: var(--snow-shot-radius);
+				}
+
+				/* Keyboard capture uses deliberately small keycaps. Do not let the
+				   generic field-action sizing stretch them and break row alignment. */
+				:global(.settings-section-body .ant-btn:not(.snow-keycap-button)) {
+					min-height: 36px;
 					border-radius: var(--snow-shot-radius);
 				}
 
 				:global(.settings-section-body .ant-select-single .ant-select-selector) {
-					height: 40px;
+					height: 36px;
 				}
 
 				:global(.settings-section-body .ant-radio-group) {

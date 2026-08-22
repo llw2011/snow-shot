@@ -1,9 +1,11 @@
+import { Select } from "antd";
 import type React from "react";
 import {
 	createContext,
 	useCallback,
 	useContext,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -71,6 +73,17 @@ const getWorkspaceItems = (
 	});
 };
 
+const resetScrollbarToTop = (scrollbar: Scrollbar | null) => {
+	if (!scrollbar) {
+		return;
+	}
+
+	// Use the component setter instead of only the native element API so the
+	// custom thumb is recalculated in the same layout pass as the scroll reset.
+	scrollbar.scrollTop = 0;
+	scrollbar.update(true);
+};
+
 export const SettingsWorkspace: React.FC<{
 	tabItems: RouteMapItem;
 	scrollbarRef: React.RefObject<Scrollbar | null>;
@@ -92,23 +105,26 @@ export const SettingsWorkspace: React.FC<{
 	const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
 
 	const scrollContentToTop = useCallback(() => {
-		window.requestAnimationFrame(() => {
-			const scrollbar = scrollbarRef.current;
-			if (!scrollbar) {
-				return;
-			}
-
-			if (scrollbar.scrollerElement) {
-				scrollbar.scrollerElement.scrollTo({ top: 0, behavior: "auto" });
-			} else {
-				scrollbar.scrollTop = 0;
-			}
-		});
+		resetScrollbarToTop(scrollbarRef.current);
 	}, [scrollbarRef]);
+
+	// A section change hides the previous panel and reveals the next one. Reset
+	// after React has committed that DOM change, then once more on the next frame
+	// after react-scrollbars-custom has measured its new content height. This
+	// keeps a long previous section from leaving the new title above the viewport.
+	useLayoutEffect(() => {
+		if (!activeSectionId) {
+			return;
+		}
+
+		scrollContentToTop();
+		const frame = window.requestAnimationFrame(scrollContentToTop);
+		return () => window.cancelAnimationFrame(frame);
+	}, [activeSectionId, scrollContentToTop]);
 
 	const focusRailButton = useCallback((sectionId: string) => {
 		const button = buttonRefs.current.get(sectionId);
-		button?.focus();
+		button?.focus({ preventScroll: true });
 		button?.scrollIntoView({
 			block: "nearest",
 			inline: "nearest",
@@ -253,21 +269,20 @@ export const SettingsWorkspace: React.FC<{
 
 				<div className="settings-workspace-panel">
 					{hasSections && (
-						<label className="settings-workspace-compact-picker">
+						<div className="settings-workspace-compact-picker">
 							<span>{intl.formatMessage({ id: "menu.settings" })}</span>
-							<select
+							<Select
+								aria-label={intl.formatMessage({ id: "menu.settings" })}
 								value={activeSectionId ?? ""}
-								onChange={(event) => {
-									selectSection(event.target.value);
+								onChange={(value) => {
+									selectSection(value);
 								}}
-							>
-								{enabledItems.map((item) => (
-									<option key={item.key} value={item.key}>
-										{item.label}
-									</option>
-								))}
-							</select>
-						</label>
+								options={enabledItems.map((item) => ({
+									label: item.label,
+									value: item.key,
+								}))}
+							/>
+						</div>
 					)}
 					{children}
 				</div>
@@ -350,7 +365,7 @@ export const SettingsWorkspace: React.FC<{
 
 				.settings-workspace-rail-item:focus-visible {
 					z-index: 1;
-					outline: 2px solid var(--snow-shot-primary);
+					outline: 2px solid var(--snow-shot-primary-strong);
 					outline-offset: -2px;
 				}
 
@@ -360,15 +375,23 @@ export const SettingsWorkspace: React.FC<{
 					flex-direction: column;
 					min-width: 0;
 					height: 100%;
-					padding: 18px 20px 32px;
+					overflow: hidden;
 					border: 1px solid var(--snow-shot-hairline-soft);
 					border-radius: var(--snow-shot-radius-sm);
 					background: var(--snow-shot-surface);
 				}
 
-				.settings-workspace-panel :global(.app-page-scrollbar) {
+				.settings-workspace-panel .app-page-scrollbar {
 					flex: 1 1 auto;
 					min-height: 0;
+				}
+
+				.settings-workspace-panel .ScrollbarsCustom-Scroller {
+					overflow-anchor: none;
+				}
+
+				.settings-workspace-panel .content-container {
+					padding: 8px 20px 32px;
 				}
 
 				.settings-workspace-compact-picker {
@@ -385,21 +408,24 @@ export const SettingsWorkspace: React.FC<{
 					}
 
 					.settings-workspace-panel {
-						padding: 16px;
+						padding: 0;
 					}
 
 					.settings-workspace-compact-picker {
 						display: grid;
 						gap: 4px;
-						margin-bottom: 12px;
+						margin: 12px 16px 0;
 						color: var(--snow-shot-muted);
 						font-size: 14px;
 						line-height: 20px;
 					}
 
-					.settings-workspace-compact-picker select {
+					.settings-workspace-compact-picker .ant-select {
 						width: 100%;
-						min-height: 40px;
+					}
+
+					.settings-workspace-compact-picker .ant-select-selector {
+						min-height: 36px;
 						padding: 0 10px;
 						border: 1px solid var(--snow-shot-hairline);
 						border-radius: var(--snow-shot-radius-sm);
@@ -408,9 +434,12 @@ export const SettingsWorkspace: React.FC<{
 						font: inherit;
 					}
 
-					.settings-workspace-compact-picker select:focus-visible {
-						outline: 2px solid var(--snow-shot-primary);
-						outline-offset: 1px;
+					.settings-workspace-compact-picker .ant-select-single .ant-select-selector {
+						height: 36px;
+					}
+
+					.settings-workspace-panel .content-container {
+						padding: 12px 16px 28px;
 					}
 				}
 

@@ -68,6 +68,7 @@ export const defaultAppSettingsData: AppSettingsData = {
 		// Legacy storage field. Runtime primary is derived from the active mode.
 		mainColor: "#F5F5F5",
 		borderRadius: 6,
+		// Legacy storage field. The application always renders at compact density.
 		enableCompactLayout: true,
 		language: AppSettingsLanguage.ZHHans,
 		browserLanguage: "",

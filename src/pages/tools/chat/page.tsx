@@ -45,10 +45,6 @@ import { FormattedMessage, useIntl } from "react-intl";
 import Markdown, { type ExtraProps } from "react-markdown";
 import RSC, { type Scrollbar } from "react-scrollbars-custom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-	oneDark,
-	oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -58,7 +54,6 @@ import { HotkeysMenu } from "@/components/hotkeysMenu";
 import { BotIcon, SidebarIcon, ThinkingIcon } from "@/components/icons";
 import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import { AntdContext } from "@/contexts/antdContext";
-import { AppContext } from "@/contexts/appContext";
 import {
 	AppSettingsActionContext,
 	AppSettingsPublisher,
@@ -72,7 +67,6 @@ import type { ChatModel } from "@/services/tools/chat";
 import {
 	type AppSettingsData,
 	AppSettingsGroup,
-	AppSettingsTheme,
 	type ChatApiConfig,
 } from "@/types/appSettings";
 import {
@@ -101,6 +95,48 @@ import type {
 type BubbleDataType = AntdBubbleDataType & {
 	flow_config?: ChatMessageFlowConfig;
 };
+
+const MONOCHROME_PRISM_STYLE = {
+	'code[class*="language-"]': {
+		background: "var(--snow-shot-surface-elevated)",
+		color: "var(--snow-shot-body)",
+		fontFamily: "var(--snow-shot-font-mono)",
+		lineHeight: "1.55",
+	},
+	'pre[class*="language-"]': {
+		margin: "0.5em 0",
+		padding: "1em",
+		overflow: "auto",
+		borderRadius: "var(--snow-shot-radius-sm)",
+		background: "var(--snow-shot-surface-elevated)",
+		color: "var(--snow-shot-body)",
+		fontFamily: "var(--snow-shot-font-mono)",
+		lineHeight: "1.55",
+	},
+	comment: {
+		color: "var(--snow-shot-muted)",
+		fontStyle: "italic",
+	},
+	prolog: { color: "var(--snow-shot-muted)" },
+	cdata: { color: "var(--snow-shot-muted)" },
+	punctuation: { color: "var(--snow-shot-body)" },
+	entity: { color: "var(--snow-shot-body)" },
+	"attr-name": { color: "var(--snow-shot-body)" },
+	"class-name": { color: "var(--snow-shot-body)" },
+	boolean: { color: "var(--snow-shot-body)" },
+	constant: { color: "var(--snow-shot-body)" },
+	number: { color: "var(--snow-shot-body)" },
+	keyword: { color: "var(--snow-shot-ink)", fontWeight: 600 },
+	property: { color: "var(--snow-shot-ink)" },
+	tag: { color: "var(--snow-shot-ink)" },
+	selector: { color: "var(--snow-shot-ink)" },
+	string: { color: "var(--snow-shot-body)" },
+	char: { color: "var(--snow-shot-body)" },
+	builtin: { color: "var(--snow-shot-body)" },
+	variable: { color: "var(--snow-shot-body)" },
+	operator: { color: "var(--snow-shot-ink)" },
+	function: { color: "var(--snow-shot-ink)", fontWeight: 600 },
+} satisfies Record<string, React.CSSProperties>;
 
 const getMessageContent = (
 	msg: ChatMessage | BubbleDataType,
@@ -141,8 +177,7 @@ const CodeCard: React.FC<{
 		React.HTMLAttributes<HTMLElement> &
 		ExtraProps;
 	language: string;
-	darkMode: boolean;
-}> = ({ props, language, darkMode }) => {
+}> = ({ props, language }) => {
 	const { children, ...rest } = props;
 	return (
 		<Card
@@ -165,7 +200,7 @@ const CodeCard: React.FC<{
 				{...rest}
 				ref={undefined}
 				language={language}
-				style={darkMode ? oneDark : oneLight}
+				style={MONOCHROME_PRISM_STYLE}
 				wrapLongLines
 			>
 				{String(children).replace(/\n$/, "")}
@@ -177,9 +212,10 @@ const CodeCard: React.FC<{
 export const MarkdownContent: React.FC<{
 	content: string;
 	clipboardContent: string;
-	darkMode: boolean;
+	/** @deprecated The code surface now follows shared monochrome CSS tokens. */
+	darkMode?: boolean;
 	disableCodeCard?: boolean;
-}> = ({ content, darkMode, disableCodeCard }) => {
+}> = ({ content, disableCodeCard }) => {
 	return (
 		<Typography>
 			<div className="markdown-body">
@@ -189,11 +225,7 @@ export const MarkdownContent: React.FC<{
 							const { children, className, ...rest } = props;
 							const match = /language-(\w+)/.exec(className || "");
 							return match && !disableCodeCard ? (
-								<CodeCard
-									language={match[1]}
-									darkMode={darkMode}
-									props={props}
-								/>
+								<CodeCard language={match[1]} props={props} />
 							) : (
 								<code {...rest} className={className}>
 									{children}
@@ -330,7 +362,6 @@ const Chat = () => {
 		useStateRef<SendQueueMessage[]>([]);
 
 	const { updateAppSettings } = useContext(AppSettingsActionContext);
-	const { currentTheme } = useContext(AppContext);
 	const [getAppSettings] = useStateSubscriber(AppSettingsPublisher, undefined);
 	useAppSettingsLoad(
 		useCallback(
@@ -940,7 +971,6 @@ const Chat = () => {
 						? () => {
 								return (
 									<MarkdownContent
-										darkMode={currentTheme === AppSettingsTheme.Dark}
 										content={content}
 										clipboardContent={content}
 									/>
@@ -953,7 +983,7 @@ const Chat = () => {
 		});
 
 		return list;
-	}, [currentTheme, messages, token.colorPrimary]);
+	}, [messages, token.colorPrimary]);
 
 	useEffect(() => {
 		if (chatHistoryStoreRef.current) {
@@ -1498,12 +1528,6 @@ const Chat = () => {
                     align-items: center;
                     padding-bottom: 11.8%;
                 }
-                :global(.loadingMessage) {
-                    background-image: linear-gradient(90deg, #ff6b23 0%, #af3cb8 31%, #53b6ff 89%);
-                    background-size: 100% 2px;
-                    background-repeat: no-repeat;
-                    background-position: bottom;
-                }
                 :global(.chatSend) {
                     padding: 0px;
                     padding: ${token.padding}px;
@@ -1518,6 +1542,38 @@ const Chat = () => {
                 :global(.speechButton) {
                     font-size: 18px;
                     color: var(--snow-shot-ink) !important;
+                }
+
+                /* @ant-design/x does not inherit the app's compact form chrome.
+                   Keep the sender as a single dark field rather than a bright
+                   inset outline with a white-filled submit control. */
+                :global(.copilotChat .ant-sender) {
+                    border: 1px solid var(--snow-shot-hairline) !important;
+                    border-radius: var(--snow-shot-radius) !important;
+                    background: var(--snow-shot-surface) !important;
+                    box-shadow: none !important;
+                }
+
+                :global(.copilotChat .ant-sender:focus-within) {
+                    border-color: var(--snow-shot-primary-strong) !important;
+                    box-shadow: 0 0 0 1px var(--snow-shot-primary-soft) !important;
+                }
+
+                :global(.copilotChat .ant-sender .ant-sender-input) {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    color: var(--snow-shot-ink) !important;
+                }
+
+                :global(.copilotChat .ant-sender-actions-btn.ant-btn-primary) {
+                    border-color: var(--snow-shot-hairline-strong) !important;
+                    background: var(--snow-shot-surface-elevated) !important;
+                    color: var(--snow-shot-ink) !important;
+                }
+
+                :global(.copilotChat .ant-sender-actions-btn.ant-btn-primary:hover) {
+                    border-color: var(--snow-shot-primary-strong) !important;
+                    background: var(--snow-shot-surface-card) !important;
                 }
 
                 :global(.ant-bubble-content-wrapper .ant-bubble-footer) {
@@ -1542,73 +1598,13 @@ export const ChatPage = () => {
 		<Suspense>
 			<div className="copilotWrapper">
 				<Chat />
-
 				<style jsx>{`
                     :global(.copilotWrapper) {
+                        position: fixed;
+                        inset: 0;
+                        display: flex;
                         width: 100%;
                         height: 100%;
-                        display: flex;
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                    }
-                    :global(.workarea) {
-                        flex: 1;
-                        background: var(--snow-shot-canvas);
-                        display: flex;
-                        flex-direction: column;
-                    }
-                    :global(.workareaHeader) {
-                        box-sizing: border-box;
-                        height: 52px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        padding: 0 48px 0 28px;
-                        border-bottom: 1px solid var(--snow-shot-hairline);
-                    }
-                    :global(.headerTitle) {
-                        font-weight: 600;
-                        font-size: 15px;
-                        color: var(--snow-shot-ink);
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                    }
-                    :global(.headerButton) {
-                        background-image: linear-gradient(78deg, #8054f2 7%, #3895da 95%);
-                        border-radius: 12px;
-                        height: 24px;
-                        width: 93px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: #fff;
-                        cursor: pointer;
-                        font-size: 12px;
-                        font-weight: 600;
-                        transition: all 0.3s;
-                    }
-                    :global(.headerButton:hover) {
-                        opacity: 0.8;
-                    }
-                    :global(.workareaBody) {
-                        flex: 1;
-                        padding: 16px;
-                        background: var(--snow-shot-surface);
-                        border-radius: 16px;
-                        min-height: 0;
-                    }
-                    :global(.bodyContent) {
-                        overflow: auto;
-                        height: 100%;
-                        padding-right: 10px;
-                    }
-                    :global(.bodyText) {
-                        color: var(--snow-shot-ink);
-                        padding: 8px;
                     }
                 `}</style>
 			</div>

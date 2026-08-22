@@ -136,9 +136,14 @@ export const UpdateOrCreateWorkflow: React.FC<{
 					min={1}
 					className="chat-workflow-list"
 					itemRender={({ listDom, action }) => (
-						<Flex align="end" justify="space-between">
-							{listDom}
-							<div>{action}</div>
+						<Flex
+							className="chat-workflow-list-item"
+							align="end"
+							gap={token.margin}
+							justify="space-between"
+						>
+							<div className="chat-workflow-list-item-content">{listDom}</div>
+							<div className="chat-workflow-list-item-action">{action}</div>
 						</Flex>
 					)}
 					rules={[
@@ -207,6 +212,43 @@ export const UpdateOrCreateWorkflow: React.FC<{
 			<style jsx>{`
                 :global(.chat-workflow-list .ant-pro-form-list-container) {
                     width: 100%;
+                }
+
+                :global(.chat-workflow-list) {
+                    container-name: chat-workflow-list;
+                    container-type: inline-size;
+                }
+
+                :global(.chat-workflow-list .chat-workflow-list-item) {
+                    min-width: 0;
+                }
+
+                :global(.chat-workflow-list .chat-workflow-list-item-content) {
+                    flex: 1 1 0;
+                    min-width: 0;
+                }
+
+                :global(.chat-workflow-list .chat-workflow-list-item-action) {
+                    display: flex;
+                    flex: 0 0 auto;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    max-width: 100%;
+                }
+
+                @container chat-workflow-list (max-width: 700px) {
+                    :global(.chat-workflow-list .chat-workflow-list-item) {
+                        align-items: stretch !important;
+                        flex-direction: column;
+                    }
+
+                    :global(.chat-workflow-list .chat-workflow-list-item-content) {
+                        width: 100%;
+                    }
+
+                    :global(.chat-workflow-list .chat-workflow-list-item-action) {
+                        align-self: flex-end;
+                    }
                 }
             `}</style>
 		</div>

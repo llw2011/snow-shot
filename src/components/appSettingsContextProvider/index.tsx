@@ -486,7 +486,8 @@ const AppSettingsContextProviderCore: React.FC<{
 					enableCompactLayout:
 						typeof newSettings?.enableCompactLayout === "boolean"
 							? newSettings.enableCompactLayout
-							: (prevSettings?.enableCompactLayout ?? false),
+							: (prevSettings?.enableCompactLayout ??
+								defaultAppSettingsData[group].enableCompactLayout),
 					language: (() => {
 						switch (newSettings?.language) {
 							case "zh-Hans":
@@ -1830,21 +1831,16 @@ const AppSettingsContextProviderCore: React.FC<{
 			),
 		[appContextValue.currentTheme],
 	);
-	const themeAlgorithms = useMemo(() => {
-		const algorithms = [
+	const themeAlgorithms = useMemo(
+		() => [
 			appContextValue.currentTheme === AppSettingsTheme.Dark
 				? theme.darkAlgorithm
 				: theme.defaultAlgorithm,
-		];
-		if (appSettings[AppSettingsGroup.Common].enableCompactLayout) {
-			algorithms.push(theme.compactAlgorithm);
-		}
-		algorithms.push(preserveReadableThemeColors);
-		return algorithms;
-	}, [
-		appContextValue.currentTheme,
-		appSettings[AppSettingsGroup.Common].enableCompactLayout,
-	]);
+			theme.compactAlgorithm,
+			preserveReadableThemeColors,
+		],
+		[appContextValue.currentTheme],
+	);
 	const currentPrimaryColor = useMemo(
 		() => currentThemeRuntime.recommendedAccent,
 		[currentThemeRuntime],
@@ -1925,9 +1921,7 @@ const AppSettingsContextProviderCore: React.FC<{
 				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
 				colorLink: currentPrimaryColor,
 				borderRadius: APP_THEME_RADIUS,
-				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
-					? 36
-					: 42,
+				controlHeight: 36,
 				fontFamily: "var(--snow-shot-font-ui)",
 				fontSize: 14,
 				fontSizeSM: 13,
@@ -1970,12 +1964,7 @@ const AppSettingsContextProviderCore: React.FC<{
 				},
 			},
 		};
-	}, [
-		appSettings[AppSettingsGroup.Common].enableCompactLayout,
-		currentPrimaryColor,
-		currentThemeRuntime,
-		themeAlgorithms,
-	]);
+	}, [currentPrimaryColor, currentThemeRuntime, themeAlgorithms]);
 
 	useEffect(() => {
 		const isDarkMode = appContextValue.currentTheme === AppSettingsTheme.Dark;

@@ -219,7 +219,7 @@ export type AppSettingsData = {
 		mainColor: string;
 		/** 圆角 */
 		borderRadius: number;
-		/** 紧凑布局 */
+		/** @deprecated Legacy storage field; the application always uses compact density. */
 		enableCompactLayout: boolean;
 		language: AppSettingsLanguage;
 		/** 浏览器语言，用于自动切换语言 */

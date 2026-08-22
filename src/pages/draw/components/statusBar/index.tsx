@@ -537,7 +537,7 @@ const StatusBar: React.FC = () => {
                     :global(
                         .ant-descriptions .ant-descriptions-item-content .ant-badge-status-text
                     ),
-                :global(.ant-descriptions-item-content) {
+                .status-bar-content :global(.ant-descriptions-item-content) {
                     color: white !important;
                 }
 

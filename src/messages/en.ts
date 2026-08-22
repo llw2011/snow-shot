@@ -18,7 +18,6 @@ export const en = {
 	"settings.theme.light": "Light",
 	"settings.theme.dark": "Dark",
 	"settings.theme.system": "Use System Setting",
-	"settings.compactLayout": "Compact Layout",
 	"settings.language": "Language",
 	"settings.darkMode": "Dark Mode",
 	"settings.controlNode": "Selection Control Style",

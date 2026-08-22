@@ -477,15 +477,21 @@ export const HomePage = () => {
 								min-width: 0;
 							}
 
-							.capture-deck-primary .home-command-item,
-							.capture-deck-primary :global(.snow-command-row--primary) {
+							.capture-deck-primary .home-command-item {
 								display: flex;
 								flex: 1 1 auto;
+							}
+
+							/* Preserve FunctionButton's action/shortcut grid. Turning this
+							   row into flex made the block action compete with its keycap. */
+							.capture-deck-primary :global(.snow-command-row--primary) {
+								flex: 1 1 auto;
+								align-items: stretch;
 								min-height: 112px;
 							}
 
 							.capture-deck-primary :global(.snow-command-action.ant-btn) {
-								height: auto;
+								height: 100%;
 							}
 
 							.capture-deck-modes {

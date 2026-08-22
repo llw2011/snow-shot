@@ -1510,10 +1510,19 @@ export const FunctionSettingsPage = () => {
 										className="api-config-list"
 										min={0}
 										itemRender={({ listDom, action }) => (
-											<Flex align="end" justify="space-between">
-												{listDom}
+											<Flex
+												className="api-config-list-item"
+												align="end"
+												gap={token.margin}
+												justify="space-between"
+											>
+												<div className="api-config-list-item-content">
+													{listDom}
+												</div>
 
-												<div>{action}</div>
+												<div className="api-config-list-item-action">
+													{action}
+												</div>
 											</Flex>
 										)}
 										creatorRecord={() => ({
@@ -1890,9 +1899,18 @@ export const FunctionSettingsPage = () => {
 										className="api-config-list"
 										min={0}
 										itemRender={({ listDom, action }) => (
-											<Flex align="end" justify="space-between">
-												{listDom}
-												<div>{action}</div>
+											<Flex
+												className="api-config-list-item"
+												align="end"
+												gap={token.margin}
+												justify="space-between"
+											>
+												<div className="api-config-list-item-content">
+													{listDom}
+												</div>
+												<div className="api-config-list-item-action">
+													{action}
+												</div>
 											</Flex>
 										)}
 										creatorRecord={() => ({
@@ -2796,6 +2814,38 @@ export const FunctionSettingsPage = () => {
 			<style jsx>{`
                 :global(.api-config-list .ant-pro-form-list-container) {
                     width: 100%;
+                }
+
+                :global(.api-config-list .api-config-list-item) {
+                    min-width: 0;
+                }
+
+                :global(.api-config-list .api-config-list-item-content) {
+                    flex: 1 1 0;
+                    min-width: 0;
+                }
+
+                :global(.api-config-list .api-config-list-item-action) {
+                    display: flex;
+                    flex: 0 0 auto;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    max-width: 100%;
+                }
+
+                @container snow-content (max-width: 700px) {
+                    :global(.api-config-list .api-config-list-item) {
+                        align-items: stretch !important;
+                        flex-direction: column;
+                    }
+
+                    :global(.api-config-list .api-config-list-item-content) {
+                        width: 100%;
+                    }
+
+                    :global(.api-config-list .api-config-list-item-action) {
+                        align-self: flex-end;
+                    }
                 }
             `}</style>
 		</ContentWrap>

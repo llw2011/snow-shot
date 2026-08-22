@@ -27,6 +27,7 @@ export const GroupTitle: React.FC<{
 					align-items: center;
 					justify-content: space-between;
 					gap: 12px;
+					min-width: 0;
 					min-height: 30px;
 					padding: 0 0 0 10px;
 					border-inline-start: 2px solid var(--snow-shot-primary);
@@ -34,14 +35,32 @@ export const GroupTitle: React.FC<{
 				}
 
 				.components_group-title-row :global(.components_group-title) {
+					flex: 1 1 auto;
+					min-width: 0;
+					max-width: 100%;
+					overflow: hidden;
 					font-size: 16px !important;
 					line-height: 24px;
+					text-overflow: ellipsis;
+					white-space: nowrap;
 				}
 
 				.components_group-title-extra {
 					display: flex;
 					flex: 0 0 auto;
+					min-width: 0;
+					max-width: 50%;
+					overflow: hidden;
 					align-items: center;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
+
+				.components_group-title-extra :global(.ant-btn) {
+					max-width: 100%;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
 				}
 			`}</style>
 		</div>

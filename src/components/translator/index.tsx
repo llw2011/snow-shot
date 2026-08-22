@@ -415,13 +415,23 @@ const TranslatorCore: React.FC<{
 		<>
 			{/* 用表单处理下样式，但不用表单处理数据验证 */}
 			<Form className="tool-translator-container" layout="vertical">
-				<Flex gap={0} justify="space-between">
-					<Flex gap={0} align="center">
+				<Flex
+					className="tool-translator-toolbar"
+					gap={0}
+					justify="space-between"
+				>
+					<Flex
+						className="tool-translator-toolbar-group tool-translator-language-controls"
+						gap={0}
+						align="center"
+					>
 						<Form.Item
+							className="tool-translator-toolbar-field"
 							style={{ marginBottom: token.marginXS }}
 							label={<FormattedMessage id="tools.translation.sourceLanguage" />}
 						>
 							<Select
+								className="tool-translator-toolbar-select"
 								value={sourceLanguage}
 								showSearch
 								onChange={(value) => updateSourceLanguage(value)}
@@ -438,6 +448,7 @@ const TranslatorCore: React.FC<{
 							/>
 						</Form.Item>
 						<Button
+							className="tool-translator-swap-button"
 							type="link"
 							disabled={
 								sourceLanguage === "auto" || sourceLanguage === targetLanguage
@@ -450,10 +461,12 @@ const TranslatorCore: React.FC<{
 							}}
 						/>
 						<Form.Item
+							className="tool-translator-toolbar-field"
 							style={{ marginBottom: token.marginXS }}
 							label={<FormattedMessage id="tools.translation.targetLanguage" />}
 						>
 							<Select
+								className="tool-translator-toolbar-select"
 								showSearch
 								value={targetLanguage}
 								onChange={(value) => {
@@ -472,12 +485,17 @@ const TranslatorCore: React.FC<{
 							/>
 						</Form.Item>
 					</Flex>
-					<Flex gap={token.margin}>
+					<Flex
+						className="tool-translator-toolbar-group tool-translator-service-controls"
+						gap={token.margin}
+					>
 						<Form.Item
+							className="tool-translator-toolbar-field"
 							style={{ marginBottom: token.marginXS }}
 							label={<FormattedMessage id="tools.translation.type" />}
 						>
 							<Select
+								className="tool-translator-toolbar-select"
 								showSearch
 								value={translationType}
 								onChange={(value) => {
@@ -497,11 +515,13 @@ const TranslatorCore: React.FC<{
 							/>
 						</Form.Item>
 						<Form.Item
+							className="tool-translator-toolbar-field"
 							style={{ marginBottom: token.marginXS }}
 							label={<FormattedMessage id="tools.translation.domain" />}
 							hidden={!supportDomain}
 						>
 							<Select
+								className="tool-translator-toolbar-select"
 								showSearch
 								value={translationDomain}
 								onChange={(value) => {
@@ -521,7 +541,11 @@ const TranslatorCore: React.FC<{
 						</Form.Item>
 					</Flex>
 				</Flex>
-				<Row gutter={token.marginLG} style={{ marginTop: token.marginXXS }}>
+				<Row
+					className="tool-translator-content-row"
+					gutter={token.marginLG}
+					style={{ marginTop: token.marginXXS }}
+				>
 					<Col span={12} style={{ position: "relative" }}>
 						<TextArea
 							rows={12}
@@ -592,12 +616,42 @@ const TranslatorCore: React.FC<{
                 }
 
                 :global(.tool-translator-container .ant-form-item-label label) {
-                    font-size: 12px !important;
+                    font-size: 13px !important;
                     color: ${token.colorTextDescription} !important;
                 }
 
                 :global(.tool-translator-container .ant-input) {
                     padding-right: ${32 + token.marginXXS * 2}px !important;
+                }
+
+                :global(.tool-translator-toolbar),
+                :global(.tool-translator-toolbar-group),
+                :global(.tool-translator-toolbar-field),
+                :global(.tool-translator-toolbar-select),
+                :global(.tool-translator-content-row > .ant-col) {
+                    min-width: 0;
+                }
+
+                :global(.tool-translator-toolbar-select .ant-select-selector) {
+                    min-width: 0;
+                }
+
+                :global(.tool-translator-toolbar-select .ant-select-selection-item),
+                :global(.tool-translator-toolbar-select .ant-select-selection-placeholder),
+                :global(.tool-translator-toolbar-select .ant-select-selection-item > *) {
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                :global(.tool-translator-toolbar-select .ant-select-selection-item .ant-space),
+                :global(.tool-translator-toolbar-select .ant-select-selection-item .ant-space-item) {
+                    min-width: 0;
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 :global(.tool-translator-container-clear-button) {
@@ -618,6 +672,50 @@ const TranslatorCore: React.FC<{
                     pointer-events: ${hasTranslatedContent ? "auto" : "none"};
                     opacity: ${hasTranslatedContent ? 1 : 0};
                     transition: opacity ${token.motionDurationMid} ${token.motionEaseInOut};
+                }
+
+                @container snow-content (max-width: 700px) {
+                    :global(.tool-translator-toolbar) {
+                        align-items: stretch;
+                        flex-direction: column;
+                        justify-content: flex-start !important;
+                        row-gap: ${token.margin}px !important;
+                    }
+
+                    :global(.tool-translator-toolbar-group) {
+                        width: 100%;
+                    }
+
+                    :global(.tool-translator-language-controls) {
+                        flex-wrap: wrap;
+                    }
+
+                    :global(.tool-translator-toolbar-field) {
+                        flex: 0 0 100%;
+                        width: 100%;
+                    }
+
+                    :global(.tool-translator-toolbar-select) {
+                        width: 100%;
+                    }
+
+                    :global(.tool-translator-swap-button) {
+                        align-self: center;
+                        margin-top: 0 !important;
+                    }
+
+                    :global(.tool-translator-service-controls) {
+                        flex-direction: column;
+                    }
+
+                    :global(.tool-translator-content-row) {
+                        row-gap: ${token.marginLG}px;
+                    }
+
+                    :global(.tool-translator-content-row > .ant-col) {
+                        flex: 0 0 100%;
+                        max-width: 100%;
+                    }
                 }
             `}</style>
 		</>

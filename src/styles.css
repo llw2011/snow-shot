@@ -103,10 +103,6 @@ body.app-dark .markdown-body {
     box-shadow: inset 0 0 0 1px var(--snow-shot-hairline);
 }
 
-.ant-modal-title div {
-    display: inline !important;
-}
-
 .popover-toolbar .ant-btn .ant-btn-icon {
     display: flex;
     align-items: center;
@@ -258,31 +254,124 @@ body.app-dark .markdown-body {
 .ant-app .menu-layout-wrap .ant-color-picker-trigger {
     border-color: var(--snow-shot-hairline) !important;
     background: var(--snow-shot-surface) !important;
+    color: var(--snow-shot-ink) !important;
+}
+
+/* Ant input composites contain a second native input. Keep it transparent so
+   browser autofill and the inner element never punch a light rectangle into a
+   dark control. */
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper .ant-input,
+.ant-app .menu-layout-wrap .ant-input-number-input,
+.ant-app .menu-layout-wrap .ant-picker-input > input,
+.ant-app .menu-layout-wrap .ant-select-selection-search-input {
+    background: transparent !important;
+    color: var(--snow-shot-ink) !important;
+}
+
+/* The password/search input lives inside an affix wrapper. Its focus belongs
+   to that wrapper; styling both layers would recreate the double focus ring. */
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper .ant-input:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.ant-app .menu-layout-wrap :is(.ant-input, .ant-input-number-input, .ant-picker-input > input)::placeholder {
+    color: var(--snow-shot-muted) !important;
+    opacity: 1;
+}
+
+.ant-app .menu-layout-wrap input:-webkit-autofill,
+.ant-app .menu-layout-wrap input:-webkit-autofill:hover,
+.ant-app .menu-layout-wrap input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--snow-shot-ink) !important;
+    caret-color: var(--snow-shot-ink);
+    box-shadow: 0 0 0 1000px var(--snow-shot-surface) inset !important;
+}
+
+/* Use one quiet outer focus treatment for Ant controls. The browser outline
+   previously landed inside the control as a second, bright white rectangle. */
+.ant-app .menu-layout-wrap .ant-input:focus,
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper:focus,
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper:focus-within,
+.ant-app .menu-layout-wrap .ant-input-affix-wrapper-focused,
+.ant-app .menu-layout-wrap .ant-input-number-focused,
+.ant-app .menu-layout-wrap .ant-picker:focus,
+.ant-app .menu-layout-wrap .ant-picker:focus-within,
+.ant-app .menu-layout-wrap .ant-picker-focused,
+.ant-app .menu-layout-wrap .ant-select-focused .ant-select-selector,
+.ant-app .menu-layout-wrap .ant-color-picker-trigger-active {
+    border-color: var(--snow-shot-primary-strong) !important;
+    box-shadow: 0 0 0 1px var(--snow-shot-primary-soft) !important;
+    outline: 0;
 }
 
 .ant-app .menu-layout-wrap .ant-card,
 .ant-app .menu-layout-wrap .ant-pro-card {
     border-color: var(--snow-shot-hairline-soft);
+    background: var(--snow-shot-surface) !important;
     box-shadow: none;
 }
 
+.ant-app .menu-layout-wrap .ant-card-head,
+.ant-app .menu-layout-wrap .ant-pro-card-header {
+    border-bottom-color: var(--snow-shot-hairline-soft);
+    background: transparent !important;
+}
+
 .ant-modal .ant-modal-content,
+.ant-drawer .ant-drawer-content,
 .ant-popover .ant-popover-inner,
 .ant-dropdown .ant-dropdown-menu,
+.ant-menu-submenu-popup .ant-menu,
 .ant-select-dropdown,
+.ant-cascader-dropdown .ant-cascader-menus,
+.ant-mentions-dropdown,
 .ant-picker-dropdown .ant-picker-panel-container,
 .ant-color-picker-panel,
 .ant-tooltip .ant-tooltip-inner,
-.ant-message .ant-message-notice-content {
+.ant-message .ant-message-notice-content,
+.app-global-message-notice-content,
+.ant-notification .ant-notification-notice {
     border: 1px solid var(--snow-shot-hairline) !important;
     border-radius: var(--snow-shot-radius) !important;
     background: var(--snow-shot-surface-elevated) !important;
+    color: var(--snow-shot-body) !important;
     box-shadow: none !important;
+}
+
+.ant-drawer .ant-drawer-header,
+.ant-drawer .ant-drawer-footer,
+.ant-dropdown-menu-item-selected,
+.ant-dropdown-menu-submenu-title-selected,
+.ant-select-item-option-selected {
+    border-color: var(--snow-shot-hairline-soft) !important;
+    background: transparent !important;
+}
+
+.ant-popover,
+.ant-tooltip {
+    --antd-arrow-background-color: var(--snow-shot-surface-elevated);
+}
+
+.ant-dropdown-menu-item,
+.ant-dropdown-menu-submenu-title,
+.ant-select-item,
+.ant-cascader-menu-item {
+    color: var(--snow-shot-body) !important;
+}
+
+.ant-dropdown-menu-item:hover,
+.ant-dropdown-menu-submenu-title:hover,
+.ant-select-item-option-active,
+.ant-cascader-menu-item:hover {
+    background: var(--snow-shot-surface-card) !important;
+    color: var(--snow-shot-ink) !important;
 }
 
 .ant-dropdown-menu-item-selected,
 .ant-dropdown-menu-submenu-title-selected,
-.ant-select-item-option-selected {
+.ant-select-item-option-selected,
+.ant-cascader-menu-item-active {
     background: var(--snow-shot-primary-soft) !important;
     color: var(--snow-shot-ink) !important;
 }
@@ -333,11 +422,6 @@ body.app-dark .markdown-body {
 .ant-app .menu-layout-wrap .icon-label-icon {
     color: var(--snow-shot-muted);
     filter: grayscale(1);
-}
-
-.ant-app .menu-layout-wrap :where(button, [role="button"], input, textarea, .ant-select-selector):focus-visible {
-    outline: 2px solid var(--snow-shot-primary);
-    outline-offset: -2px;
 }
 
 .settings-wrap {
@@ -392,8 +476,8 @@ body.app-dark .markdown-body {
     margin: 20px 0;
 }
 
-/* The active settings board is the real layout container. Short fields may use
-   two columns only after both labels and controls have room to breathe. */
+/* The active settings board uses one stable label/control column. This avoids
+   squeezing long CJK labels beside controls at intermediate window widths. */
 @container snow-content (max-width: 880px) {
     .settings-section-body .ant-row:not(.ant-form-item-row) > .ant-col {
         flex: 0 0 100% !important;
@@ -401,63 +485,27 @@ body.app-dark .markdown-body {
     }
 }
 
-@container snow-content (min-width: 881px) {
-    .settings-section-body .ant-form-horizontal .ant-form-item-row {
-        flex-direction: column;
-        align-items: stretch;
-        row-gap: 4px;
-    }
-
-    .settings-section-body .ant-form-horizontal .ant-form-item-label,
-    .settings-section-body .ant-form-horizontal .ant-form-item-control {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-        min-width: 0;
-    }
-
-    .settings-section-body .ant-form-horizontal .ant-form-item-label {
-        padding: 0 0 2px !important;
-    }
+.settings-section-body .ant-form-horizontal .ant-form-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 4px;
 }
 
-@container snow-content (max-width: 880px) {
-    .settings-section-body .ant-form-horizontal .ant-form-item-row {
-        flex-wrap: nowrap;
-        align-items: flex-start;
-        column-gap: 20px;
-    }
-
-    .settings-section-body .ant-form-horizontal .ant-form-item-label {
-        flex: 1 1 auto !important;
-        max-width: min(62%, 420px) !important;
-        padding: 8px 0 0 !important;
-        text-align: left;
-    }
-
-    .settings-section-body .ant-form-horizontal .ant-form-item-control {
-        flex: 0 1 360px !important;
-        max-width: 44% !important;
-        min-width: 180px;
-    }
+.settings-section-body .ant-form-horizontal .ant-form-item-label,
+.settings-section-body .ant-form-horizontal .ant-form-item-control {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
 }
 
-@container snow-content (max-width: 700px) {
-    .settings-section-body .ant-form-horizontal .ant-form-item-row {
-        flex-direction: column;
-        align-items: stretch;
-        row-gap: 4px;
-    }
+.settings-section-body .ant-form-horizontal .ant-form-item-label {
+    padding: 0 0 2px !important;
+    text-align: left !important;
+}
 
-    .settings-section-body .ant-form-horizontal .ant-form-item-label,
-    .settings-section-body .ant-form-horizontal .ant-form-item-control {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-        min-width: 0;
-    }
-
-    .settings-section-body .ant-form-horizontal .ant-form-item-label {
-        padding: 0 0 2px !important;
-    }
+.settings-section-body .ant-form-horizontal .ant-form-item-label > label,
+.settings-section-body .ant-form-horizontal .ant-pro-form-item-label > label {
+    justify-content: flex-start;
 }
 
 .settings-section-body .hotkey-matrix {

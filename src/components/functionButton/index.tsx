@@ -64,11 +64,11 @@ export const FunctionButton: React.FC<{
 
 				.snow-command-row--primary {
 					min-height: 64px;
-					border-color: var(--snow-shot-primary);
+					border-color: var(--snow-shot-hairline-strong);
 					border-inline-start-color: var(--snow-shot-primary);
 					border-inline-start-width: 4px;
-					background: var(--snow-shot-primary);
-					color: var(--snow-shot-canvas);
+					background: var(--snow-shot-surface-elevated);
+					color: var(--snow-shot-ink);
 				}
 
 				.snow-command-row--compact {
@@ -88,9 +88,9 @@ export const FunctionButton: React.FC<{
 
 				.snow-command-row--primary:hover,
 				.snow-command-row--primary:focus-within {
-					border-color: var(--snow-shot-ink);
+					border-color: var(--snow-shot-primary-strong);
 					border-inline-start-color: var(--snow-shot-ink);
-					background: var(--snow-shot-ink);
+					background: var(--snow-shot-surface-card);
 				}
 
 				.snow-command-row:focus-within::after {
@@ -104,7 +104,7 @@ export const FunctionButton: React.FC<{
 				}
 
 				.snow-command-row--primary:focus-within::after {
-					border-color: var(--snow-shot-canvas);
+					border-color: var(--snow-shot-primary-strong);
 				}
 
 				.snow-command-row :global(.snow-command-action.ant-btn) {
@@ -121,12 +121,12 @@ export const FunctionButton: React.FC<{
 				}
 
 				.snow-command-row--primary :global(.snow-command-action.ant-btn) {
-					color: var(--snow-shot-canvas) !important;
+					color: var(--snow-shot-ink) !important;
 				}
 
 				.snow-command-row--primary
 					:global(.snow-command-action.ant-btn:focus-visible) {
-					outline-color: var(--snow-shot-canvas) !important;
+					outline-color: var(--snow-shot-primary-strong) !important;
 				}
 
 				.snow-command-row--primary :global(.snow-command-action.ant-btn) {
@@ -156,7 +156,7 @@ export const FunctionButton: React.FC<{
 
 				.snow-command-row--primary
 					:global(.snow-command-action .ant-btn-icon) {
-					color: var(--snow-shot-canvas);
+					color: var(--snow-shot-body);
 				}
 
 				.snow-command-label {
@@ -193,16 +193,8 @@ export const FunctionButton: React.FC<{
 				}
 
 				.snow-command-row--primary .snow-command-shortcut {
-					border-inline-start-color: color-mix(
-						in srgb,
-						var(--snow-shot-canvas) 34%,
-						transparent
-					);
-					background: color-mix(
-						in srgb,
-						var(--snow-shot-canvas) 8%,
-						transparent
-					);
+					border-inline-start-color: var(--snow-shot-hairline-soft);
+					background: var(--snow-shot-surface-card);
 				}
 
 				.snow-command-row--compact .snow-command-shortcut {

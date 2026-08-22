@@ -1,6 +1,6 @@
 "use client";
 
-import { Col, Form, Row, Select, Spin, Switch, theme } from "antd";
+import { Form, Select, Spin, theme } from "antd";
 import { debounce } from "es-toolkit";
 import { useCallback, useContext, useId, useMemo } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -94,29 +94,17 @@ export const AppearancePage = () => {
 					layout="vertical"
 				>
 					<Spin spinning={appSettingsLoading}>
-						<Row gutter={token.marginLG}>
-							<Col span={12}>
-								<Form.Item
-									label={
-										<IconLabel
-											icon={<DarkModeIcon />}
-											label={<FormattedMessage id="settings.theme" />}
-										/>
-									}
-									name="theme"
-								>
-									<Select options={themeOptions} />
-								</Form.Item>
-							</Col>
-							<Col span={12}>
-								<Form.Item
-									name="enableCompactLayout"
-									label={<FormattedMessage id="settings.compactLayout" />}
-								>
-									<Switch />
-								</Form.Item>
-							</Col>
-						</Row>
+						<Form.Item
+							label={
+								<IconLabel
+									icon={<DarkModeIcon />}
+									label={<FormattedMessage id="settings.theme" />}
+								/>
+							}
+							name="theme"
+						>
+							<Select options={themeOptions} />
+						</Form.Item>
 					</Spin>
 				</Form>
 			</section>
