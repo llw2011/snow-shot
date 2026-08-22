@@ -1955,12 +1955,12 @@ const AppSettingsContextProviderCore: React.FC<{
 				colorLink: currentPrimaryColor,
 				borderRadius: appSettings[AppSettingsGroup.Common].borderRadius,
 				controlHeight: appSettings[AppSettingsGroup.Common].enableCompactLayout
-					? 34
-					: 40,
+					? 36
+					: 42,
 				fontFamily: "var(--snow-shot-font-ui)",
 				fontSize: 14,
-				fontSizeSM: 12,
-				fontSizeLG: 16,
+				fontSizeSM: 13,
+				fontSizeLG: 17,
 				lineHeight: 1.5,
 				motionDurationFast: "0.12s",
 				motionDurationMid: "0.18s",
@@ -1978,6 +1978,8 @@ const AppSettingsContextProviderCore: React.FC<{
 					primaryColor: currentThemeRuntime.palette.canvas,
 					dangerColor: currentThemeRuntime.palette.canvas,
 					contentFontSize: 14,
+					contentLineHeight: 1.5,
+					paddingInline: 16,
 				},
 				Menu: {
 					itemColor: currentThemeRuntime.palette.body,

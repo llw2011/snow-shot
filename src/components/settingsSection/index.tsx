@@ -103,7 +103,7 @@ export const SettingsSection: React.FC<{
 					display: grid;
 					grid-template-columns: minmax(0, 1fr) auto;
 					align-items: center;
-					min-height: 72px;
+					min-height: 80px;
 					transition-property: background-color;
 					transition-duration: var(--snow-shot-motion-fast);
 					transition-timing-function: ease;
@@ -131,8 +131,8 @@ export const SettingsSection: React.FC<{
 					gap: 20px;
 					width: 100%;
 					min-width: 0;
-					min-height: 72px;
-					padding: 16px 20px;
+					min-height: 80px;
+					padding: 18px 24px;
 					border: 0;
 					background: transparent;
 					color: var(--snow-shot-ink);
@@ -152,19 +152,19 @@ export const SettingsSection: React.FC<{
 					display: flex;
 					min-width: 0;
 					flex-direction: column;
-					gap: 4px;
+					gap: 6px;
 				}
 
 				.settings-section-title {
-					font-size: 17px;
+					font-size: 18px;
 					font-weight: 600;
-					line-height: 24px;
+					line-height: 26px;
 				}
 
 				.settings-section-description {
 					color: var(--snow-shot-muted);
-					font-size: 13px;
-					line-height: 20px;
+					font-size: 14px;
+					line-height: 22px;
 					max-width: 68ch;
 					white-space: normal;
 				}
@@ -184,11 +184,11 @@ export const SettingsSection: React.FC<{
 				.settings-section-extra {
 					display: flex;
 					align-items: center;
-					padding: 0 16px 0 8px;
+					padding: 0 20px 0 8px;
 				}
 
 				.settings-section-body {
-					padding: 24px 24px 8px;
+					padding: 28px 28px 10px;
 					background: color-mix(
 						in srgb,
 						var(--snow-shot-surface) 94%,
@@ -222,7 +222,7 @@ export const SettingsSection: React.FC<{
 
 				:global(.settings-section-body .ant-form-item-label > label),
 				:global(.settings-section-body .ant-pro-form-item-label > label) {
-					font-size: 14px;
+					font-size: 15px;
 					line-height: 22px;
 				}
 

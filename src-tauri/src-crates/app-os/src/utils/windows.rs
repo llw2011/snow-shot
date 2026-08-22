@@ -1,8 +1,7 @@
 use std::env;
 use std::ffi::c_void;
 
-use windows::Win32::Foundation::HANDLE;
-use windows::Win32::Foundation::{HWND, VARIANT_BOOL};
+use windows::Win32::Foundation::{HANDLE, HWND, POINT, VARIANT_BOOL};
 use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize,
@@ -15,10 +14,10 @@ use windows::Win32::System::TaskScheduler::{
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW};
-use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE,
-    SetWindowPos, WS_EX_TOPMOST,
+    GA_ROOT, GWL_EXSTYLE, GetAncestor, GetCursorPos, GetForegroundWindow, GetWindowLongPtrW,
+    HWND_NOTOPMOST, HWND_TOPMOST, IsWindow, IsWindowVisible, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
+    WS_EX_TOPMOST, WindowFromPoint,
 };
 use windows::core::Interface;
 use windows::core::PCWSTR;
@@ -66,6 +65,33 @@ pub fn set_draw_window_style(#[allow(unused_variables)] window: tauri::Window) {
 
 pub fn get_focused_window() -> HWND {
     unsafe { GetForegroundWindow() }
+}
+
+pub fn get_window_under_cursor() -> Option<HWND> {
+    let mut cursor_position = POINT::default();
+    unsafe { GetCursorPos(&mut cursor_position).ok()? };
+
+    let window = unsafe { WindowFromPoint(cursor_position) };
+    if window.0.is_null() {
+        return None;
+    }
+
+    let root_window = unsafe { GetAncestor(window, GA_ROOT) };
+    let root_window = if root_window.0.is_null() {
+        window
+    } else {
+        root_window
+    };
+
+    unsafe {
+        (IsWindow(Some(root_window)).as_bool() && IsWindowVisible(root_window).as_bool())
+            .then_some(root_window)
+    }
+}
+
+pub fn window_from_handle(window_handle: usize) -> Option<HWND> {
+    let window = HWND(window_handle as *mut c_void);
+    unsafe { (!window.0.is_null() && IsWindow(Some(window)).as_bool()).then_some(window) }
 }
 
 const TASK_NAME: &str = "SnowShot Admin Auto Start";

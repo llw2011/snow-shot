@@ -1,8 +1,8 @@
 :root {
     --background: #ffffff;
-    --snow-shot-window-radius: 14px;
-    --snow-shot-content-max-width: 1040px;
-    --snow-shot-settings-max-width: 920px;
+    --snow-shot-window-radius: 16px;
+    --snow-shot-content-max-width: 1120px;
+    --snow-shot-settings-max-width: 1000px;
     --snow-shot-motion-fast: 0.12s;
     --snow-shot-motion-mid: 0.18s;
     --snow-shot-font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
@@ -119,9 +119,9 @@ body {
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Track {
-    --scrollbar-width: 5px;
-    --scrollbar-width-hover: 5px;
-    --border-radius: 4px;
+    --scrollbar-width: 6px;
+    --scrollbar-width-hover: 7px;
+    --border-radius: 8px;
 
     background-color: unset !important;
     width: var(--scrollbar-width-hover) !important;
@@ -147,7 +147,7 @@ body {
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Thumb {
-    background-color: rgba(0, 0, 0, 0.4) !important;
+    background-color: rgba(0, 0, 0, 0.34) !important;
     width: var(--scrollbar-width) !important;
     right: 0 !important;
     position: absolute;
@@ -239,38 +239,38 @@ body {
 }
 
 :root {
-    --snow-shot-canvas: #07080a;
-    --snow-shot-surface: #0d0d0d;
-    --snow-shot-surface-elevated: #101111;
-    --snow-shot-surface-card: #151617;
-    --snow-shot-panel-bg: #0d0d0d;
-    --snow-shot-sider-bg: #07080a;
-    --snow-shot-header-bg: #07080a;
-    --snow-shot-hairline: #242728;
-    --snow-shot-hairline-soft: rgba(255, 255, 255, 0.08);
-    --snow-shot-hairline-strong: rgba(255, 255, 255, 0.16);
-    --snow-shot-ink: #f4f4f6;
-    --snow-shot-body: #cdcdcd;
-    --snow-shot-muted: #9c9c9d;
-    --snow-shot-ash: #6a6b6c;
+    --snow-shot-canvas: #080a0d;
+    --snow-shot-surface: #101317;
+    --snow-shot-surface-elevated: #171c22;
+    --snow-shot-surface-card: #1c232b;
+    --snow-shot-panel-bg: #101317;
+    --snow-shot-sider-bg: #0b0e12;
+    --snow-shot-header-bg: #0b0e12;
+    --snow-shot-hairline: #2a333d;
+    --snow-shot-hairline-soft: rgba(220, 232, 244, 0.12);
+    --snow-shot-hairline-strong: rgba(220, 232, 244, 0.24);
+    --snow-shot-ink: #f5f8fb;
+    --snow-shot-body: #d6dee7;
+    --snow-shot-muted: #a5b1bd;
+    --snow-shot-ash: #71808f;
     --snow-shot-blue: #57c1ff;
     --snow-shot-red: #ff6161;
     --snow-shot-green: #59d499;
     --snow-shot-yellow: #ffc533;
     --snow-shot-on-error: #07080a;
     --snow-shot-primary: #ffffff;
-    --snow-shot-primary-soft: rgba(255, 255, 255, 0.13);
-    --snow-shot-primary-strong: rgba(255, 255, 255, 0.38);
-    --snow-shot-atmosphere: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 34%);
+    --snow-shot-primary-soft: rgba(255, 255, 255, 0.12);
+    --snow-shot-primary-strong: rgba(255, 255, 255, 0.42);
+    --snow-shot-atmosphere: linear-gradient(135deg, rgba(130, 190, 220, 0.08), transparent 38%);
     --snow-shot-pattern: none;
     --snow-shot-pattern-size: auto;
     --snow-shot-shadow: none;
     --snow-shot-card-shadow: none;
     --snow-shot-glow: none;
     --snow-shot-backdrop-filter: none;
-    --snow-shot-logo-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 42%), #121212;
-    --snow-shot-keycap-bg: linear-gradient(180deg, #121212, #0d0d0d);
-    --snow-shot-command-group-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent), #0d0d0d;
+    --snow-shot-logo-bg: linear-gradient(135deg, rgba(130, 190, 220, 0.22), transparent 50%), #151b21;
+    --snow-shot-keycap-bg: linear-gradient(180deg, #1c232b, #11161b);
+    --snow-shot-command-group-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), #101317;
     --snow-shot-accent-alt-one: #57c1ff;
     --snow-shot-accent-alt-two: #ff6161;
     --snow-shot-accent-alt-three: #59d499;
@@ -306,6 +306,7 @@ body {
     background-position: center;
     background-size: var(--snow-shot-pattern-size), cover;
     background-clip: padding-box;
+    font-size: 14px;
 }
 
 .ant-app .menu-layout-wrap .ant-layout {
@@ -317,6 +318,7 @@ body {
     border-right: 1px solid var(--snow-shot-hairline);
     box-shadow: none !important;
     backdrop-filter: var(--snow-shot-backdrop-filter);
+    flex: 0 0 auto;
 }
 
 .ant-app .menu-layout-wrap .ant-layout-sider-trigger {
@@ -338,12 +340,14 @@ body {
 
 .ant-app .menu-layout-wrap .ant-menu-item,
 .ant-app .menu-layout-wrap .ant-menu-submenu-title {
-    border-radius: var(--snow-shot-radius) !important;
+    border-radius: var(--snow-shot-radius-lg) !important;
     color: var(--snow-shot-body);
-    min-height: 38px !important;
-    margin-block: 2px !important;
-    margin-inline: 8px !important;
-    width: calc(100% - 16px) !important;
+    min-height: 46px !important;
+    margin-block: 4px !important;
+    margin-inline: 12px !important;
+    width: calc(100% - 24px) !important;
+    line-height: 46px !important;
+    font-size: 14px;
 }
 
 .ant-app .menu-layout-wrap .ant-menu-item:hover,
@@ -362,7 +366,8 @@ body {
     background: transparent !important;
     border-left: 1px solid var(--snow-shot-hairline-soft);
     border-radius: 0;
-    margin: 2px 8px 6px 17px;
+    margin: 4px 12px 10px 24px;
+    padding: 3px 0;
 }
 
 .ant-app .menu-layout-wrap .ant-tabs-nav {
@@ -384,6 +389,10 @@ body {
 
 .ant-app .menu-layout-wrap .ant-btn:not(.ant-btn-primary) {
     border-color: var(--snow-shot-hairline);
+}
+
+.ant-app .menu-layout-wrap .ant-btn {
+    font-size: 14px;
 }
 
 .ant-app .menu-layout-wrap .ant-btn-primary {
@@ -413,7 +422,7 @@ body {
 }
 
 .snow-command-button.ant-btn {
-    height: 46px;
+    height: 54px;
     border-color: var(--snow-shot-hairline) !important;
     background: var(--snow-shot-surface) !important;
     color: var(--snow-shot-ink) !important;
@@ -439,13 +448,13 @@ body {
 }
 
 .snow-keycap-button.ant-btn {
-    height: 26px;
-    min-width: 72px;
-    padding-inline: 8px;
+    height: 32px;
+    min-width: 82px;
+    padding-inline: 10px;
     border-color: var(--snow-shot-hairline-strong) !important;
     background: var(--snow-shot-keycap-bg) !important;
     color: var(--snow-shot-body) !important;
-    font-size: 12px;
+    font-size: 13px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
@@ -461,14 +470,14 @@ body {
 
 .components_group-title {
     color: var(--snow-shot-ink) !important;
-    font-size: 16px !important;
+    font-size: 19px !important;
     font-weight: 600 !important;
     letter-spacing: 0 !important;
 }
 
 .ant-app .home-command-group {
-    border-color: var(--snow-shot-hairline-soft) !important;
-    background: var(--snow-shot-surface) !important;
+    border-color: transparent !important;
+    background: transparent !important;
     box-shadow: none;
 }
 
@@ -481,12 +490,12 @@ body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     width: min(100%, var(--snow-shot-settings-max-width));
     height: auto !important;
     min-height: 100%;
     margin: 0 auto;
-    padding: 4px 0 40px;
+    padding: 8px 0 56px;
 }
 
 .settings-wrap>.ant-divider {
@@ -502,14 +511,14 @@ body {
 }
 
 .settings-section-body .ant-form-item {
-    margin-bottom: 18px;
+    margin-bottom: 22px;
 }
 
 .settings-section-body .ant-form-item-label>label,
 .settings-section-body .ant-pro-form-item-label>label {
     color: var(--snow-shot-body);
     font-weight: 500;
-    line-height: 20px;
+    line-height: 22px;
 }
 
 .settings-section-body .ant-form-item-extra,
@@ -517,8 +526,8 @@ body {
     max-width: 68ch;
     padding-top: 4px;
     color: var(--snow-shot-muted);
-    font-size: 12px;
-    line-height: 18px;
+    font-size: 13px;
+    line-height: 20px;
 }
 
 .settings-section-body .ant-form-item:last-child {
@@ -534,6 +543,7 @@ body {
     height: auto !important;
     min-height: 100%;
     margin: 0 auto;
+    padding-top: 4px;
 }
 
 @container snow-content (max-width: 880px) {
@@ -561,6 +571,25 @@ body {
         flex: 0 1 320px !important;
         max-width: 44% !important;
         min-width: 180px;
+    }
+}
+
+@container snow-content (min-width: 881px) {
+    .settings-section-body .ant-form-horizontal .ant-form-item-row {
+        align-items: flex-start;
+        column-gap: 28px;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-label {
+        flex: 1 1 auto !important;
+        max-width: 52% !important;
+        padding-right: 8px;
+    }
+
+    .settings-section-body .ant-form-horizontal .ant-form-item-control {
+        flex: 0 1 360px !important;
+        max-width: 42% !important;
+        min-width: 220px;
     }
 }
 

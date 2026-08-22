@@ -231,6 +231,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		null,
 	);
 	const elementsListRef = useRef<ElementRect[]>([]); // 窗口元素的列表
+	const elementsListClientRectRef = useRef<Array<ElementRect | undefined>>([]);
 	const elementsIndexWindowIdMapRef = useRef<Map<number, number>>(new Map()); // 窗口元素对应的窗口 ID
 	const selectedWindowIdRef = useRef<number | undefined>(undefined); // 选中的窗口 ID
 	const elementsListRTreeRef = useRef<Flatbush | undefined>(undefined); // 窗口元素的 RTree
@@ -405,6 +406,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 				: getWindowElements().catch((): WindowElement[] => []);
 
 		const rectList: ElementRect[] = [];
+		const clientRectList: Array<ElementRect | undefined> = [];
 		initUiElementsCache()
 			.then(() => {
 				if (selectWindowElementGenerationRef.current === generation) {
@@ -441,6 +443,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			windowElements.forEach((windowElement, index) => {
 				const rect = windowElement.element_rect;
 				rectList.push(rect);
+				clientRectList.push(windowElement.client_rect);
 
 				// biome-ignore lint/style/noNonNullAssertion: rTree 已被定义，显然不为空
 				rTree!.add(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
@@ -450,6 +453,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		}
 		elementsListRTreeRef.current = rTree;
 		elementsListRef.current = rectList;
+		elementsListClientRectRef.current = clientRectList;
 		selectedWindowIdRef.current = undefined;
 		elementsIndexWindowIdMapRef.current = map;
 
@@ -484,9 +488,24 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			const windowRectList = rectIndexs.map((index) => {
 				return elementsListRef.current[index];
 			});
-			selectedWindowIdRef.current = elementsIndexWindowIdMapRef.current.get(
+			const topWindowClientRect =
+				elementsListClientRectRef.current[rectIndexs[0]];
+			const topWindowId = elementsIndexWindowIdMapRef.current.get(
 				rectIndexs[0],
 			);
+			selectedWindowIdRef.current = topWindowId;
+
+			// UIA becomes available after the capture overlay is already visible. A
+			// native title bar is outside the client area, so do not let a late UIA
+			// title-bar control replace this top-level window's first candidate.
+			if (
+				topWindowClientRect &&
+				topWindowClientRect.min_x < topWindowClientRect.max_x &&
+				topWindowClientRect.min_y < topWindowClientRect.max_y &&
+				!positoinInRect(topWindowClientRect, mousePosition)
+			) {
+				return windowRectList;
+			}
 
 			let elementRectList: ElementRect[] | undefined;
 			if (isEnableFindChildrenElements() && uiElementsReadyRef.current) {
@@ -494,6 +513,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 					elementRectList = await getElementFromPosition(
 						mousePosition.mouseX,
 						mousePosition.mouseY,
+						topWindowId,
 					);
 				} catch {
 					// 获取元素失败，忽略
@@ -813,6 +833,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		uiElementsReadyRef.current = false;
 		elementsListRTreeRef.current = undefined;
 		elementsListRef.current = [];
+		elementsListClientRectRef.current = [];
 		elementsIndexWindowIdMapRef.current.clear();
 		selectedWindowIdRef.current = undefined;
 		selectWindowFromMousePositionLevelRef.current = 0;

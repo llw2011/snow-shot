@@ -579,12 +579,12 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
                     }
 
                     .menu-layout-wrap :global(.ant-layout-header) {
-                        height: 36px !important;
+                        height: 46px !important;
                         background: var(--snow-shot-header-bg);
                         display: flex;
                         align-items: center;
                         justify-content: flex-end;
-                        padding: 0 ${token.padding}px;
+                        padding: 0 18px;
                     }
                 `}</style>
 			</div>

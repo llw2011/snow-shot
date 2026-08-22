@@ -26,6 +26,8 @@ export type ElementRect = {
 
 export type WindowElement = {
 	element_rect: ElementRect;
+	/** Windows client area; omitted on platforms that do not expose it. */
+	client_rect?: ElementRect;
 	window_id: number;
 };
 

@@ -23,6 +23,68 @@ use tokio::sync::{Mutex, oneshot};
 const DRAW_WINDOW_LABEL_PREFIX: &str = "draw-";
 const DRAW_WINDOW_READY_TIMEOUT: Duration = Duration::from_secs(12);
 
+#[cfg(target_os = "windows")]
+fn get_visible_window_rect(window_hwnd: usize, fallback: ElementRect) -> ElementRect {
+    use std::ffi::c_void;
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::Graphics::Dwm::{DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
+
+    let mut visible_rect = RECT::default();
+    let has_visible_rect = unsafe {
+        DwmGetWindowAttribute(
+            HWND(window_hwnd as *mut c_void),
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut visible_rect as *mut RECT as *mut c_void,
+            std::mem::size_of::<RECT>() as u32,
+        )
+    }
+    .is_ok()
+        && visible_rect.left < visible_rect.right
+        && visible_rect.top < visible_rect.bottom
+        // DWM bounds are physical pixels while GetWindowInfo may be DPI-virtualized
+        // in some hosts. Only trust a rect in the same coordinate space.
+        && visible_rect.left >= fallback.min_x
+        && visible_rect.top >= fallback.min_y
+        && visible_rect.right <= fallback.max_x
+        && visible_rect.bottom <= fallback.max_y;
+
+    if !has_visible_rect {
+        return fallback;
+    }
+
+    ElementRect {
+        min_x: visible_rect.left,
+        min_y: visible_rect.top,
+        max_x: visible_rect.right,
+        max_y: visible_rect.bottom,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn is_window_caption_at_point(window_id: u32, mouse_x: i32, mouse_y: i32) -> bool {
+    use std::ffi::c_void;
+    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        HTCAPTION, SMTO_ABORTIFHUNG, SendMessageTimeoutW, WM_NCHITTEST,
+    };
+
+    let lparam = LPARAM(((mouse_x as u16 as usize) | ((mouse_y as u16 as usize) << 16)) as isize);
+    let mut hit_test = 0usize;
+    let delivered = unsafe {
+        SendMessageTimeoutW(
+            HWND(window_id as usize as *mut c_void),
+            WM_NCHITTEST,
+            WPARAM(0),
+            lparam,
+            SMTO_ABORTIFHUNG,
+            20,
+            Some(&mut hit_test),
+        )
+    };
+
+    delivered.0 != 0 && hit_test == HTCAPTION as usize
+}
+
 pub struct DrawWindowReadyState {
     next_window_id: AtomicU64,
     pending: StdMutex<HashMap<String, oneshot::Sender<()>>>,
@@ -295,6 +357,7 @@ pub async fn capture_focused_window<F>(
     copy_to_clipboard: bool,
     focus_window_app_name_variable_name: String,
     #[allow(unused_variables)] correct_hdr_color_algorithm: CorrectHdrColorAlgorithm,
+    #[allow(unused_variables)] target_window_hwnd: Option<usize>,
 ) -> Result<(), String>
 where
     F: Fn(&image::DynamicImage) -> Result<(), String> + Send + 'static,
@@ -306,7 +369,16 @@ where
 
     #[cfg(target_os = "windows")]
     {
-        let hwnd = snow_shot_app_os::utils::get_focused_window();
+        let hwnd = target_window_hwnd
+            .and_then(snow_shot_app_os::utils::window_from_handle)
+            .unwrap_or_else(|| {
+                if target_window_hwnd.is_some() {
+                    log::warn!(
+                        "[capture_focused_window] Snapshotted cursor window is no longer valid; falling back to the focused window"
+                    );
+                }
+                snow_shot_app_os::utils::get_focused_window()
+            });
 
         let focused_window = xcap::Window::new(xcap::ImplWindow::new(hwnd));
 
@@ -446,6 +518,8 @@ pub async fn init_ui_elements_cache(
 #[derive(PartialEq, Eq, Serialize, Clone, Debug, Copy, Hash)]
 pub struct WindowElement {
     element_rect: ElementRect,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    client_rect: Option<ElementRect>,
     window_id: u32,
 }
 
@@ -457,10 +531,20 @@ pub async fn get_window_elements(
     let windows = {
         #[cfg(target_os = "windows")]
         {
+            // `get_window_elements` is invoked by the Draw overlay itself. Exclude
+            // that exact native window before reading titles: during the first
+            // activation its title can be unavailable while the overlay is being
+            // shown, and then it incorrectly wins the z-order search under the
+            // cursor.
+            let current_window_hwnd = window.hwnd().ok().map(|window_hwnd| window_hwnd.0 as usize);
+
             xcap::Window::all()
                 .unwrap_or_default()
                 .iter()
-                .map(|window| window.hwnd().unwrap() as usize)
+                .filter_map(|candidate| {
+                    let candidate_hwnd = candidate.hwnd().ok()? as usize;
+                    (Some(candidate_hwnd) != current_window_hwnd).then_some(candidate_hwnd)
+                })
                 .collect::<Vec<usize>>()
         }
         #[cfg(target_os = "macos")]
@@ -546,6 +630,7 @@ pub async fn get_window_elements(
             }
 
             let window_rect: ElementRect;
+            let client_rect: Option<ElementRect>;
             let window_id: u32;
             let x: i32;
             let y: i32;
@@ -565,12 +650,28 @@ pub async fn get_window_elements(
                     Err(_) => return None,
                 };
 
-                // Use the complete top-level window bounds so title bars and native frames
-                // remain selectable even when UI Automation only returns child controls.
-                x = window_info.rcWindow.left;
-                y = window_info.rcWindow.top;
-                width = window_info.rcWindow.right - window_info.rcWindow.left;
-                height = window_info.rcWindow.bottom - window_info.rcWindow.top;
+                // `rcWindow` includes Windows' invisible resize border. Prefer the DWM
+                // visible-frame bounds so a whole-window screenshot does not include a
+                // ring of desktop pixels around the rendered window.
+                let visible_rect = get_visible_window_rect(
+                    *window_hwnd,
+                    ElementRect {
+                        min_x: window_info.rcWindow.left,
+                        min_y: window_info.rcWindow.top,
+                        max_x: window_info.rcWindow.right,
+                        max_y: window_info.rcWindow.bottom,
+                    },
+                );
+                x = visible_rect.min_x;
+                y = visible_rect.min_y;
+                width = visible_rect.max_x - visible_rect.min_x;
+                height = visible_rect.max_y - visible_rect.min_y;
+                client_rect = Some(ElementRect {
+                    min_x: window_info.rcClient.left,
+                    min_y: window_info.rcClient.top,
+                    max_x: window_info.rcClient.right,
+                    max_y: window_info.rcClient.bottom,
+                });
             }
 
             #[cfg(target_os = "macos")]
@@ -584,6 +685,7 @@ pub async fn get_window_elements(
                 y = cg_rect.origin.y as i32;
                 width = cg_rect.size.width as i32;
                 height = cg_rect.size.height as i32;
+                client_rect = None;
             }
 
             window_id = match window.id() {
@@ -600,6 +702,7 @@ pub async fn get_window_elements(
 
             Some(WindowElement {
                 element_rect: window_rect.scale(window_size_scale),
+                client_rect: client_rect.map(|rect| rect.scale(window_size_scale)),
                 window_id,
             })
         })
@@ -654,7 +757,16 @@ pub async fn get_element_from_position(
     ui_elements: tauri::State<'_, Mutex<UIElements>>,
     mouse_x: i32,
     mouse_y: i32,
+    window_id: Option<u32>,
 ) -> Result<Vec<ElementRect>, ()> {
+    #[cfg(target_os = "windows")]
+    if window_id.is_some_and(|window_id| is_window_caption_at_point(window_id, mouse_x, mouse_y)) {
+        // A custom title bar can be part of rcClient and absent from UIA's
+        // content view. It is still the window-drag region, so the frontend
+        // must keep the complete top-level window as its first candidate.
+        return Ok(vec![]);
+    }
+
     let mut ui_elements = ui_elements.lock().await;
 
     let element_rect_list = match ui_elements.get_element_from_point_walker(mouse_x, mouse_y) {

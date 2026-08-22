@@ -135,14 +135,16 @@ const MenuContentCore: React.FC<{
 			<style jsx>{`
                 .app-titlebar {
                     position: relative;
-                    height: 36px !important;
+                    height: 46px !important;
                     background: var(--snow-shot-header-bg) !important;
                     border-bottom: 1px solid var(--snow-shot-hairline-soft);
                 }
 
                 .app-titlebar :global(.window-actions .ant-btn) {
                     color: var(--snow-shot-muted);
-                    border-radius: 6px;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: var(--snow-shot-radius-sm);
                 }
 
                 .app-titlebar :global(.window-actions .ant-btn:hover) {
@@ -152,8 +154,8 @@ const MenuContentCore: React.FC<{
 
                     .content-wrap {
                         display: grid;
-                        grid-template-columns: 8px minmax(0, 1fr) 8px;
-                        grid-template-rows: 8px minmax(0, 1fr) 8px;
+                        grid-template-columns: 16px minmax(0, 1fr) 16px;
+                        grid-template-rows: 16px minmax(0, 1fr) 16px;
                         height: 100%;
                         background: transparent;
                     }
@@ -180,10 +182,10 @@ const MenuContentCore: React.FC<{
                     display: none;
                 }
 
-                .content-container {
-                    box-sizing: border-box;
-                    padding: 20px 22px 48px;
-                    width: 100%;
+                    .content-container {
+                        box-sizing: border-box;
+                    padding: 28px 32px 56px;
+                        width: 100%;
                     min-height: 100%;
                     overflow-x: hidden;
                 }
@@ -192,7 +194,7 @@ const MenuContentCore: React.FC<{
                     position: absolute;
                     line-height: initial;
                     display: flex;
-                    height: 32px;
+                    height: 42px;
                     gap: 8px;
                     align-items: center;
                     justify-content: center;

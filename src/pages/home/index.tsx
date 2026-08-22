@@ -351,38 +351,31 @@ export const HomePage = () => {
                 }
 
                 .home-command-group {
-                    margin-bottom: 12px;
-                    padding: 14px;
-                    border: 1px solid var(--snow-shot-hairline-soft);
-                    border-radius: var(--snow-shot-radius-lg);
-                    background: var(--snow-shot-surface);
-                    box-shadow: none;
+                    margin-bottom: 32px;
+                    padding: 0;
+                    border: 0;
+                    background: transparent;
                 }
 
                 .home-command-group:first-of-type {
-                    border-color: var(--snow-shot-primary-strong);
+                    padding-top: 2px;
                 }
 
                 .home-command-group :global(.components_group-title) {
-                    margin-bottom: 10px !important;
-                    padding: 0 2px;
+                    margin-bottom: 14px !important;
+                    padding: 0;
                 }
 
                 .home-command-list {
                     display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 8px;
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 10px;
                 }
 
                 .home-command-item {
                     min-width: 0;
                 }
 
-                @container snow-content (max-width: 880px) {
-                    .home-command-list {
-                        grid-template-columns: minmax(0, 1fr);
-                    }
-                }
             `}</style>
 		</ContentWrap>
 	);

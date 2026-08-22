@@ -29,6 +29,7 @@ export const executeScreenshot = async (
 
 export const executeScreenshotFocusedWindow = async (
 	appSettings: AppSettingsData,
+	targetWindowHwnd?: number,
 ) => {
 	const imagePath = await getImagePathFromSettings(
 		appSettings,
@@ -49,6 +50,7 @@ export const executeScreenshotFocusedWindow = async (
 				.focusedWindowCopyToClipboard,
 			FOCUS_WINDOW_APP_NAME_ENV_VARIABLE,
 			getCorrectHdrColorAlgorithm(appSettings),
+			targetWindowHwnd,
 		);
 		playCameraShutterSound();
 		await captureFocusedWindowPromise;

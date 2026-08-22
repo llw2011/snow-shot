@@ -41,6 +41,7 @@ type NativeActionRequest = {
 	documentId: string;
 	action: AppFunction;
 	source: string;
+	targetWindowHwnd?: number;
 	drawWindowLabel?: string;
 };
 
@@ -64,9 +65,14 @@ const GlobalEventHandlerCore: React.FC = () => {
 				});
 			}),
 			addListener("execute-native-action", async (args) => {
-				const { requestId, documentId, action, source, drawWindowLabel } = (
-					args as { payload: NativeActionRequest }
-				).payload;
+				const {
+					requestId,
+					documentId,
+					action,
+					source,
+					targetWindowHwnd,
+					drawWindowLabel,
+				} = (args as { payload: NativeActionRequest }).payload;
 				try {
 					if (!(await nativeActionAck(requestId, documentId))) {
 						appWarn(
@@ -105,7 +111,10 @@ const GlobalEventHandlerCore: React.FC = () => {
 							await executeDrawScreenshot(ScreenshotType.CaptureFullScreen);
 							break;
 						case AppFunction.ScreenshotFocusedWindow:
-							await executeScreenshotFocusedWindow(getAppSettings());
+							await executeScreenshotFocusedWindow(
+								getAppSettings(),
+								targetWindowHwnd,
+							);
 							break;
 						case AppFunction.Chat:
 							await executeChat();

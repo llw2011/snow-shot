@@ -10,6 +10,7 @@ pub async fn capture_focused_window(
     copy_to_clipboard: bool,
     focus_window_app_name_variable_name: String,
     correct_hdr_color_algorithm: CorrectHdrColorAlgorithm,
+    target_window_hwnd: Option<usize>,
 ) -> Result<(), String> {
     snow_shot_tauri_commands_screenshot::commands::capture_focused_window(
         move |image| match app.clipboard().write_image(&tauri::image::Image::new(
@@ -27,6 +28,7 @@ pub async fn capture_focused_window(
         copy_to_clipboard,
         focus_window_app_name_variable_name,
         correct_hdr_color_algorithm,
+        target_window_hwnd,
     )
     .await
 }

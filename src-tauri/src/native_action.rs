@@ -108,6 +108,8 @@ struct NativeActionRequest {
     action: String,
     source: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    target_window_hwnd: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     draw_window_label: Option<String>,
 }
 
@@ -1091,6 +1093,18 @@ pub fn handle_shortcut_event(app: &AppHandle, shortcut: &Shortcut, event: Shortc
     let Some(action) = state.shortcut_action(shortcut) else {
         return;
     };
+    let target_window_hwnd = if action == ACTION_SCREENSHOT_FOCUSED_WINDOW {
+        #[cfg(target_os = "windows")]
+        {
+            snow_shot_app_os::utils::get_window_under_cursor().map(|window| window.0 as usize)
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            None
+        }
+    } else {
+        None
+    };
     let check_focused_full_screen = state.disable_on_focused_full_screen.load(Ordering::Relaxed);
     let app = app.clone();
 
@@ -1107,7 +1121,7 @@ pub fn handle_shortcut_event(app: &AppHandle, shortcut: &Shortcut, event: Shortc
             }
         }
 
-        if let Err(error) = dispatch_action(&app, &action, "shortcut").await {
+        if let Err(error) = dispatch_action(&app, &action, "shortcut", target_window_hwnd).await {
             log::error!(target: "snow-shot-recovery", "[native_action] shortcut action {action} failed: {error}");
         }
     });
@@ -1278,7 +1292,7 @@ fn queue_action(app: &AppHandle, action: String, source: &'static str) {
 
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(error) = dispatch_action(&app, &action, source).await {
+        if let Err(error) = dispatch_action(&app, &action, source, None).await {
             log::error!(target: "snow-shot-recovery", "[native_action] {source} action {action} failed: {error}");
         }
     });
@@ -1397,7 +1411,12 @@ async fn settle_pending_system_recovery(app: &AppHandle) -> Result<bool, String>
     }
 }
 
-async fn dispatch_action(app: &AppHandle, action: &str, source: &str) -> Result<(), String> {
+async fn dispatch_action(
+    app: &AppHandle,
+    action: &str,
+    source: &str,
+    target_window_hwnd: Option<usize>,
+) -> Result<(), String> {
     let state = app.state::<NativeActionState>();
     let _dispatch_guard = state.action_dispatch_lock.lock().await;
     if state.terminal_process_recovery_started() || state.shutdown_requested() {
@@ -1427,7 +1446,15 @@ async fn dispatch_action(app: &AppHandle, action: &str, source: &str) -> Result<
             ensure_action_runtime_claim(app, show_main, requirement, action).await?;
     }
 
-    match emit_action_and_wait_for_ack(app, action, source, &delivery_runtime_id, requirement).await
+    match emit_action_and_wait_for_ack(
+        app,
+        action,
+        source,
+        &delivery_runtime_id,
+        requirement,
+        target_window_hwnd,
+    )
+    .await
     {
         Ok(true) => Ok(()),
         Ok(false) => {
@@ -1888,6 +1915,7 @@ async fn emit_action_and_wait_for_ack(
     source: &str,
     expected_document_id: &str,
     requirement: RuntimeRequirement,
+    target_window_hwnd: Option<usize>,
 ) -> Result<bool, String> {
     let window = app
         .get_webview_window(MAIN_WINDOW_LABEL)
@@ -1907,6 +1935,7 @@ async fn emit_action_and_wait_for_ack(
         document_id: expected_document_id.to_owned(),
         action: action.to_owned(),
         source: source.to_owned(),
+        target_window_hwnd,
         draw_window_label: match requirement {
             RuntimeRequirement::Main => None,
             RuntimeRequirement::Draw => {

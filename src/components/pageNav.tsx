@@ -177,7 +177,7 @@ export const PageNav: React.FC<{
 					position: relative;
 					z-index: 2;
 					flex: 0 0 auto;
-					padding: 8px 14px 7px;
+					padding: 12px 24px 11px;
 					border-bottom: 1px solid var(--snow-shot-hairline-soft);
 					background: color-mix(
 						in srgb,
@@ -189,7 +189,7 @@ export const PageNav: React.FC<{
 
 				.page-nav-track {
 					display: flex;
-					gap: 4px;
+					gap: 6px;
 					overflow-x: auto;
 					overflow-y: hidden;
 					scrollbar-width: none;
@@ -201,14 +201,14 @@ export const PageNav: React.FC<{
 
 				.page-nav-item {
 					flex: 0 0 auto;
-					min-height: 30px;
-					padding: 5px 10px;
+					min-height: 36px;
+					padding: 7px 13px;
 					border: 0;
 					border-radius: var(--snow-shot-radius-sm);
 					background: transparent;
 					color: var(--snow-shot-muted);
 					font: inherit;
-					font-size: 13px;
+					font-size: 14px;
 					font-weight: 500;
 					line-height: 20px;
 					white-space: nowrap;

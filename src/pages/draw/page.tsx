@@ -682,20 +682,22 @@ const DrawPageCore: React.FC<{
 			setCaptureStateAction(true);
 			drawToolbarActionRef.current?.setEnable(false);
 
-			const captureAllMonitorsPromise =
-				captureAllMonitorsAction(excuteScreenshotType);
-			const initCaptureBoundingBoxInfoPromise =
-				initCaptureBoundingBoxInfoAndShowWindow();
-
 			setScreenshotType({
 				type: excuteScreenshotType,
 				params,
 			});
 
+			// Start the target-window snapshot before showing the transparent Draw
+			// overlay. The native command also excludes the overlay by HWND, but this
+			// ordering prevents the first selection from depending on its show timing.
 			const layerOnExecuteScreenshotPromise = Promise.all([
 				imageLayerActionRef.current?.onExecuteScreenshot(),
 				selectLayerActionRef.current?.onExecuteScreenshot(),
 			]);
+			const captureAllMonitorsPromise =
+				captureAllMonitorsAction(excuteScreenshotType);
+			const initCaptureBoundingBoxInfoPromise =
+				initCaptureBoundingBoxInfoAndShowWindow();
 			setCaptureEvent({
 				event: CaptureEvent.onExecuteScreenshot,
 			});

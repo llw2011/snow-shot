@@ -93,8 +93,8 @@ const MenuSiderCore: React.FC<{
 		<Sider
 			className="snow-shot-sider"
 			collapsed={collapsed}
-			width={188}
-			collapsedWidth={60}
+			width={220}
+			collapsedWidth={72}
 			collapsible
 			onCollapse={(value) => {
 				setCollapsed(value);
@@ -154,11 +154,11 @@ const MenuSiderCore: React.FC<{
 			</div>
 			<style jsx>{`
                 .logo-wrap {
-                    min-height: 56px;
+                    min-height: 72px;
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 12px 14px 8px;
+                    padding: 16px 18px 12px;
                     color: var(--snow-shot-ink);
                     user-select: none;
                 }
@@ -170,8 +170,8 @@ const MenuSiderCore: React.FC<{
 
                 .logo-mark {
                     position: relative;
-                    width: 28px;
-                    height: 28px;
+                    width: 32px;
+                    height: 32px;
                     flex: 0 0 auto;
                     border: 1px solid var(--snow-shot-hairline-strong);
                     border-radius: 8px;
@@ -190,20 +190,20 @@ const MenuSiderCore: React.FC<{
                 }
 
                 .logo-mark::before {
-                    top: 7px;
-                    left: 7px;
-                    width: 11px;
-                    height: 11px;
+                    top: 8px;
+                    left: 8px;
+                    width: 12px;
+                    height: 12px;
                     border-right: 0;
                     border-bottom: 0;
                     border-radius: 3px 0 0 0;
                 }
 
                 .logo-mark::after {
-                    right: 7px;
-                    bottom: 7px;
-                    width: 11px;
-                    height: 11px;
+                    right: 8px;
+                    bottom: 8px;
+                    width: 12px;
+                    height: 12px;
                     border-left: 0;
                     border-top: 0;
                     border-radius: 0 0 3px 0;
@@ -211,8 +211,8 @@ const MenuSiderCore: React.FC<{
 
                 .logo-mark-core {
                     position: absolute;
-                    left: 11px;
-                    top: 11px;
+                    left: 13px;
+                    top: 13px;
                     width: 6px;
                     height: 6px;
                     border-radius: 999px;
@@ -224,7 +224,7 @@ const MenuSiderCore: React.FC<{
 
                 .logo-wrap .logo-text {
                     color: var(--snow-shot-ink);
-                    font-size: 15px;
+                    font-size: 16px;
                     font-weight: 600;
                     letter-spacing: 0;
                     line-height: 1;
@@ -232,7 +232,7 @@ const MenuSiderCore: React.FC<{
 
                 .macos-title-bar-margin {
                     width: 100%;
-                    height: 36px;
+                    height: 46px;
                 }
 
                 .menu-sider-wrap {
