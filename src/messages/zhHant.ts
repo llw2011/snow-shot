@@ -30,8 +30,6 @@ export const zhHant = {
 	"settings.keyConfig": '"{title}"按鍵配置',
 	"settings.resetSettings": "確定重設「{title}」為預設嗎？",
 	"settings.resetSettingsAction": "恢復預設",
-	"settings.antialias": "抗鋸齒",
-	"settings.renderSettings": "渲染設定",
 	"settings.drawLine": "繪製線條",
 	"settings.enableDrawLineSimplify": "啟用簡化線條",
 	"settings.enableDrawLineSimplify.tip":
@@ -280,12 +278,25 @@ export const zhHant = {
 	"plugin.glm_ocr.name": "GLM OCR",
 	"plugin.glm_ocr.description":
 		"啟用基於 OpenAI 相容接口的 GLM OCR 文字辨識。請在功能設定中填寫服務地址、端口和模型。",
-	"plugin.glm_ocr.functionDescription": "API 文字辨識",
 	"plugin.rapid_ocr.name": "Rapid OCR 本地模型",
 	"plugin.rapid_ocr.description":
 		"安裝 Rapid OCR V4/V5 ONNX 模型。選擇 Rapid OCR V4/V5 後，辨識在 Snow Shot 本機進程內執行，不啟動獨立服務，也不佔用端口。",
-	"plugin.rapid_ocr.functionDescription": "本地文字辨識",
-	"plugin.translate.functionDescription": "翻譯",
+	"plugin.install": "安裝",
+	"plugin.uninstall": "解除安裝",
+	"plugin.forceInstall": "重新安裝",
+	"plugin.uninstall.confirm.title": "解除安裝「{name}」？",
+	"plugin.uninstall.confirm.description":
+		"這會刪除已安裝的外掛檔案和本機模型。再次使用前需要重新安裝。",
+	"plugin.uninstall.confirm.action": "確認解除安裝",
+	"plugin.reinstall.confirm.title": "重新安裝「{name}」？",
+	"plugin.reinstall.confirm.description":
+		"這會先刪除目前的外掛檔案和本機模型，再重新安裝。如果安裝中斷，對應功能可能暫時無法使用。",
+	"plugin.reinstall.confirm.action": "確認重新安裝",
+	"window.size.control": "主視窗尺寸",
+	"window.size.compact": "緊湊視窗（{width} × {height}）",
+	"window.size.standard": "標準視窗（{width} × {height}）",
+	"window.size.large": "寬螢幕視窗（{width} × {height}）",
+	"window.size.unavailable": "目前顯示器工作區空間不足",
 	"settings.systemSettings.screenshotSettings.ocrModel": "文字辨識模型",
 	"settings.systemSettings.screenshotSettings.ocrModel.tip":
 		"目前選擇就是截圖 OCR 實際使用的後端。GLM OCR 調用使用者配置的 OpenAI 相容 API 服務；Rapid OCR V4/V5 在 Snow Shot 本機進程內載入 ONNX 模型執行，不啟動獨立服務，也沒有端口。",

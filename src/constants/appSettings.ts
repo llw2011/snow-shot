@@ -13,6 +13,7 @@ import {
 	HdrColorAlgorithm,
 	HistoryValidDuration,
 	KeyDisplayDirection,
+	MainWindowSizeTier,
 	OcrDetectAfterAction,
 	OcrModel,
 	TranslationApiType,
@@ -65,11 +66,8 @@ export const defaultAppSettingsData: AppSettingsData = {
 	[AppSettingsGroup.Common]: {
 		theme: AppSettingsTheme.Dark,
 		themePreset: AppThemePreset.Obsidian,
-		// Legacy storage field. Runtime primary is derived from the active mode.
-		mainColor: "#F5F5F5",
-		borderRadius: 6,
-		// Legacy storage field. The application always renders at compact density.
-		enableCompactLayout: true,
+		// The preferred tier may be downgraded at runtime when the work area is smaller.
+		mainWindowSizeTier: MainWindowSizeTier.Large,
 		language: AppSettingsLanguage.ZHHans,
 		browserLanguage: "",
 	},
@@ -146,9 +144,6 @@ export const defaultAppSettingsData: AppSettingsData = {
 	[AppSettingsGroup.DrawToolbarKeyEvent]: defaultDrawToolbarKeyEventSettings,
 	[AppSettingsGroup.CommonKeyEvent]: defaultCommonKeyEventSettings,
 	[AppSettingsGroup.AppFunction]: defaultAppFunctionConfigs,
-	[AppSettingsGroup.Render]: {
-		antialias: true,
-	},
 	[AppSettingsGroup.SystemCommon]: {
 		autoStart: true,
 		autoCheckVersion: false,

@@ -4,7 +4,7 @@ import { DeleteOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Badge, Button, List } from "antd";
-import { useCallback, useMemo } from "react";
+import { useCallback, useContext, useMemo, useRef, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
 	pluginInstallLocalPlugin,
@@ -16,13 +16,17 @@ import {
 	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
+import { AntdContext } from "@/contexts/antdContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { PluginStatus } from "@/types/commands/plugin";
 import { appError } from "@/utils/log";
 
 export const PluginsPage = () => {
 	const intl = useIntl();
+	const { modal } = useContext(AntdContext);
 	const { pluginConfig, pluginStatus } = usePluginServiceContext();
+	const [pendingMutation, setPendingMutation] = useState<string>();
+	const pendingMutationRef = useRef<string | undefined>(undefined);
 
 	const pluginList = useMemo(() => {
 		return Array.from(pluginConfig?.plugins.values() || []).map((plugin) => {
@@ -45,9 +49,6 @@ export const PluginsPage = () => {
 				title: intl.formatMessage({ id: `plugin.${plugin.id}.name` }),
 				description: intl.formatMessage({
 					id: `plugin.${plugin.id}.description`,
-				}),
-				functionDescription: intl.formatMessage({
-					id: `plugin.${plugin.id}.functionDescription`,
 				}),
 				status: pluginStatus?.[plugin.id]?.status || PluginStatus.NotInstalled,
 			};
@@ -96,6 +97,58 @@ export const PluginsPage = () => {
 		[pluginConfig],
 	);
 
+	const confirmPluginMutation = useCallback(
+		async (
+			item: { id: string; title: string },
+			action: "uninstall" | "reinstall",
+		) => {
+			const mutationKey = `${action}:${item.id}`;
+			if (pendingMutationRef.current) {
+				return;
+			}
+
+			pendingMutationRef.current = mutationKey;
+			setPendingMutation(mutationKey);
+			const messagePrefix =
+				action === "uninstall" ? "plugin.uninstall" : "plugin.reinstall";
+			try {
+				const confirmed = await modal.confirmWithStatus({
+					type: "error",
+					title: intl.formatMessage(
+						{ id: `${messagePrefix}.confirm.title` },
+						{ name: item.title },
+					),
+					content: intl.formatMessage({
+						id: `${messagePrefix}.confirm.description`,
+					}),
+					okText: intl.formatMessage({
+						id: `${messagePrefix}.confirm.action`,
+					}),
+					okButtonProps: { danger: true },
+				});
+				if (!confirmed) {
+					return;
+				}
+
+				if (action === "uninstall") {
+					await pluginUninstallPlugin(item.id);
+				} else {
+					await installPlugin(item.id, true);
+				}
+			} catch (error) {
+				appError(`[PluginsPage] ${action} plugin error`, error);
+			} finally {
+				if (pendingMutationRef.current === mutationKey) {
+					pendingMutationRef.current = undefined;
+				}
+				setPendingMutation((current) =>
+					current === mutationKey ? undefined : current,
+				);
+			}
+		},
+		[installPlugin, intl, modal],
+	);
+
 	return (
 		<div>
 			<List
@@ -113,13 +166,16 @@ export const PluginsPage = () => {
 									danger
 									size="small"
 									icon={<DeleteOutlined />}
-									loading={item.status === PluginStatus.Uninstalling}
+									loading={
+										item.status === PluginStatus.Uninstalling ||
+										pendingMutation === `uninstall:${item.id}`
+									}
+									disabled={
+										pendingMutation !== undefined ||
+										item.status === PluginStatus.Uninstalling
+									}
 									onClick={() => {
-										try {
-											pluginUninstallPlugin(item.id);
-										} catch (error) {
-											appError("[PluginsPage] uninstall plugin error", error);
-										}
+										confirmPluginMutation(item, "uninstall");
 									}}
 								>
 									<FormattedMessage id="plugin.uninstall" />
@@ -135,6 +191,7 @@ export const PluginsPage = () => {
 										item.status === PluginStatus.Downloading ||
 										item.status === PluginStatus.Unzipping
 									}
+									disabled={pendingMutation !== undefined}
 									onClick={() => {
 										installPlugin(item.id);
 									}}
@@ -148,9 +205,13 @@ export const PluginsPage = () => {
 								color="primary"
 								size="small"
 								icon={<SyncOutlined />}
-								disabled={item.status !== PluginStatus.Installed}
+								disabled={
+									item.status !== PluginStatus.Installed ||
+									pendingMutation !== undefined
+								}
+								loading={pendingMutation === `reinstall:${item.id}`}
 								onClick={() => {
-									installPlugin(item.id, true);
+									confirmPluginMutation(item, "reinstall");
 								}}
 							>
 								<FormattedMessage id="plugin.forceInstall" />
@@ -181,10 +242,6 @@ export const PluginsPage = () => {
 							}
 							description={item.description}
 						/>
-						{/* <div style={{ whiteSpace: 'pre-wrap' }}>
-                            <FormattedMessage id="plugin.extensionFunction" />
-                            {`: ${item.functionDescription}`}
-                        </div> */}
 					</List.Item>
 				)}
 			/>

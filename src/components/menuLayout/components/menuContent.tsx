@@ -16,6 +16,7 @@ import React, {
 	useState,
 } from "react";
 import RSC, { type Scrollbar } from "react-scrollbars-custom";
+import { MainWindowSizeControl } from "@/components/mainWindowSizeControl";
 import { PageNav } from "@/components/pageNav";
 import { SettingsWorkspace } from "@/components/settingsWorkspace";
 import type { RouteMapItem } from "@/types/components/menuLayout";
@@ -113,31 +114,36 @@ const MenuContentCore: React.FC<{
 					triggerSubMenuAction="click"
 				/>
 
-				{currentPlatform !== "macos" && (
-					<Space className="window-actions workbench-window-actions">
-						<Button
-							type="text"
-							size="small"
-							icon={<MinusOutlined />}
-							aria-label="Minimize"
-							title="Minimize"
-							onClick={() => {
-								appWindowRef.current?.minimize();
-							}}
-						/>
-						<Button
-							type="text"
-							size="small"
-							icon={<CloseOutlined />}
-							aria-label="Hide Snow Shot"
-							title="Hide Snow Shot"
-							onClick={() => {
-								appWindowRef.current?.hide();
-								appWindowRef.current?.emit("on-hide-main-window");
-							}}
-						/>
-					</Space>
-				)}
+				<Space className="window-actions workbench-window-actions">
+					<MainWindowSizeControl />
+					{currentPlatform !== "macos" && (
+						<>
+							<Button
+								className="window-command-button"
+								type="text"
+								size="small"
+								icon={<MinusOutlined />}
+								aria-label="Minimize"
+								title="Minimize"
+								onClick={() => {
+									appWindowRef.current?.minimize();
+								}}
+							/>
+							<Button
+								className="window-command-button"
+								type="text"
+								size="small"
+								icon={<CloseOutlined />}
+								aria-label="Hide Snow Shot"
+								title="Hide Snow Shot"
+								onClick={() => {
+									appWindowRef.current?.hide();
+									appWindowRef.current?.emit("on-hide-main-window");
+								}}
+							/>
+						</>
+					)}
+				</Space>
 			</Header>
 			<Content>
 				<div className="content-wrap app-content-shell">
@@ -288,7 +294,7 @@ const MenuContentCore: React.FC<{
 					margin: 0;
 				}
 
-				.app-titlebar :global(.window-actions .ant-btn) {
+				.app-titlebar :global(.window-actions .window-command-button) {
 					width: 30px;
 					height: 30px;
 					border: 1px solid transparent;
@@ -297,7 +303,7 @@ const MenuContentCore: React.FC<{
 					background: transparent;
 				}
 
-				.app-titlebar :global(.window-actions .ant-btn:hover) {
+				.app-titlebar :global(.window-actions .window-command-button:hover) {
 					border-color: var(--snow-shot-hairline);
 					color: var(--snow-shot-ink);
 					background: var(--snow-shot-surface-elevated);

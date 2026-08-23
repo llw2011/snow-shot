@@ -35,8 +35,6 @@ export const en = {
 	"settings.resetSettings":
 		'Are you sure you want to reset "{title}" to default settings?',
 	"settings.resetSettingsAction": "Reset",
-	"settings.antialias": "Antialias",
-	"settings.renderSettings": "Render Settings",
 	"settings.drawLine": "Draw Line",
 	"settings.enableDrawLineSimplify": "Enable Line Simplification",
 	"settings.enableDrawLineSimplify.tip":
@@ -333,12 +331,25 @@ export const en = {
 	"plugin.glm_ocr.name": "GLM OCR",
 	"plugin.glm_ocr.description":
 		"Enable GLM OCR text recognition through an OpenAI-compatible endpoint. Enter the service URL, port, and model in Function Settings before use.",
-	"plugin.glm_ocr.functionDescription": "API Text Recognition",
 	"plugin.rapid_ocr.name": "Rapid OCR Local Models",
 	"plugin.rapid_ocr.description":
 		"Install Rapid OCR V4/V5 ONNX models. When Rapid OCR V4/V5 is selected, recognition runs inside the local Snow Shot process without starting a separate service or using a port.",
-	"plugin.rapid_ocr.functionDescription": "Local Text Recognition",
-	"plugin.translate.functionDescription": "Translation",
+	"plugin.install": "Install",
+	"plugin.uninstall": "Uninstall",
+	"plugin.forceInstall": "Reinstall",
+	"plugin.uninstall.confirm.title": "Uninstall “{name}”?",
+	"plugin.uninstall.confirm.description":
+		"This removes the installed plugin files and local models. You must reinstall them before using this feature again.",
+	"plugin.uninstall.confirm.action": "Uninstall",
+	"plugin.reinstall.confirm.title": "Reinstall “{name}”?",
+	"plugin.reinstall.confirm.description":
+		"This removes the current plugin files and local models before reinstalling them. If installation is interrupted, the feature may be temporarily unavailable.",
+	"plugin.reinstall.confirm.action": "Reinstall",
+	"window.size.control": "Main window size",
+	"window.size.compact": "Compact window ({width} × {height})",
+	"window.size.standard": "Standard window ({width} × {height})",
+	"window.size.large": "Wide window ({width} × {height})",
+	"window.size.unavailable": "Not enough space on the current display",
 	"settings.systemSettings.screenshotSettings.ocrModel":
 		"Text Recognition Model",
 	"settings.systemSettings.screenshotSettings.ocrModel.tip":

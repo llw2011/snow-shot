@@ -61,7 +61,6 @@ export const SystemSettingsPage = () => {
 		Form.useForm<AppSettingsData[AppSettingsGroup.SystemCommon]>();
 	const [coreForm] =
 		Form.useForm<AppSettingsData[AppSettingsGroup.SystemCore]>();
-	// const [renderForm] = Form.useForm<AppSettingsData[AppSettingsGroup.Render]>();
 	const [scrollScreenshotForm] =
 		Form.useForm<AppSettingsData[AppSettingsGroup.SystemScrollScreenshot]>();
 	const [chatForm] =
@@ -76,13 +75,6 @@ export const SystemSettingsPage = () => {
 		useCallback(
 			(settings: AppSettingsData, preSettings?: AppSettingsData) => {
 				setAppSettingsLoading(false);
-
-				// if (
-				//     preSettings === undefined ||
-				//     preSettings[AppSettingsGroup.Render] !== settings[AppSettingsGroup.Render]
-				// ) {
-				//     renderForm.setFieldsValue(settings[AppSettingsGroup.Render]);
-				// }
 
 				if (
 					preSettings === undefined ||
@@ -577,41 +569,6 @@ export const SystemSettingsPage = () => {
 					</ProForm>
 				</Spin>
 			</SettingsSection>
-
-			{/* <GroupTitle
-                id="renderSettings"
-                extra={
-                    <ResetSettingsButton
-                        title={
-                            <FormattedMessage id="settings.renderSettings" key="renderSettings" />
-                        }
-                        appSettingsGroup={AppSettingsGroup.Render}
-                    />
-                }
-            >
-                <FormattedMessage id="settings.renderSettings" />
-            </GroupTitle>
-
-            <Spin spinning={appSettingsLoading}>
-                <ProForm
-                    form={renderForm}
-                    onValuesChange={(_, values) => {
-                        updateAppSettings(AppSettingsGroup.Render, values, true, true, true);
-                    }}
-                    submitter={false}
-                    layout="horizontal"
-                >
-                    <ProForm.Item
-                        label={<IconLabel label={<FormattedMessage id="settings.antialias" />} />}
-                        name="antialias"
-                        valuePropName="checked"
-                    >
-                        <Switch />
-                    </ProForm.Item>
-                </ProForm>
-            </Spin>
-
-            <Divider /> */}
 
 			<SettingsSection
 				sectionId="networkSettings"

@@ -23,7 +23,7 @@ Snow Shot is a local-first desktop tool for capturing, annotating, pinning, and 
 - Annotation tools including shapes, arrows, text, mosaic, and image pinning.
 - Clipboard, local history, configurable save formats, and custom shortcuts.
 - System tray and native Windows session recovery for long-running use.
-- Switchable light/dark modes, visual skins, backgrounds, and compact layouts.
+- Switchable light/dark modes, visual skins, and backgrounds.
 - Optional Rapid OCR, API-based OCR, translation, chat, and recording plugins.
 
 ## Download

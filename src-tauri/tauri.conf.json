@@ -17,10 +17,11 @@
 			{
 				"label": "main",
 				"fullscreen": false,
-				"height": 632,
+				"height": 734,
 				"maximizable": false,
+				"resizable": false,
 				"title": "Snow Shot",
-				"width": 1024,
+				"width": 1268,
 				"center": true,
 				"decorations": false,
 				"shadow": false,

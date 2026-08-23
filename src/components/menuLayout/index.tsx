@@ -438,13 +438,7 @@ const MenuLayoutCore: React.FC<{ children: React.ReactNode }> = ({
 									id: "settings.systemSettings.dataFile",
 								}),
 							},
-						].filter(() => {
-							// if (item.key === 'chatSettings') {
-							//     return isReadyStatus?.(PLUGIN_ID_AI_CHAT);
-							// }
-
-							return true;
-						}),
+						],
 					},
 					{
 						key: "/personalization/appearance",

@@ -932,6 +932,7 @@ impl Plugin {
             match tokio::fs::remove_dir_all(&self.get_plugin_dir()).await {
                 Ok(_) => (),
                 Err(e) => {
+                    self.refresh_status_from_disk().await;
                     return Err(format!(
                         "[Plugin::uninstall] Failed to remove plugin directory: {}",
                         e

@@ -112,6 +112,43 @@ const installTauriBrowserShim = () => {
 				return { x: 0, y: 0 } as T;
 			case "plugin:window|scale_factor":
 				return window.devicePixelRatio as T;
+			case "plugin:window|current_monitor": {
+				const scaleFactor = window.devicePixelRatio || 1;
+				const width = Math.round(window.screen.width * scaleFactor);
+				const height = Math.round(window.screen.height * scaleFactor);
+				const workWidth = Math.round(window.screen.availWidth * scaleFactor);
+				const workHeight = Math.round(window.screen.availHeight * scaleFactor);
+				return {
+					name: "Browser monitor",
+					scaleFactor,
+					position: { x: 0, y: 0 },
+					size: { width, height },
+					workArea: {
+						position: { x: 0, y: 0 },
+						size: { width: workWidth, height: workHeight },
+					},
+				} as T;
+			}
+			case "plugin:window|primary_monitor": {
+				const scaleFactor = window.devicePixelRatio || 1;
+				const width = Math.round(window.screen.width * scaleFactor);
+				const height = Math.round(window.screen.height * scaleFactor);
+				const workWidth = Math.round(window.screen.availWidth * scaleFactor);
+				const workHeight = Math.round(window.screen.availHeight * scaleFactor);
+				return {
+					name: "Browser primary monitor",
+					scaleFactor,
+					position: { x: 0, y: 0 },
+					size: { width, height },
+					workArea: {
+						position: { x: 0, y: 0 },
+						size: { width: workWidth, height: workHeight },
+					},
+				} as T;
+			}
+			case "plugin:window|set_position":
+			case "plugin:window|set_size":
+				return undefined as T;
 
 			case "plugin:event|listen":
 				return nextEventId++ as T;

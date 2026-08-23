@@ -20,4 +20,9 @@ export const common = {
 	"common.permission.error.description":
 		"请在开启应用正常运行所必要的“录屏与系统录音”和“辅助功能”权限",
 	"common.permission.error.goToSettings": "前往授权",
+	"window.size.control": "主窗口尺寸",
+	"window.size.compact": "紧凑窗口（{width} × {height}）",
+	"window.size.standard": "标准窗口（{width} × {height}）",
+	"window.size.large": "宽屏窗口（{width} × {height}）",
+	"window.size.unavailable": "当前显示器工作区空间不足",
 };

@@ -93,7 +93,6 @@ export enum AppSettingsGroup {
 	DrawToolbarKeyEvent = "drawToolbarKeyEvent_20250526",
 	CommonKeyEvent = "commonKeyEvent",
 	AppFunction = "appFunction",
-	Render = "render",
 	SystemCommon = "systemCommon",
 	SystemChat = "systemChat",
 	SystemNetwork = "systemNetwork",
@@ -185,6 +184,12 @@ export enum AppSettingsTheme {
 	System = "system",
 }
 
+export enum MainWindowSizeTier {
+	Compact = "compact",
+	Standard = "standard",
+	Large = "large",
+}
+
 export enum AppThemePreset {
 	Obsidian = "obsidian",
 	Aurora = "aurora",
@@ -215,12 +220,8 @@ export type AppSettingsData = {
 	[AppSettingsGroup.Common]: {
 		theme: AppSettingsTheme;
 		themePreset: AppThemePreset;
-		/** 主色 */
-		mainColor: string;
-		/** 圆角 */
-		borderRadius: number;
-		/** @deprecated Legacy storage field; the application always uses compact density. */
-		enableCompactLayout: boolean;
+		/** 主窗口预设尺寸。运行时会按当前显示器工作区自动降档。 */
+		mainWindowSizeTier: MainWindowSizeTier;
 		language: AppSettingsLanguage;
 		/** 浏览器语言，用于自动切换语言 */
 		browserLanguage: string;
@@ -359,9 +360,6 @@ export type AppSettingsData = {
 		CommonKeyEventValue
 	>;
 	[AppSettingsGroup.AppFunction]: Record<AppFunction, AppFunctionConfig>;
-	[AppSettingsGroup.Render]: {
-		antialias: boolean;
-	};
 	[AppSettingsGroup.SystemCommon]: {
 		autoStart: boolean;
 		autoCheckVersion: boolean;

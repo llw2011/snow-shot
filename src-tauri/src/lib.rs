@@ -157,8 +157,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::SIZE
-                        | tauri_plugin_window_state::StateFlags::POSITION,
+                    tauri_plugin_window_state::StateFlags::POSITION,
                 )
                 .with_filter(|label| label == "main")
                 .build(),
