@@ -8,6 +8,7 @@ pub mod plugin;
 pub mod process_recovery;
 pub mod screenshot;
 pub mod scroll_screenshot;
+mod startup_icon;
 pub mod video_record;
 pub mod webview;
 #[cfg(target_os = "windows")]
@@ -226,6 +227,21 @@ pub fn run() {
                 }
 
                 configure_main_window(&main_window);
+                match startup_icon::load(app.handle(), &main_window) {
+                    Ok(startup_icon) => {
+                        app.state::<native_action::NativeActionState>()
+                            .configure_startup_tray(
+                                startup_icon.image.clone(),
+                                startup_icon.tray_enabled,
+                            );
+                        if let Err(error) = main_window.set_icon(startup_icon.image) {
+                            log::error!("[lib::setup] failed to set main window icon: {error}");
+                        }
+                    }
+                    Err(error) => {
+                        log::warn!("[lib::setup] using default startup icon: {error}");
+                    }
+                }
                 if let Err(error) = native_action::ensure_main_tray_during_setup(app.handle()) {
                     log::error!(target: "snow-shot-recovery", "[lib::setup] failed to create native fallback tray: {error}");
                 }
@@ -371,6 +387,7 @@ pub fn run() {
             native_action::native_shortcut_set_input_active,
             native_action::native_shortcut_set_full_screen_policy,
             native_action::native_tray_set_click_action,
+            native_action::native_tray_set_icon,
             native_action::native_tray_set_enabled,
             native_action::native_show_main_window,
             native_action::native_runtime_start,

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Image } from "@tauri-apps/api/image";
 import type { TrayIconClickAction } from "@/types/appSettings";
 import type { AppFunction } from "@/types/components/appFunction";
 
@@ -97,6 +98,13 @@ export const nativeShortcutSetFullScreenPolicy = async (
 
 export const nativeTraySetClickAction = async (action: TrayIconClickAction) => {
 	await invoke<void>("native_tray_set_click_action", { action });
+};
+
+export const nativeTraySetIcon = async (icon: Image, enabled: boolean) => {
+	await invoke<void>("native_tray_set_icon", {
+		value: icon.rid,
+		enabled,
+	});
 };
 
 export const nativeTraySetEnabled = async (enabled: boolean) => {

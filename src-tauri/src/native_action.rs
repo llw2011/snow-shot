@@ -13,6 +13,7 @@ use snow_shot_app_services::{
 };
 use tauri::{
     AppHandle, Emitter, Manager, State, WebviewWindow, WebviewWindowBuilder,
+    image::Image,
     menu::{MenuBuilder, MenuEvent},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -156,6 +157,7 @@ pub struct NativeActionState {
     shutdown_requested: AtomicBool,
     action_dispatch_lock: AsyncMutex<()>,
     main_recovery_lock: AsyncMutex<()>,
+    startup_icon: RwLock<Option<Image<'static>>>,
 }
 
 struct MainRuntimeStatus {
@@ -261,11 +263,31 @@ impl Default for NativeActionState {
             shutdown_requested: AtomicBool::new(false),
             action_dispatch_lock: AsyncMutex::new(()),
             main_recovery_lock: AsyncMutex::new(()),
+            startup_icon: RwLock::new(None),
         }
     }
 }
 
 impl NativeActionState {
+    fn set_startup_icon(&self, icon: Image<'static>) {
+        *self
+            .startup_icon
+            .write()
+            .unwrap_or_else(|error| error.into_inner()) = Some(icon);
+    }
+
+    pub(crate) fn configure_startup_tray(&self, icon: Image<'static>, enabled: bool) {
+        self.set_startup_icon(icon);
+        self.tray_enabled.store(enabled, Ordering::Release);
+    }
+
+    fn startup_icon(&self) -> Option<Image<'static>> {
+        self.startup_icon
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+    }
+
     fn shortcut_action(&self, shortcut: &Shortcut) -> Option<String> {
         self.shortcut_actions
             .read()
@@ -1318,9 +1340,9 @@ fn sync_main_tray_on_main_thread(app: &AppHandle) -> Result<(), String> {
     let menu = menu_builder
         .build()
         .map_err(|error| format!("failed to build fallback tray menu: {error}"))?;
-    let icon = app
-        .default_window_icon()
-        .cloned()
+    let icon = state
+        .startup_icon()
+        .or_else(|| app.default_window_icon().cloned())
         .ok_or_else(|| "default window icon is unavailable for the tray".to_owned())?;
 
     TrayIconBuilder::with_id(TRAY_ICON_ID)
@@ -1790,6 +1812,11 @@ async fn rebuild_main_window(
         .map_err(|error| format!("failed to create main window builder: {error}"))?
         .build()
         .map_err(|error| format!("failed to rebuild main window: {error}"))?;
+    if let Some(icon) = state.startup_icon() {
+        window
+            .set_icon(icon)
+            .map_err(|error| format!("failed to set rebuilt main window icon: {error}"))?;
+    }
     crate::configure_main_window(&window);
 
     if show_main {
@@ -2064,6 +2091,30 @@ pub fn native_tray_set_click_action(
         .tray_click_action
         .write()
         .unwrap_or_else(|error| error.into_inner()) = action;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn native_tray_set_icon(
+    state: State<'_, NativeActionState>,
+    window: WebviewWindow,
+    value: tauri::image::JsImage,
+    enabled: bool,
+) -> Result<(), String> {
+    if window.label() != MAIN_WINDOW_LABEL {
+        return Err("only the main window can update the native tray icon".to_owned());
+    }
+
+    let resources_table = window.resources_table();
+    let icon = value
+        .into_img(&resources_table)
+        .map_err(|error| format!("failed to resolve native tray icon image: {error}"))?
+        .as_ref()
+        .clone()
+        .to_owned();
+    drop(resources_table);
+
+    state.configure_startup_tray(icon, enabled);
     Ok(())
 }
 

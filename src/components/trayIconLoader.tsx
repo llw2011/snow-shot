@@ -12,6 +12,7 @@ import {
 	nativeShortcutSetDisabled,
 	nativeTraySetClickAction,
 	nativeTraySetEnabled,
+	nativeTraySetIcon,
 } from "@/commands/nativeAction";
 import { defaultAppSettingsData } from "@/constants/appSettings";
 import {
@@ -210,11 +211,6 @@ const TrayIconLoaderComponent = () => {
 			return;
 		}
 
-		await nativeTraySetEnabled(enableTrayIcon);
-		if (!enableTrayIcon) {
-			return;
-		}
-
 		const appWindow = getCurrentWindow();
 
 		let iconImage: Image | undefined;
@@ -229,7 +225,6 @@ const TrayIconLoaderComponent = () => {
 			}
 		} catch {
 			message.error(intl.formatMessage({ id: "home.trayIcon.error4" }));
-			return;
 		}
 
 		if (iconImage) {
@@ -240,8 +235,42 @@ const TrayIconLoaderComponent = () => {
 			if (size.width > 128 || size.height > 128) {
 				message.error(intl.formatMessage({ id: "home.trayIcon.error3" }));
 				await closeImageResource(iconImage);
-				return;
+				iconImage = undefined;
 			}
+		}
+
+		if (!iconImage) {
+			let targetDefaultIcon = defaultIcon;
+			if (currentTheme === AppSettingsTheme.Dark && defaultIconDark) {
+				targetDefaultIcon = defaultIconDark;
+			}
+
+			const { native_path } = await getDefaultIconPath(targetDefaultIcon);
+			iconImage =
+				(await Image.fromPath(native_path).catch(() => undefined)) ??
+				(await defaultWindowIcon()) ??
+				undefined;
+		}
+
+		if (iconImage) {
+			await nativeTraySetIcon(iconImage, enableTrayIcon).catch((error) => {
+				appError("[TrayIconLoader] sync native tray icon state failed", error);
+			});
+			await appWindow.setIcon(iconImage).catch((error) => {
+				appError("[TrayIconLoader] sync app window icon failed", error);
+			});
+		}
+
+		try {
+			await nativeTraySetEnabled(enableTrayIcon);
+		} catch (error) {
+			await closeImageResource(iconImage);
+			throw error;
+		}
+
+		if (!enableTrayIcon) {
+			await closeImageResource(iconImage);
+			return;
 		}
 
 		const menu = await Menu.new({
@@ -501,24 +530,8 @@ const TrayIconLoaderComponent = () => {
 		});
 
 		const trayIconId = `${appWindow.label}-trayIcon`;
-		let trayIconImage: Image | null = iconImage ?? null;
+		const trayIconImage: Image | null = iconImage ?? null;
 		try {
-			if (!trayIconImage) {
-				trayIconImage =
-					(await (async () => {
-						let targetDefaultIcon = defaultIcon;
-						if (currentTheme === AppSettingsTheme.Dark && defaultIconDark) {
-							targetDefaultIcon = defaultIconDark;
-						}
-
-						const { native_path } = await getDefaultIconPath(targetDefaultIcon);
-
-						const iconImage = await Image.fromPath(native_path);
-
-						return iconImage;
-					})()) ?? (await defaultWindowIcon());
-			}
-
 			await updateTrayIcon(trayIconId, trayIconImage, menu);
 			return { trayIconMenu: menu };
 		} catch (error) {

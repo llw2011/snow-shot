@@ -148,6 +148,7 @@ const installTauriBrowserShim = () => {
 			}
 			case "plugin:window|set_position":
 			case "plugin:window|set_size":
+			case "plugin:window|set_icon":
 				return undefined as T;
 
 			case "plugin:event|listen":
@@ -357,6 +358,7 @@ const installTauriBrowserShim = () => {
 			case "native_shortcut_set_input_active":
 			case "native_shortcut_set_full_screen_policy":
 			case "native_tray_set_click_action":
+			case "native_tray_set_icon":
 			case "native_tray_set_enabled":
 			case "native_runtime_start":
 			case "native_runtime_ready":
