@@ -62,7 +62,10 @@ beta tag 当前按 `prerelease: false` 公开，因此也会成为 `latest` OTA�
 
 ## 本地资产验证
 
-需要单独验证本地 staging 目录时，可使用仓库内的 Node.js 校验工具，并显式提供校验索引：
+本地 Windows OTA 构建默认写入
+`.tmp/build/staging/<version>/windows-standard/`；矩阵构建使用同一布局，
+再由 publish job 汇总成 Release assets。需要单独验证 staging 目录时，
+可使用仓库内的 Node.js 校验工具，并显式提供校验索引：
 
 ```powershell
 node scripts/release-manifest.mjs verify `

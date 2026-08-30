@@ -1,7 +1,13 @@
 {
 	"build": {
-		"beforeDevCommand": "cross-env PUBLIC_BUILD_FLAVOR=custom pnpm dev",
-		"beforeBuildCommand": "cross-env PUBLIC_BUILD_FLAVOR=custom pnpm build"
+		"beforeDevCommand": {
+			"script": "node scripts/build.mjs dev --flavor custom",
+			"cwd": ".."
+		},
+		"beforeBuildCommand": {
+			"script": "node scripts/build.mjs frontend --flavor custom",
+			"cwd": ".."
+		}
 	},
 	"app": {
 		"security": {

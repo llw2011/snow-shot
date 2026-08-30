@@ -2,6 +2,7 @@ import { defineConfig } from "@rsbuild/core";
 import { pluginNodePolyfill } from "@rsbuild/plugin-node-polyfill";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/rspack";
+import { frontendOutputDirectory } from "./scripts/build-config.mjs";
 
 export default defineConfig({
 	plugins: [pluginReact(), pluginNodePolyfill()],
@@ -12,6 +13,9 @@ export default defineConfig({
 	},
 	output: {
 		cleanDistPath: true,
+		distPath: {
+			root: frontendOutputDirectory,
+		},
 	},
 	performance: {
 		chunkSplit: {

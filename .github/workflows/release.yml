@@ -62,7 +62,7 @@ jobs:
                     TAG="${GITHUB_REF#refs/tags/}"
                   fi
 
-                  if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.+-]+)?$ ]]; then
+                  if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(([.-][0-9A-Za-z.+-]+)|(\+[0-9A-Za-z.-]+))?$ ]]; then
                     echo "Invalid release tag: $TAG" >&2
                     exit 1
                   fi
@@ -153,7 +153,9 @@ jobs:
 
             - name: Run release helper tests
               shell: bash
-              run: node scripts/release-scripts.test.mjs
+              run: |
+                  node scripts/release-scripts.test.mjs
+                  node scripts/build-scripts.test.mjs
 
             - name: Verify updater signing secrets
               env:
@@ -171,6 +173,8 @@ jobs:
         name: Build ${{ matrix.kind }}
         needs: prepare
         runs-on: ${{ matrix.platform }}
+        env:
+            CARGO_TARGET_DIR: ${{ github.workspace }}/.tmp/build/tauri-target
         # The slowest historical macOS Intel build is ~34 minutes. Ninety
         # minutes leaves room for one bounded retry while still preventing an
         # overnight zombie; all five variants run concurrently.
@@ -243,7 +247,7 @@ jobs:
             - name: Rust cache
               uses: swatinem/rust-cache@v2
               with:
-                  workspaces: src-tauri -> target
+                  workspaces: src-tauri -> ../.tmp/build/tauri-target
 
             - name: Install Yarn
               run: npm install --global yarn@1.22.22
@@ -265,28 +269,21 @@ jobs:
 
             - name: Install Excalidraw dependencies
               shell: bash
+              working-directory: ../excalidraw
               run: |
                   set -euo pipefail
-                  yarn --cwd ../excalidraw install --frozen-lockfile
-
-            - name: Configure online/offline frontend
-              shell: bash
-              run: |
-                  set -euo pipefail
-                  if [ "${{ matrix.offline }}" = "true" ]; then
-                    printf '%s\n' 'PUBLIC_ONLINE_STATUS=false' > .env
-                  else
-                    printf '%s\n' 'PUBLIC_ONLINE_STATUS=true' > .env
-                  fi
+                  yarn install --frozen-lockfile
 
             - name: Install app dependencies
+              working-directory: ${{ github.workspace }}
               run: pnpm install --frozen-lockfile
 
             - name: Build Excalidraw package
               shell: bash
+              working-directory: ../excalidraw
               run: |
                   set -euo pipefail
-                  yarn --cwd ../excalidraw build:packages
+                  yarn build:packages
 
             - name: Download offline resources
               if: matrix.offline == true
@@ -404,6 +401,8 @@ jobs:
               uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5
               env:
                   CI: true
+                  PUBLIC_ONLINE_STATUS: ${{ matrix.offline == true && 'false' || 'true' }}
+                  CARGO_TARGET_DIR: ${{ github.workspace }}/.tmp/build/tauri-target
                   # hdiutil on the pinned macOS 15 runners must be allowed to
                   # create the DMG even though this is a CI build.
                   TAURI_BUNDLER_DMG_IGNORE_CI: "false"
@@ -418,11 +417,12 @@ jobs:
               if: runner.os != 'Windows'
               shell: bash
               env:
-                  STAGE_DIR: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
+                  STAGE_DIR: ${{ github.workspace }}/.tmp/build/staging/${{ needs.prepare.outputs.app_version }}/${{ matrix.kind }}
+                  BUNDLE_DIR: ${{ github.workspace }}/.tmp/build/tauri-target/${{ matrix.target }}/release/bundle
               run: |
                   set -euo pipefail
                   node scripts/stage-release-assets.mjs \
-                    --bundle-dir "src-tauri/target/${{ matrix.target }}/release/bundle" \
+                    --bundle-dir "$BUNDLE_DIR" \
                     --output "$STAGE_DIR" \
                     --kind "${{ matrix.kind }}" \
                     --version "${{ needs.prepare.outputs.app_version }}"
@@ -431,11 +431,12 @@ jobs:
               if: runner.os == 'Windows'
               shell: pwsh
               env:
-                  STAGE_DIR: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
+                  STAGE_DIR: ${{ github.workspace }}/.tmp/build/staging/${{ needs.prepare.outputs.app_version }}/${{ matrix.kind }}
+                  BUNDLE_DIR: ${{ github.workspace }}/.tmp/build/tauri-target/${{ matrix.target }}/release/bundle
               run: |
                    $ErrorActionPreference = 'Stop'
                    node scripts/stage-release-assets.mjs `
-                     --bundle-dir "src-tauri/target/${{ matrix.target }}/release/bundle" `
+                     --bundle-dir "$env:BUNDLE_DIR" `
                      --output "$env:STAGE_DIR" `
                      --kind "${{ matrix.kind }}" `
                      --version "${{ needs.prepare.outputs.app_version }}"
@@ -449,7 +450,8 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: snow-shot-assets-${{ matrix.kind }}
-                  path: ${{ runner.temp }}/snow-shot-assets-${{ matrix.kind }}
+                  path: ${{ github.workspace }}/.tmp/build/staging/${{ needs.prepare.outputs.app_version }}/${{ matrix.kind }}
+                  include-hidden-files: true
                   if-no-files-found: error
                   retention-days: 2
                   compression-level: 0

@@ -6,10 +6,16 @@
 	"identifier": "com.chao.snowshot",
 	"build": {
 		"removeUnusedCommands": true,
-		"frontendDist": "../dist",
+		"frontendDist": "../.tmp/build/frontend",
 		"devUrl": "http://localhost:8083",
-		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm build"
+		"beforeDevCommand": {
+			"script": "node scripts/build.mjs dev",
+			"cwd": ".."
+		},
+		"beforeBuildCommand": {
+			"script": "node scripts/build.mjs frontend",
+			"cwd": ".."
+		}
 	},
 	"app": {
 		"withGlobalTauri": true,

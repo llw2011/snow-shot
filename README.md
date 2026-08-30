@@ -64,9 +64,10 @@ pnpm install --frozen-lockfile
 pnpm update:excalidraw
 pnpm dev                 # frontend development server
 pnpm build               # frontend production assets
+pnpm preview             # serve the normalized frontend output
 pnpm exec tsc --noEmit   # TypeScript check
-cargo check --locked --manifest-path src-tauri/Cargo.toml
-pnpm tauri dev
+pnpm check:native        # locked Rust workspace check
+pnpm dev:tauri           # Tauri development shell
 ```
 
 On PowerShell, use `pnpm.cmd` and `yarn.cmd` if script execution is restricted.
@@ -78,8 +79,19 @@ The default Tauri build is the public flavor. It permits HTTPS and loopback HTTP
 To build an application for user-managed HTTP services, opt in explicitly:
 
 ```bash
-pnpm tauri build --config src-tauri/tauri.custom-network.conf.json
+pnpm build:tauri:custom
 ```
+
+Build outputs are kept under `.tmp/build/`: frontend assets in `frontend/`,
+Cargo/Tauri output in `tauri-target/`, and normalized release assets in
+`staging/<version>/<kind>/`. The build entry points set their working
+directories and `CARGO_TARGET_DIR` explicitly, so they can be called from any
+shell location. Use `pnpm build:tauri` for the public bundle and
+`pnpm build:tauri:custom` for the custom-network flavor.
+
+Rsdoctor and bundle analysis use the same frontend entry point via
+`pnpm build:rsdoctor` and `pnpm build:analyze`; their reports remain under the
+normalized frontend output directory.
 
 Only a build with `PUBLIC_BUILD_FLAVOR=custom` reads `PUBLIC_DEFAULT_CHAT_API_CONFIG`, `PUBLIC_DEFAULT_TRANSLATION_API_CONFIG`, `PUBLIC_DEFAULT_OCR_API_CONFIG`, `PUBLIC_SERVICE_BASE_URL`, `PUBLIC_PROXY_BYPASS_HOSTS`, and `PUBLIC_PLUGIN_FILE_SOURCES`. These values are bundled into the application, so never put secrets in them.
 

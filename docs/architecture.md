@@ -202,17 +202,17 @@ RapidOCR 依赖本地 ONNX 模型插件和 `src-tauri/lib/onnxruntime.lib`。Ope
 
 ## 构建产物
 
-前端构建输出：
+前端、原生构建和 release staging 使用同一个临时构建根目录：
 
 ```text
-dist/
+.tmp/build/
+  frontend/                         # Rsbuild production assets
+  tauri-target/<target>/release/    # Cargo/Tauri output
+  staging/<version>/<kind>/         # canonical release assets
 ```
 
-Tauri release 输出通常在：
-
-```text
-src-tauri/target/release/
-src-tauri/target/release/bundle/
-```
-
-具体安装包名称由应用版本、目标平台和 Tauri bundle 配置决定。
+`scripts/build-config.mjs` 是 Node 工具和发布脚本使用的路径契约；
+`scripts/build.mjs` 为 frontend、Tauri 和 Cargo 命令设置明确的仓库或
+`src-tauri` 工作目录，并传递同一个 `CARGO_TARGET_DIR`；preview、Rsdoctor
+和 bundle analysis 也通过这个入口调用。具体安装包名称
+由 `scripts/stage-release-assets.mjs` 根据版本和构建 flavor 规范化。
