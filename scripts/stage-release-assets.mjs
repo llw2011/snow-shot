@@ -106,10 +106,10 @@ async function main() {
   };
 
 	if (kind.startsWith("darwin-")) {
-		const archive = one(files, (path) => path.endsWith(".app.tar.gz") && hasVersion(path, version), "macOS updater archive");
+		const archive = one(files, (path) => path.endsWith(".app.tar.gz"), "macOS updater archive");
 		const signature = `${archive}.sig`;
 		const signaturePath = one(files, (path) => path === signature, "macOS updater signature");
-		const dmg = one(files, (path) => extname(path).toLowerCase() === ".dmg" && hasVersion(path, version), "macOS DMG");
+		const dmg = one(files, (path) => extname(path).toLowerCase() === ".dmg", "macOS DMG");
     await copy(archive, names.archive);
     await copy(signaturePath, `${names.archive}.sig`);
     await copy(dmg, names.dmg);
