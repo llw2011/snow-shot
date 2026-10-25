@@ -984,7 +984,7 @@ const DrawToolbarCore: React.FC<DrawToolbarProps> = ({
 									}}
 								/>
 							)}
-							`n{/* 保存截图 */}
+							{/* 保存截图 */}
 							<ToolButton
 								hidden={customToolbarToolHiddenMap?.[DrawState.Save]}
 								componentKey={DrawToolbarKeyEventKey.SaveTool}
