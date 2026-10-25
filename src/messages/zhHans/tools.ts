@@ -39,6 +39,8 @@ export const tools = {
 	"tools.chat.reasoner": "支持推理",
 	"tools.chat.custom": "自定义",
 	"tools.chat.official": "Snow Shot",
+	"tools.chat.back": "返回",
+	"tools.chat.backTip": "返回首页 (Esc)",
 	"tools.chat.thinking": "推理模式",
 	"tools.chat.thinking.unsupported": "当前模型不支持推理模式",
 	"tools.translation.type": "翻译服务",

@@ -304,6 +304,48 @@ export const en = {
 		"Model name used by the OpenAI-compatible endpoint",
 	"settings.functionSettings.translationSettings.apiConfig.apiModel.required":
 		"Enter a model name",
+	"settings.functionSettings.modelProbe.fetch": "Fetch Models",
+	"settings.functionSettings.modelProbe.missingUri":
+		"Please enter API URL first",
+	"settings.functionSettings.modelProbe.success":
+		"Successfully fetched {count} models",
+	"settings.functionSettings.modelProbe.empty":
+		"No available models detected, please check service URL and status",
+	"settings.functionSettings.modelProbe.error":
+		"Failed to fetch models: {error}",
+	"settings.functionSettings.translationSettings.apiConfig.tip":
+		"Add local models (e.g. Ollama, vLLM, LM Studio) or OpenAI / DeepL compatible services",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.placeholder":
+		"Select or enter model name, e.g. qwen2.5:7b",
+	"settings.functionSettings.translationSettings.test.title":
+		"Test Translation",
+	"settings.functionSettings.translationSettings.test.actionTip":
+		"Test translation connection and output",
+	"settings.functionSettings.translationSettings.test.desc":
+		"Send a test translation request to verify connectivity, model availability, and translation output.",
+	"settings.functionSettings.translationSettings.test.placeholder":
+		"Enter test text",
+	"settings.functionSettings.translationSettings.test.runButton": "Start Test",
+	"settings.functionSettings.translationSettings.test.outputLabel":
+		"Translation Result:",
+	"settings.functionSettings.translationSettings.test.success":
+		"Translation test succeeded (Latency: {latency} ms)",
+	"settings.functionSettings.translationSettings.test.deeplConnected":
+		"DeepL service connected and returned translations successfully",
+	"settings.functionSettings.translationSettings.test.emptyResult":
+		"Service responded, but returned empty translation",
+	"settings.functionSettings.translationSettings.test.successWithoutProbe":
+		"Translation test succeeded (Latency: {latency} ms)",
+	"settings.functionSettings.translationSettings.test.probeWarning":
+		"Models endpoint returned: {err}, but translation completion succeeded.",
+	"settings.functionSettings.translationSettings.test.successMatched":
+		"Translation test succeeded, model matched successfully (Latency: {latency} ms)",
+	"settings.functionSettings.translationSettings.test.notListedWarning":
+		"Translation succeeded (Latency: {latency} ms), but configured model is not listed in endpoint models",
+	"settings.functionSettings.translationSettings.test.failed":
+		"Translation test failed",
+	"tools.chat.back": "Back",
+	"tools.chat.backTip": "Back to Home (Esc)",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName":
 		"GLM OCR Service Name",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri":

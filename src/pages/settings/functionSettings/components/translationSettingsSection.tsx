@@ -9,7 +9,17 @@ import ProForm, {
 	ProFormText,
 	ProFormTextArea,
 } from "@ant-design/pro-form";
-import { Alert, Col, Flex, Form, Row, Spin, Typography, theme } from "antd";
+import {
+	Alert,
+	Col,
+	Divider,
+	Flex,
+	Form,
+	Row,
+	Spin,
+	Typography,
+	theme,
+} from "antd";
 import { useCallback, useContext, useMemo, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { IconLabel } from "@/components/iconLable";
@@ -29,6 +39,8 @@ import {
 	AppSettingsGroup,
 	TranslationApiType,
 } from "@/types/appSettings";
+import { ModelProbeInput } from "./modelProbeInput";
+import { TestTranslation } from "./testTranslation";
 import { TranslationConfig } from "./translationConfig";
 
 export const TranslationSettingsSection = () => {
@@ -95,7 +107,12 @@ export const TranslationSettingsSection = () => {
 					}
 				>
 					<Spin spinning={appSettingsLoading}>
-						<TranslationConfig />
+						{/* 默认语言与翻译引擎偏好 */}
+						<div className="settings-subsection">
+							<TranslationConfig />
+						</div>
+
+						<Divider style={{ margin: `${token.margin}px 0` }} />
 
 						<ProForm
 							form={translationForm}
@@ -112,6 +129,282 @@ export const TranslationSettingsSection = () => {
 							}}
 							submitter={false}
 						>
+							{/* 服务提供商与自定义模型列表 */}
+							<Row gutter={token.marginLG}>
+								<Col span={24}>
+									<ProFormList
+										name="translationApiConfigList"
+										label={
+											<IconLabel
+												label={
+													<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig" />
+												}
+												tooltipTitle={
+													<FormattedMessage
+														id="settings.functionSettings.translationSettings.apiConfig.tip"
+														defaultMessage="可添加本地大模型（如 Ollama、vLLM、LM Studio）或 OpenAI、DeepL 兼容服务"
+													/>
+												}
+											/>
+										}
+										creatorButtonProps={{
+											creatorButtonText: intl.formatMessage({
+												id: "settings.functionSettings.translationSettings.apiConfig.add",
+											}),
+										}}
+										actionRender={(...params) => {
+											const [field, , defaultActionDom] = params;
+											const list = translationForm.getFieldValue(
+												"translationApiConfigList",
+											);
+											const config = list?.[field.name];
+											return [
+												defaultActionDom,
+												config && (
+													<TestTranslation
+														key="test-translation"
+														config={config}
+													/>
+												),
+											];
+										}}
+										className="api-config-list"
+										min={0}
+										itemRender={({ listDom, action }) => (
+											<Flex
+												className="api-config-list-item"
+												align="end"
+												gap={token.margin}
+												justify="space-between"
+											>
+												<div className="api-config-list-item-content">
+													{listDom}
+												</div>
+
+												<div className="api-config-list-item-action">
+													{action}
+												</div>
+											</Flex>
+										)}
+										creatorRecord={() => ({
+											api_uri: "",
+											api_key: "",
+											api_model: "",
+											model_name: "",
+											api_type: TranslationApiType.OpenAiCompatible,
+										})}
+									>
+										<Row gutter={token.marginLG} style={{ width: "100%" }}>
+											<Col span={12}>
+												<ProFormSelect
+													name="api_type"
+													label={
+														<IconLabel
+															label={
+																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiType" />
+															}
+														/>
+													}
+													allowClear={false}
+													options={translationApiTypeOptions}
+												/>
+											</Col>
+
+											<ProFormDependency<{
+												api_type: TranslationApiType;
+												api_uri?: string;
+												api_key?: string;
+											}>
+												name={["api_type", "api_uri", "api_key"]}
+											>
+												{({ api_type, api_uri, api_key }) => {
+													if (
+														api_type === TranslationApiType.OpenAiCompatible ||
+														!api_type
+													) {
+														return (
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="model_name"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.modelName.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ModelProbeInput
+																		name="api_model"
+																		label={
+																			<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel" />
+																		}
+																		tooltipTitle={
+																			<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel.tip" />
+																		}
+																		apiUri={api_uri}
+																		apiKey={api_key}
+																		required
+																	/>
+																</Col>
+															</>
+														);
+													}
+
+													if (api_type === TranslationApiType.DeepL) {
+														return (
+															<>
+																<Col span={12}>
+																	<ProFormText
+																		name="model_name"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.modelName.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText
+																		name="api_uri"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormText.Password
+																		name="api_key"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
+																				}
+																			/>
+																		}
+																		rules={[
+																			{
+																				required: true,
+																				message: intl.formatMessage({
+																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
+																				}),
+																			},
+																		]}
+																	/>
+																</Col>
+																<Col span={12}>
+																	<ProFormSwitch
+																		name="deepl_prefer_quality_optimized"
+																		label={
+																			<IconLabel
+																				label={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
+																				}
+																				tooltipTitle={
+																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
+																				}
+																			/>
+																		}
+																	/>
+																</Col>
+															</>
+														);
+													}
+
+													return null;
+												}}
+											</ProFormDependency>
+										</Row>
+									</ProFormList>
+								</Col>
+							</Row>
+
+							<Divider style={{ margin: `${token.margin}px 0` }} />
+
+							{/* 高级参数与排版优化 */}
 							<Row gutter={token.marginLG}>
 								<Col span={12}>
 									<ProFormSwitch
@@ -126,7 +419,7 @@ export const TranslationSettingsSection = () => {
 												}
 											/>
 										}
-										layout="vertical"
+										layout="horizontal"
 									/>
 								</Col>
 							</Row>
@@ -222,264 +515,27 @@ export const TranslationSettingsSection = () => {
 								</Col>
 							</Row>
 
-							<Row gutter={token.marginLG}>
-								<Col span={24}>
-									<ProFormList
-										name="translationApiConfigList"
-										label={
-											<IconLabel
-												label={
-													<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig" />
-												}
-											/>
-										}
-										creatorButtonProps={{
-											creatorButtonText: intl.formatMessage({
-												id: "settings.functionSettings.translationSettings.apiConfig.add",
-											}),
-										}}
-										className="api-config-list"
-										min={0}
-										itemRender={({ listDom, action }) => (
-											<Flex
-												className="api-config-list-item"
-												align="end"
-												gap={token.margin}
-												justify="space-between"
-											>
-												<div className="api-config-list-item-content">
-													{listDom}
-												</div>
+							<Divider style={{ margin: `${token.margin}px 0` }} />
 
-												<div className="api-config-list-item-action">
-													{action}
-												</div>
-											</Flex>
-										)}
-										creatorRecord={() => ({
-											api_uri: "",
-											api_key: "",
-											api_model: "",
-											model_name: "",
-											api_type: TranslationApiType.OpenAiCompatible,
-										})}
-									>
-										<Row gutter={token.marginLG} style={{ width: "100%" }}>
-											<Col span={12}>
-												<ProFormSelect
-													name="api_type"
-													label={
-														<IconLabel
-															label={
-																<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiType" />
-															}
-														/>
-													}
-													allowClear={false}
-													options={translationApiTypeOptions}
-												/>
-											</Col>
-
-											<ProFormDependency<{ api_type: TranslationApiType }>
-												name={["api_type"]}
-											>
-												{({ api_type }) => {
-													if (
-														api_type === TranslationApiType.OpenAiCompatible ||
-														!api_type
-													) {
-														return (
-															<>
-																<Col span={12}>
-																	<ProFormText
-																		name="model_name"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.modelName.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.modelName.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-																<Col span={12}>
-																	<ProFormText
-																		name="api_uri"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-																<Col span={12}>
-																	<ProFormText.Password
-																		name="api_key"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-																<Col span={12}>
-																	<ProFormText
-																		name="api_model"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiModel.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.apiModel.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-															</>
-														);
-													}
-
-													if (api_type === TranslationApiType.DeepL) {
-														return (
-															<>
-																<Col span={12}>
-																	<ProFormText
-																		name="api_uri"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiUri.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.apiUri.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-																<Col span={12}>
-																	<ProFormText.Password
-																		name="api_key"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.apiKey.tip" />
-																				}
-																			/>
-																		}
-																		rules={[
-																			{
-																				required: true,
-																				message: intl.formatMessage({
-																					id: "settings.functionSettings.translationSettings.apiConfig.apiKey.required",
-																				}),
-																			},
-																		]}
-																	/>
-																</Col>
-																<Col span={12}>
-																	<ProFormSwitch
-																		name="deepl_prefer_quality_optimized"
-																		label={
-																			<IconLabel
-																				label={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized" />
-																				}
-																				tooltipTitle={
-																					<FormattedMessage id="settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip" />
-																				}
-																			/>
-																		}
-																	/>
-																</Col>
-															</>
-														);
-													}
-
-													return null;
-												}}
-											</ProFormDependency>
-										</Row>
-									</ProFormList>
-								</Col>
-							</Row>
-
+							{/* 提示词工程 */}
 							<Row gutter={token.marginLG}>
 								<Col span={24}>
 									<Alert
 										message={
 											<Typography>
-												<Row>
+												<Row gutter={[8, 4]}>
 													<Col span={24}>
 														<FormattedMessage id="settings.functionSettings.translationSettings.chatPrompt.variables" />
 													</Col>
-													<Col span={12}>
+													<Col span={8}>
 														<FormattedMessage id="settings.functionSettings.translationSettings.chatPrompt.sourceLanguage" />
 														<code>{SOURCE_LANGUAGE_ENV_VARIABLE}</code>
 													</Col>
-													<Col span={12}>
+													<Col span={8}>
 														<FormattedMessage id="settings.functionSettings.translationSettings.chatPrompt.targetLanguage" />
 														<code>{TARGET_LANGUAGE_ENV_VARIABLE}</code>
 													</Col>
-													<Col span={12}>
+													<Col span={8}>
 														<FormattedMessage id="settings.functionSettings.translationSettings.chatPrompt.translationDomain" />
 														<code>{TRANSLATION_DOMAIN_ENV_VARIABLE}</code>
 													</Col>
@@ -512,8 +568,8 @@ export const TranslationSettingsSection = () => {
 										]}
 										fieldProps={{
 											autoSize: {
-												minRows: 1,
-												maxRows: 1,
+												minRows: 2,
+												maxRows: 6,
 											},
 										}}
 									/>

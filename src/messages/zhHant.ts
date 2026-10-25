@@ -251,6 +251,44 @@ export const zhHant = {
 		"OpenAI 相容接口使用的模型名稱",
 	"settings.functionSettings.translationSettings.apiConfig.apiModel.required":
 		"請輸入模型名稱",
+	"settings.functionSettings.modelProbe.fetch": "讀取模型",
+	"settings.functionSettings.modelProbe.missingUri": "請先填寫 API 服務位址",
+	"settings.functionSettings.modelProbe.success":
+		"成功讀取到 {count} 個可用模型",
+	"settings.functionSettings.modelProbe.empty":
+		"未讀取到可用模型，請檢查服務位址與執行狀態",
+	"settings.functionSettings.modelProbe.error": "讀取模型失敗: {error}",
+	"settings.functionSettings.translationSettings.apiConfig.tip":
+		"可新增本地大模型（如 Ollama、vLLM、LM Studio）或 OpenAI、DeepL 相容服務",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.placeholder":
+		"選取或輸入模型名稱，如 qwen2.5:7b",
+	"settings.functionSettings.translationSettings.test.title": "測試翻譯能力",
+	"settings.functionSettings.translationSettings.test.actionTip":
+		"測試翻譯連線與效果",
+	"settings.functionSettings.translationSettings.test.desc":
+		"對目前設定的服務傳送一次測試翻譯請求，驗證網路連線、模型可用性與翻譯結果。",
+	"settings.functionSettings.translationSettings.test.placeholder":
+		"輸入測試文字",
+	"settings.functionSettings.translationSettings.test.runButton": "開始測試",
+	"settings.functionSettings.translationSettings.test.outputLabel":
+		"翻譯結果：",
+	"settings.functionSettings.translationSettings.test.success":
+		"翻譯測試成功（耗時: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.deeplConnected":
+		"DeepL 服務已成功連線並傳回譯文",
+	"settings.functionSettings.translationSettings.test.emptyResult":
+		"服務已回應，但未傳回譯文內容",
+	"settings.functionSettings.translationSettings.test.successWithoutProbe":
+		"翻譯測試成功（耗時: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.probeWarning":
+		"模型清單介面傳回: {err}，但對話翻譯介面呼叫成功。",
+	"settings.functionSettings.translationSettings.test.successMatched":
+		"翻譯測試成功，模型比對正常（耗時: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.notListedWarning":
+		"翻譯成功（耗時: {latency} ms），但設定的模型未在端點可用清單中",
+	"settings.functionSettings.translationSettings.test.failed": "翻譯測試失敗",
+	"tools.chat.back": "返回",
+	"tools.chat.backTip": "返回上一頁 (Esc)",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.modelName":
 		"GLM OCR 服務名稱",
 	"settings.functionSettings.ocrSettings.glmOcrApiConfig.apiUri":

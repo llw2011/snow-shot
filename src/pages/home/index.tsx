@@ -398,18 +398,29 @@ export const HomePage = () => {
                 .capture-deck,
                 .home-command-group {
                     min-width: 0;
-                    padding: 0;
-                    border: 0;
-                    background: transparent;
+                    background: var(--snow-shot-surface-card);
+                    border: 1px solid var(--snow-shot-hairline-soft);
+                    border-radius: var(--snow-shot-radius-lg);
+                    transition: border-color var(--snow-shot-motion-fast) ease;
                 }
 
                 .capture-deck {
-                    margin-bottom: 24px;
+                    margin-bottom: 20px;
+                    padding: 16px;
+                }
+
+                .home-command-group {
+                    padding: 14px 16px;
+                }
+
+                .capture-deck:hover,
+                .home-command-group:hover {
+                    border-color: var(--snow-shot-hairline);
                 }
 
                 .capture-deck :global(.components_group-title-row),
                 .home-command-group :global(.components_group-title-row) {
-                    margin-bottom: 8px !important;
+                    margin-bottom: 12px !important;
                 }
 
 						.capture-deck-console,
@@ -425,39 +436,38 @@ export const HomePage = () => {
 						.capture-secondary-workflows {
                     display: grid;
                     grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 6px;
+                    gap: 8px;
                 }
 
                 .home-command-list {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr);
-                    gap: 6px;
+                    gap: 8px;
                 }
 
 						.capture-secondary-workflows {
-							padding-top: 10px;
+							padding-top: 12px;
 							border-top: 1px solid var(--snow-shot-hairline-soft);
 						}
 
                 .home-workspace-grid {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr);
-                    gap: 20px;
+                    gap: 16px;
                 }
 
                 .home-command-item {
                     min-width: 0;
                 }
 
-						@container snow-content (min-width: 901px) {
+						@container snow-content (min-width: 580px) {
 							.capture-deck-modes {
 								grid-template-columns: repeat(3, minmax(0, 1fr));
 							}
 
 							.home-workspace-grid {
 								grid-template-columns: repeat(2, minmax(0, 1fr));
-								column-gap: 16px;
-								row-gap: 24px;
+								gap: 16px;
 							}
 						}
 

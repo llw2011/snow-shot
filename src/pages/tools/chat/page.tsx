@@ -1,6 +1,13 @@
 "use client";
 
-import { CopyOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+	ArrowLeftOutlined,
+	CloseOutlined,
+	CopyOutlined,
+	DeleteOutlined,
+	MinusOutlined,
+	PlusOutlined,
+} from "@ant-design/icons";
 import {
 	Bubble,
 	Conversations,
@@ -15,7 +22,11 @@ import type { BubbleDataType as AntdBubbleDataType } from "@ant-design/x/es/bubb
 import type { Conversation } from "@ant-design/x/es/conversations";
 import type { SenderRef } from "@ant-design/x/es/sender";
 import type { MessageInfo } from "@ant-design/x/es/use-x-chat";
-import { useSearch } from "@tanstack/react-router";
+import { useRouter, useSearch } from "@tanstack/react-router";
+import {
+	type Window as AppWindow,
+	getCurrentWindow,
+} from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
 	Button,
@@ -60,6 +71,7 @@ import {
 } from "@/contexts/appSettingsActionContext";
 import { finishScreenshot } from "@/functions/screenshot";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
+import { usePlatform } from "@/hooks/usePlatform";
 import { useStateRef } from "@/hooks/useStateRef";
 import { useStateSubscriber } from "@/hooks/useStateSubscriber";
 import { appFetch, ServiceResponse } from "@/services/tools";
@@ -333,6 +345,25 @@ const fliterErrorMessages = (messages: BubbleDataType[] | undefined) => {
 
 const Chat = () => {
 	const intl = useIntl();
+	const router = useRouter();
+	const [currentPlatform] = usePlatform();
+	const appWindowRef = useRef<AppWindow | undefined>(undefined);
+	useEffect(() => {
+		appWindowRef.current = getCurrentWindow();
+	}, []);
+
+	const handleNavigateBack = useCallback(() => {
+		if (window.history.length > 1) {
+			router.history.back();
+		} else {
+			router.navigate({ to: "/" });
+		}
+	}, [router]);
+
+	useHotkeys("esc", handleNavigateBack, {
+		enableOnFormTags: false,
+		preventDefault: true,
+	});
 
 	const [hotKeys, setHotKeys] =
 		useState<Record<CommonKeyEventKey, CommonKeyEventValue>>();
@@ -777,7 +808,10 @@ const Chat = () => {
 	}, [supportedModels]);
 
 	const chatHeader = (
-		<div className="chatHeader">
+		<div
+			className={`chatHeader ${currentPlatform === "macos" ? "is-macos" : ""}`}
+			data-tauri-drag-region
+		>
 			<Drawer
 				open={openSession}
 				placement="left"
@@ -849,13 +883,32 @@ const Chat = () => {
 				</RSC>
 			</Drawer>
 
-			<Space>
+			<Space className="chatHeaderLeft" align="center">
+				<Button
+					type="text"
+					icon={<ArrowLeftOutlined />}
+					className="chatHeaderBackButton"
+					onClick={handleNavigateBack}
+					title={intl.formatMessage({
+						id: "tools.chat.backTip",
+						defaultMessage: "返回首页 (Esc)",
+					})}
+				>
+					<FormattedMessage id="tools.chat.back" defaultMessage="返回" />
+				</Button>
+
+				<span className="chatHeaderDivider" />
+
 				<Button
 					type="text"
 					icon={<SidebarIcon />}
 					disabled={sessionList.length === 0}
 					className="chatHeaderHeaderButton"
 					onClick={() => setOpenSession(true)}
+					title={intl.formatMessage({
+						id: "tools.chat.sessions",
+						defaultMessage: "历史会话",
+					})}
 				/>
 
 				<Select
@@ -914,7 +967,9 @@ const Chat = () => {
 				/>
 			</Space>
 
-			<div>
+			<div className="chatHeaderCenter" data-tauri-drag-region />
+
+			<Space className="chatHeaderRight" align="center">
 				<Button
 					type="text"
 					icon={<PlusOutlined />}
@@ -934,7 +989,36 @@ const Chat = () => {
 				>
 					<FormattedMessage id="tools.chat.newSession" />
 				</Button>
-			</div>
+
+				{currentPlatform !== "macos" && (
+					<>
+						<span className="chatHeaderDivider" />
+						<Button
+							className="window-command-button chatWindowBtn"
+							type="text"
+							size="small"
+							icon={<MinusOutlined />}
+							aria-label="Minimize"
+							title="Minimize"
+							onClick={() => {
+								appWindowRef.current?.minimize();
+							}}
+						/>
+						<Button
+							className="window-command-button chatWindowBtn"
+							type="text"
+							size="small"
+							icon={<CloseOutlined />}
+							aria-label="Hide Snow Shot"
+							title="Hide Snow Shot"
+							onClick={() => {
+								appWindowRef.current?.hide();
+								appWindowRef.current?.emit("on-hide-main-window");
+							}}
+						/>
+					</>
+				)}
+			</Space>
 		</div>
 	);
 
@@ -1486,13 +1570,53 @@ const Chat = () => {
                     color: var(--snow-shot-ink);
                 }
                 :global(.chatHeader) {
-                    height: 64px;
+                    height: 52px;
                     box-sizing: border-box;
                     border-bottom: 1px solid var(--snow-shot-hairline);
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: ${token.padding}px ${token.padding}px;
+                    padding: 0 14px;
+                    background: var(--snow-shot-header-bg);
+                    user-select: none;
+                }
+                :global(.chatHeader.is-macos) {
+                    padding-inline-start: 76px !important;
+                }
+                :global(.chatHeaderLeft),
+                :global(.chatHeaderRight) {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                :global(.chatHeaderCenter) {
+                    flex: 1 1 auto;
+                    height: 100%;
+                    min-width: 16px;
+                }
+                :global(.chatHeaderBackButton) {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-weight: 500;
+                    color: var(--snow-shot-ink) !important;
+                }
+                :global(.chatHeaderBackButton:hover) {
+                    background-color: var(--snow-shot-surface-elevated) !important;
+                }
+                :global(.chatHeaderDivider) {
+                    display: inline-block;
+                    width: 1px;
+                    height: 18px;
+                    background: var(--snow-shot-hairline);
+                    margin: 0 4px;
+                }
+                :global(.chatWindowBtn) {
+                    color: var(--snow-shot-muted) !important;
+                }
+                :global(.chatWindowBtn:hover) {
+                    color: var(--snow-shot-ink) !important;
+                    background-color: var(--snow-shot-surface-elevated) !important;
                 }
                 :global(.headerTitle) {
                     font-weight: 600;

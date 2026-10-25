@@ -1,6 +1,7 @@
 "use client";
 
 import ProForm, {
+	ProFormDependency,
 	ProFormList,
 	ProFormSwitch,
 	ProFormText,
@@ -20,6 +21,7 @@ import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import type { AppSettingsData } from "@/types/appSettings";
 import { AppSettingsGroup } from "@/types/appSettings";
+import { ModelProbeInput } from "./modelProbeInput";
 import { TestChat } from "./testChat";
 
 export const ChatSettingsSection = () => {
@@ -250,29 +252,29 @@ export const ChatSettingsSection = () => {
 													]}
 												/>
 											</Col>
-											<Col span={12}>
-												<ProFormText
-													name="api_model"
-													label={
-														<IconLabel
+											<ProFormDependency<{
+												api_uri?: string;
+												api_key?: string;
+											}>
+												name={["api_uri", "api_key"]}
+											>
+												{({ api_uri, api_key }) => (
+													<Col span={12}>
+														<ModelProbeInput
+															name="api_model"
 															label={
 																<FormattedMessage id="settings.functionSettings.chatSettings.apiConfig.apiModel" />
 															}
 															tooltipTitle={
 																<FormattedMessage id="settings.functionSettings.chatSettings.apiConfig.apiModel.tip" />
 															}
+															apiUri={api_uri}
+															apiKey={api_key}
+															required
 														/>
-													}
-													rules={[
-														{
-															required: true,
-															message: intl.formatMessage({
-																id: "settings.functionSettings.chatSettings.apiConfig.apiModel.required",
-															}),
-														},
-													]}
-												/>
-											</Col>
+													</Col>
+												)}
+											</ProFormDependency>
 										</Row>
 										<Row gutter={token.marginLG}>
 											<Col span={12}>

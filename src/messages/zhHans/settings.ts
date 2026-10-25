@@ -462,6 +462,42 @@ export const settings = {
 		"高质量模型",
 	"settings.functionSettings.translationSettings.apiConfig.deeplPreferQualityOptimized.tip":
 		"如果开启，DeepL 会优先使用延迟更高、质量更高的翻译模型",
+	"settings.functionSettings.modelProbe.fetch": "读取模型",
+	"settings.functionSettings.modelProbe.missingUri": "请先填写 API 服务地址",
+	"settings.functionSettings.modelProbe.success":
+		"成功读取到 {count} 个可用模型",
+	"settings.functionSettings.modelProbe.empty":
+		"未读取到可用模型，请检查服务地址与运行状态",
+	"settings.functionSettings.modelProbe.error": "读取模型失败: {error}",
+	"settings.functionSettings.translationSettings.apiConfig.tip":
+		"可添加本地大模型（如 Ollama、vLLM、LM Studio）或 OpenAI、DeepL 兼容服务",
+	"settings.functionSettings.translationSettings.apiConfig.apiModel.placeholder":
+		"选择或输入模型名称，如 qwen2.5:7b",
+	"settings.functionSettings.translationSettings.test.title": "测试翻译能力",
+	"settings.functionSettings.translationSettings.test.actionTip":
+		"测试翻译连接与效果",
+	"settings.functionSettings.translationSettings.test.desc":
+		"对当前配置的服务发送一次测试翻译请求，验证网络连通性、模型可用性与翻译结果。",
+	"settings.functionSettings.translationSettings.test.placeholder":
+		"输入测试文本",
+	"settings.functionSettings.translationSettings.test.runButton": "开始测试",
+	"settings.functionSettings.translationSettings.test.outputLabel":
+		"翻译结果：",
+	"settings.functionSettings.translationSettings.test.success":
+		"翻译测试成功（耗时: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.deeplConnected":
+		"DeepL 服务已成功连接并返回译文",
+	"settings.functionSettings.translationSettings.test.emptyResult":
+		"服务已响应，但未返回译文内容",
+	"settings.functionSettings.translationSettings.test.successWithoutProbe":
+		"翻译测试成功（耗时: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.probeWarning":
+		"模型列表接口返回: {err}，但对话翻译接口调用成功。",
+	"settings.functionSettings.translationSettings.test.successMatched":
+		"翻译测试成功，模型匹配正常（耗时: {latency} ms）",
+	"settings.functionSettings.translationSettings.test.notListedWarning":
+		"翻译成功（耗时: {latency} ms），但配置的模型未在端点可用列表中",
+	"settings.functionSettings.translationSettings.test.failed": "翻译测试失败",
 	"settings.functionSettings.trayIconSettings": "托盘",
 	"settings.functionSettings.trayIconSettings.iconClickAction": "左键点击后",
 	"settings.functionSettings.trayIconSettings.iconClickAction.screenshot":
