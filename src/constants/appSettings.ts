@@ -6,6 +6,7 @@ import {
 	AppSettingsLanguage,
 	AppSettingsTheme,
 	AppThemePreset,
+	type ChatApiConfig,
 	ColorPickerShowMode,
 	DoubleClickAction,
 	ExtraToolList,
@@ -16,6 +17,7 @@ import {
 	MainWindowSizeTier,
 	OcrDetectAfterAction,
 	OcrModel,
+	type TranslationApiConfig,
 	TranslationApiType,
 	TrayIconClickAction,
 	TrayIconDefaultIcon,
@@ -37,22 +39,37 @@ import { FOCUS_WINDOW_APP_NAME_ENV_VARIABLE } from "./components/chat";
 import { defaultTranslationPrompt } from "./components/translation";
 import { defaultDrawToolbarKeyEventSettings } from "./drawToolbarKeyEvent";
 
-const buildDefaultChatApiConfigList = BUILD_DEFAULT_CHAT_API_CONFIG
-	? [BUILD_DEFAULT_CHAT_API_CONFIG]
-	: [];
-const buildDefaultTranslationApiConfigList =
-	BUILD_DEFAULT_TRANSLATION_API_CONFIG
-		? [BUILD_DEFAULT_TRANSLATION_API_CONFIG]
-		: [];
-const buildDefaultChatModel = BUILD_DEFAULT_CHAT_API_CONFIG
-	? `${CUSTOM_MODEL_PREFIX}${BUILD_DEFAULT_CHAT_API_CONFIG.api_model}`
-	: "";
-const buildDefaultTranslationType = BUILD_DEFAULT_TRANSLATION_API_CONFIG
-	? BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_type ===
-		TranslationApiType.OpenAiCompatible
-		? `${CUSTOM_MODEL_PREFIX}${BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_model}`
-		: BUILD_DEFAULT_TRANSLATION_API_CONFIG.api_type
-	: "";
+export const DEFAULT_LOCAL_QWEN_CHAT_API_CONFIG: ChatApiConfig = {
+	api_uri: "http://127.0.0.1:11440/v1",
+	api_key: "",
+	api_model: "qwen3.5-35b-a3b-turbo64k",
+	model_name: "Qwen 3.5 35B (Local)",
+	support_thinking: false,
+	support_vision: false,
+};
+
+export const DEFAULT_LOCAL_QWEN_TRANSLATION_API_CONFIG: TranslationApiConfig = {
+	api_type: TranslationApiType.OpenAiCompatible,
+	api_uri: "http://127.0.0.1:11440/v1",
+	api_key: "",
+	api_model: "qwen3.5-35b-a3b-turbo64k",
+	model_name: "Qwen 3.5 35B (Local)",
+	deepl_prefer_quality_optimized: false,
+};
+
+const defaultChatConfig =
+	BUILD_DEFAULT_CHAT_API_CONFIG ?? DEFAULT_LOCAL_QWEN_CHAT_API_CONFIG;
+const defaultTranslationConfig =
+	BUILD_DEFAULT_TRANSLATION_API_CONFIG ??
+	DEFAULT_LOCAL_QWEN_TRANSLATION_API_CONFIG;
+
+const buildDefaultChatApiConfigList = [defaultChatConfig];
+const buildDefaultTranslationApiConfigList = [defaultTranslationConfig];
+const buildDefaultChatModel = `${CUSTOM_MODEL_PREFIX}${defaultChatConfig.api_model}`;
+const buildDefaultTranslationType =
+	defaultTranslationConfig.api_type === TranslationApiType.OpenAiCompatible
+		? `${CUSTOM_MODEL_PREFIX}${defaultTranslationConfig.api_model}`
+		: defaultTranslationConfig.api_type;
 const buildDefaultOcrApiConfig = BUILD_DEFAULT_OCR_API_CONFIG ?? {
 	api_uri: "",
 	api_key: "",

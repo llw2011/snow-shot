@@ -6,6 +6,10 @@ import {
 	type TranslationApiConfig,
 } from "@/types/appSettings";
 import {
+	isUsableChatApiConfig,
+	isUsableTranslationApiConfig,
+} from "@/utils/apiConfig";
+import {
 	normalizeChatApiConfig,
 	normalizeTranslationApiConfig,
 	normalizeTranslationType,
@@ -123,10 +127,36 @@ export const normalizeServiceSettingsGroup = (
 			| AppSettingsData[typeof group]
 			| undefined;
 
-		const chatApiConfigList = Array.isArray(newSettings?.chatApiConfigList)
-			? newSettings.chatApiConfigList
-			: (prevSettings?.chatApiConfigList ??
-				defaultAppSettingsData[group].chatApiConfigList);
+		const hasConfiguredChat = (list: unknown) =>
+			Array.isArray(list) &&
+			list.some(
+				(item) =>
+					isUsableChatApiConfig(item) ||
+					(typeof item?.api_uri === "string" && item.api_uri.trim() !== "") ||
+					(typeof item?.api_model === "string" && item.api_model.trim() !== ""),
+			);
+
+		let resolvedChatApiConfigList: (typeof defaultAppSettingsData)[AppSettingsGroup.FunctionChat]["chatApiConfigList"];
+		if (Array.isArray(newSettings?.chatApiConfigList)) {
+			if (
+				newSettings.chatApiConfigList.length === 0 &&
+				hasConfiguredChat(prevSettings?.chatApiConfigList)
+			) {
+				resolvedChatApiConfigList = [];
+			} else if (hasConfiguredChat(newSettings.chatApiConfigList)) {
+				resolvedChatApiConfigList = newSettings.chatApiConfigList;
+			} else if (!hasConfiguredChat(prevSettings?.chatApiConfigList)) {
+				resolvedChatApiConfigList =
+					defaultAppSettingsData[group].chatApiConfigList;
+			} else {
+				resolvedChatApiConfigList = newSettings.chatApiConfigList;
+			}
+		} else if (prevSettings?.chatApiConfigList) {
+			resolvedChatApiConfigList = prevSettings.chatApiConfigList;
+		} else {
+			resolvedChatApiConfigList =
+				defaultAppSettingsData[group].chatApiConfigList;
+		}
 
 		settings = {
 			autoCreateNewSession:
@@ -135,7 +165,7 @@ export const normalizeServiceSettingsGroup = (
 					: (prevSettings?.autoCreateNewSession ??
 						defaultAppSettingsData[group].autoCreateNewSession),
 			// Keep incomplete rows as editable drafts. Runtime consumers filter them.
-			chatApiConfigList: chatApiConfigList.map((item) =>
+			chatApiConfigList: resolvedChatApiConfigList.map((item) =>
 				normalizeChatApiConfig(item),
 			),
 			autoCreateNewSessionOnCloseWindow:
@@ -186,17 +216,44 @@ export const normalizeServiceSettingsGroup = (
 			| undefined;
 		const previousTranslationApiConfigList =
 			prevSettings?.translationApiConfigList;
-		const newTranslationApiConfigList = Array.isArray(
-			newSettings?.translationApiConfigList,
-		)
-			? newSettings.translationApiConfigList
-			: (previousTranslationApiConfigList ??
-				defaultAppSettingsData[group].translationApiConfigList);
+
+		const hasConfiguredTranslation = (list: unknown) =>
+			Array.isArray(list) &&
+			list.some(
+				(item) =>
+					isUsableTranslationApiConfig(item) ||
+					(typeof item?.api_uri === "string" && item.api_uri.trim() !== ""),
+			);
+
+		let resolvedTranslationApiConfigList: TranslationApiConfig[];
+		if (Array.isArray(newSettings?.translationApiConfigList)) {
+			if (
+				newSettings.translationApiConfigList.length === 0 &&
+				hasConfiguredTranslation(previousTranslationApiConfigList)
+			) {
+				resolvedTranslationApiConfigList = [];
+			} else if (
+				hasConfiguredTranslation(newSettings.translationApiConfigList)
+			) {
+				resolvedTranslationApiConfigList = newSettings.translationApiConfigList;
+			} else if (!hasConfiguredTranslation(previousTranslationApiConfigList)) {
+				resolvedTranslationApiConfigList =
+					defaultAppSettingsData[group].translationApiConfigList;
+			} else {
+				resolvedTranslationApiConfigList = newSettings.translationApiConfigList;
+			}
+		} else if (previousTranslationApiConfigList) {
+			resolvedTranslationApiConfigList = previousTranslationApiConfigList;
+		} else {
+			resolvedTranslationApiConfigList =
+				defaultAppSettingsData[group].translationApiConfigList;
+		}
+
 		const shouldPreservePreviousTranslationApiConfig =
 			Array.isArray(newSettings?.translationApiConfigList) &&
 			previousTranslationApiConfigList?.length ===
-				newTranslationApiConfigList.length;
-		const translationApiConfigList = newTranslationApiConfigList
+				resolvedTranslationApiConfigList.length;
+		const translationApiConfigList = resolvedTranslationApiConfigList
 			.map((item, index) =>
 				normalizeTranslationApiConfig(
 					item,

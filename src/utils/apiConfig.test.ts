@@ -77,4 +77,21 @@ assert(
 	"unknown translation API types are not runnable",
 );
 
+assert(
+	isUsableChatApiConfig(
+		chatConfig("http://127.0.0.1:11440/v1", "qwen3.5-35b-a3b-turbo64k"),
+	),
+	"local Qwen chat endpoint is usable",
+);
+assert(
+	isUsableTranslationApiConfig(
+		translationConfig(
+			"translation_api_openai_compatible",
+			"http://127.0.0.1:11440/v1",
+			"qwen3.5-35b-a3b-turbo64k",
+		),
+	),
+	"local Qwen translation endpoint is usable",
+);
+
 console.log("API config regression checks passed");
