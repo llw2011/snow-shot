@@ -274,16 +274,16 @@ jobs:
                   set -euo pipefail
                   yarn install --frozen-lockfile
 
-            - name: Install app dependencies
-              working-directory: ${{ github.workspace }}
-              run: pnpm install --frozen-lockfile
-
             - name: Build Excalidraw package
               shell: bash
               working-directory: ../excalidraw
               run: |
                   set -euo pipefail
                   yarn build:packages
+
+            - name: Install app dependencies
+              working-directory: ${{ github.workspace }}
+              run: pnpm install --frozen-lockfile
 
             - name: Download offline resources
               if: matrix.offline == true
