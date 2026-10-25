@@ -25,7 +25,6 @@
 			"certificateThumbprint": null,
 			"digestAlgorithm": "sha256",
 			"webviewInstallMode": {
-				"silent": true,
 				"type": "embedBootstrapper"
 			},
 			"nsis": {

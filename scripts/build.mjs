@@ -47,10 +47,32 @@ function getPnpmRunner() {
 		// for standard Node and pnpm/action-setup installations.
 	}
 	const cli = candidates.find((candidate) => existsSync(candidate));
-	if (!cli) {
-		throw new Error("Could not locate pnpm's Node CLI on Windows; set PNPM_CLI_PATH to pnpm.cjs.");
+	if (cli) {
+		pnpmRunner = { command: process.execPath, args: [cli] };
+		return pnpmRunner;
 	}
-	pnpmRunner = { command: process.execPath, args: [cli] };
+
+	if (process.env.PNPM_HOME && existsSync(resolve(process.env.PNPM_HOME, "pnpm.exe"))) {
+		pnpmRunner = { command: resolve(process.env.PNPM_HOME, "pnpm.exe"), args: [] };
+		return pnpmRunner;
+	}
+	try {
+		const exes = execFileSync("where.exe", ["pnpm.exe"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+		const firstExe = exes.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+		if (firstExe && existsSync(firstExe)) {
+			pnpmRunner = { command: firstExe, args: [] };
+			return pnpmRunner;
+		}
+	} catch {}
+	try {
+		const cmds = execFileSync("where.exe", ["pnpm.cmd"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+		const firstCmd = cmds.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+		if (firstCmd && existsSync(firstCmd)) {
+			pnpmRunner = { command: firstCmd, args: [] };
+			return pnpmRunner;
+		}
+	} catch {}
+	pnpmRunner = { command: "pnpm", args: [] };
 	return pnpmRunner;
 }
 
@@ -260,7 +282,7 @@ if (process.exitCode) {
 				env: command.env,
 				stdio: "inherit",
 				windowsHide: true,
-				shell: false,
+				shell: typeof command.command === "string" && /\.(cmd|bat)$/i.test(command.command),
 			});
 			child.once("error", (error) => {
 				fail(`could not start ${command.command}: ${error.message}`);

@@ -47,7 +47,7 @@
 		"@ant-design/pro-form": "^2.32.0",
 		"@ant-design/v5-patch-for-react-19": "^1.0.3",
 		"@ant-design/x": "^1.6.1",
-		"@mg-chao/excalidraw": "file:..\\excalidraw\\packages\\excalidraw",
+		"@mg-chao/excalidraw": "file:../excalidraw/packages/excalidraw",
 		"@tanstack/react-router": "^1.134.9",
 		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-clipboard-manager": "~2.3.2",
