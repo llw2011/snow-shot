@@ -70,7 +70,7 @@ jobs:
                   # Always resolve the peeled commit of the remote tag. This also
                   # handles annotated tags and makes every matrix job build one
                   # immutable source tree.
-                  git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+                  git fetch --force --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
                   TAG_TYPE="$(git cat-file -t "refs/tags/$TAG")"
                   if [ "$TAG_TYPE" != "tag" ]; then
                     echo "Release tag $TAG must be an annotated tag" >&2
@@ -87,7 +87,7 @@ jobs:
                     exit 1
                   fi
 
-                  git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+                  git fetch --force --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
                   MAIN_SHA="$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH^{commit}")"
                   if [ "$TAG_SHA" != "$MAIN_SHA" ]; then
                     echo "Tag $TAG must point to the current default-branch commit ($MAIN_SHA)" >&2
