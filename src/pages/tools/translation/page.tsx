@@ -1,7 +1,17 @@
 "use client";
 
-import { useSearch } from "@tanstack/react-router";
-import { theme } from "antd";
+import {
+	ArrowLeftOutlined,
+	CloseOutlined,
+	MinusOutlined,
+	TranslationOutlined,
+} from "@ant-design/icons";
+import { useRouter, useSearch } from "@tanstack/react-router";
+import {
+	type Window as AppWindow,
+	getCurrentWindow,
+} from "@tauri-apps/api/window";
+import { Button, Space, theme } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { FormattedMessage } from "react-intl";
@@ -10,6 +20,7 @@ import { HotkeysMenu } from "@/components/hotkeysMenu";
 import { Translator, type TranslatorActionType } from "@/components/translator";
 import { finishScreenshot } from "@/functions/screenshot";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
+import { usePlatform } from "@/hooks/usePlatform";
 import { AppSettingsGroup } from "@/types/appSettings";
 import {
 	CommonKeyEventKey,
@@ -21,6 +32,25 @@ import { formatKey } from "@/utils/format";
 
 const TranslationCore = () => {
 	const { token } = theme.useToken();
+	const router = useRouter();
+	const [currentPlatform] = usePlatform();
+	const appWindowRef = useRef<AppWindow | undefined>(undefined);
+	useEffect(() => {
+		appWindowRef.current = getCurrentWindow();
+	}, []);
+
+	const handleNavigateBack = useCallback(() => {
+		if (window.history.length > 1) {
+			router.history.back();
+		} else {
+			router.navigate({ to: "/" });
+		}
+	}, [router]);
+
+	useHotkeys("esc", handleNavigateBack, {
+		enableOnFormTags: false,
+		preventDefault: true,
+	});
 
 	const translatorActionRef = useRef<TranslatorActionType>(undefined);
 
@@ -111,8 +141,61 @@ const TranslationCore = () => {
 	});
 
 	return (
-		<>
-			<ContentWrap className="settings-wrap">
+		<div className="translation-page-container">
+			{/* 顶部现代化导航与标题栏 */}
+			<div
+				className={`translation-header ${currentPlatform === "macos" ? "is-macos" : ""}`}
+				data-tauri-drag-region
+			>
+				<Space className="translation-header-left" align="center">
+					<Button
+						type="text"
+						icon={<ArrowLeftOutlined />}
+						className="translation-back-btn"
+						onClick={handleNavigateBack}
+						title="返回首页 (Esc)"
+					>
+						返回
+					</Button>
+					<span className="translation-header-divider" />
+					<div className="translation-header-title">
+						<TranslationOutlined style={{ color: "#2563eb", marginRight: 6 }} />
+						<span>极速翻译工作台</span>
+					</div>
+				</Space>
+
+				<div className="translation-header-center" data-tauri-drag-region />
+
+				{currentPlatform !== "macos" && (
+					<Space className="translation-header-right" align="center">
+						<Button
+							className="window-command-button translation-window-btn"
+							type="text"
+							size="small"
+							icon={<MinusOutlined />}
+							aria-label="Minimize"
+							title="最小化"
+							onClick={() => {
+								appWindowRef.current?.minimize();
+							}}
+						/>
+						<Button
+							className="window-command-button translation-window-btn"
+							type="text"
+							size="small"
+							icon={<CloseOutlined />}
+							aria-label="Hide"
+							title="隐藏"
+							onClick={() => {
+								appWindowRef.current?.hide();
+								appWindowRef.current?.emit("on-hide-main-window");
+							}}
+						/>
+					</Space>
+				)}
+			</div>
+
+			<ContentWrap className="settings-wrap translation-content-wrap">
 				<Translator actionRef={translatorActionRef} />
 
 				<HotkeysMenu
@@ -155,6 +238,85 @@ const TranslationCore = () => {
 			</ContentWrap>
 
 			<style jsx>{`
+				.translation-page-container {
+					display: flex;
+					flex-direction: column;
+					height: 100%;
+					width: 100%;
+				}
+
+				.translation-header {
+					height: 48px;
+					box-sizing: border-box;
+					border-bottom: 1px solid var(--snow-shot-hairline);
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					padding: 0 14px;
+					background: var(--snow-shot-header-bg);
+					user-select: none;
+					flex: 0 0 auto;
+				}
+
+				.translation-header.is-macos {
+					padding-inline-start: 76px !important;
+				}
+
+				.translation-header-left,
+				.translation-header-right {
+					display: flex;
+					align-items: center;
+					gap: 6px;
+				}
+
+				.translation-header-center {
+					flex: 1 1 auto;
+					height: 100%;
+					min-width: 16px;
+				}
+
+				.translation-back-btn {
+					display: inline-flex;
+					align-items: center;
+					gap: 4px;
+					font-weight: 500;
+					color: var(--snow-shot-ink) !important;
+				}
+
+				.translation-back-btn:hover {
+					background-color: var(--snow-shot-surface-elevated) !important;
+				}
+
+				.translation-header-divider {
+					display: inline-block;
+					width: 1px;
+					height: 16px;
+					background: var(--snow-shot-hairline);
+					margin: 0 4px;
+				}
+
+				.translation-header-title {
+					font-size: 14px;
+					font-weight: 600;
+					color: var(--snow-shot-ink);
+					display: flex;
+					align-items: center;
+				}
+
+				.translation-window-btn {
+					color: var(--snow-shot-muted) !important;
+				}
+
+				.translation-window-btn:hover {
+					color: var(--snow-shot-ink) !important;
+					background-color: var(--snow-shot-surface-elevated) !important;
+				}
+
+				.translation-content-wrap {
+					flex: 1 1 auto;
+					overflow: auto;
+				}
+
                 :global(.translation-hotkeys-menu) {
                     position: fixed;
                     bottom: 0;
@@ -162,7 +324,7 @@ const TranslationCore = () => {
                     padding: ${token.padding}px;
                 }
             `}</style>
-		</>
+		</div>
 	);
 };
 
