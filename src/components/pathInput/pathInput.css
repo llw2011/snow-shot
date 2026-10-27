@@ -1,0 +1,8 @@
+/* Path fields: an input followed by a browse button in a Space.Compact.
+   antd lifts compact buttons above inputs that carry a form status, and the
+   affix wrapper only gains focus-within, so lift the input while it is hovered
+   or focused to keep its accent border whole. */
+:is(.path-input, .directory-input)
+    > :is(.ant-input-affix-wrapper, .ant-input):is(:hover, :focus-within) {
+    z-index: 3;
+}

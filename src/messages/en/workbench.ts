@@ -127,6 +127,7 @@ export const enWorkbench = {
 		"Single-key shortcuts for the tools in the screenshot toolbar.",
 	"workbench.outputVariables":
 		"Variables: date and time {date}, focused app name {app}",
+	"workbench.browse": "Browse…",
 	"workbench.translation.swap": "Swap languages",
 	"workbench.translation.clear": "Clear text",
 	"workbench.translation.typeHint":

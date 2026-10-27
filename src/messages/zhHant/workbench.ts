@@ -114,6 +114,7 @@ export const zhHantWorkbench = {
 	"workbench.drawingHotKey.desc": "截圖編輯工具列中各工具的單鍵快速鍵。",
 	"workbench.outputVariables":
 		"可用變數：日期時間 {date}，焦點視窗應用名 {app}",
+	"workbench.browse": "瀏覽…",
 	"workbench.translation.swap": "互換語言",
 	"workbench.translation.clear": "清空原文",
 	"workbench.translation.typeHint":

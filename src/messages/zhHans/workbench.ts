@@ -119,6 +119,7 @@ export const workbench = {
 	"workbench.drawingHotKey.desc": "截图编辑工具栏中各工具的单键快捷键。",
 	"workbench.outputVariables":
 		"可用变量：日期时间 {date}，焦点窗口应用名 {app}",
+	"workbench.browse": "浏览…",
 	"workbench.translation.swap": "互换语言",
 	"workbench.translation.clear": "清空原文",
 	"workbench.translation.typeHint":
