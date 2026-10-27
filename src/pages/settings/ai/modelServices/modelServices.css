@@ -231,6 +231,13 @@
     background: color-mix(in srgb, var(--snow-shot-ink) 3%, transparent);
 }
 
+/* The table clips its rows to the rounded corners, so the ring is inset. */
+.model-row-head:focus-visible {
+    outline: 2px solid var(--snow-shot-primary);
+    outline-offset: -2px;
+    border-radius: calc(var(--snow-shot-radius-lg) - 1px);
+}
+
 .model-row.is-open > .model-row-head {
     background: var(--snow-shot-surface-elevated);
 }
