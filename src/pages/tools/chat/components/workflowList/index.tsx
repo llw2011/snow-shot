@@ -99,9 +99,22 @@ export const WorkflowList: React.FC<{
                 .workflow-actions-wrap {
                     display: flex;
                     align-items: center;
-                    padding: ${token.marginXS}px 0;
-                    overflow-x: hidden;
+                    padding: ${token.marginXS - 4}px 0;
+                    min-width: 0;
                     width: 100%;
+                }
+
+                /* The scroller clips its content, so give focus rings 4px of
+                   room and pull the scroller out by the same amount to keep the
+                   buttons aligned with the input. */
+                .workflow-actions-wrap :global(.scroll-container) {
+                    width: calc(100% + 8px);
+                    margin: 0 -4px;
+                }
+
+                .workflow-actions-wrap :global(.scroll-content) {
+                    box-sizing: border-box;
+                    padding: 4px;
                 }
             `}</style>
 		</div>
