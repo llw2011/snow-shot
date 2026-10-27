@@ -52,8 +52,6 @@
 
 .settings-group-body {
     min-width: 0;
-    /* Hide the last row separator while leaving room for focus rings. */
-    clip-path: inset(-8px -8px 1px -8px);
 }
 
 .settings-group-body .ant-spin-nested-loading,
@@ -69,11 +67,18 @@ body .settings-rows .ant-form {
 
 body .settings-rows .ant-form-item {
     margin: 0;
-    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+}
+
+/* The hairline sits above every row except a group's first one, so a group
+   never ends in a separator and its content (chips, lists, focus borders) is
+   never clipped. Rows split across sibling forms keep their separators. */
+body .settings-rows :where(.ant-form-item:not(.ant-form-item-hidden), .settings-line) ~ :is(.ant-form-item, .settings-line),
+body .settings-rows :where(.ant-form ~ .ant-form) .ant-form-item {
+    border-top: 1px solid var(--snow-shot-hairline-soft);
 }
 
 body .settings-rows .settings-rows-ignore .ant-form-item {
-    border-bottom: 0;
+    border-top: 0;
 }
 
 body .settings-rows .ant-form-item .ant-form-item-row {
@@ -230,7 +235,7 @@ body .settings-rows .ant-form-item:is(
     width: 100%;
 }
 
-/* Leave room for the end marks (e.g. "100%") inside the clipped body. */
+/* Keep the centered end marks (e.g. "100%") inside the content column. */
 body .settings-rows .ant-slider {
     margin-inline: 16px;
 }
@@ -252,7 +257,10 @@ body .settings-rows .ant-radio-wrapper {
     gap: 16px;
     min-height: 48px;
     padding: 10px 0;
-    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+}
+
+.settings-line ~ .settings-line {
+    border-top: 1px solid var(--snow-shot-hairline-soft);
 }
 
 .settings-line.is-stacked {

@@ -219,9 +219,18 @@ export const InWindowHotkeysSection = () => {
 					column-gap: 24px;
 				}
 
+				/* Both cells of the first grid row sit directly under the title. */
+				.hotkey-grid > .settings-line:nth-child(2) {
+					border-top: 0;
+				}
+
 				@container snow-detail (max-width: 640px) {
 					.hotkey-grid {
 						grid-template-columns: minmax(0, 1fr);
+					}
+
+					.hotkey-grid > .settings-line:nth-child(2) {
+						border-top: 1px solid var(--snow-shot-hairline-soft);
 					}
 				}
 			`}</style>
