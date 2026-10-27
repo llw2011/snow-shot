@@ -30,8 +30,8 @@ src-tauri 主 crate
 
 两类路由：
 
-- `_layout`：主窗口页面，包含菜单布局、主题皮肤、设置上下文、插件初始化。
-- `_noLayout`：截图、贴图、全屏画板、录屏等工作窗口，不显示主菜单。
+- `_layout`：主窗口页面，外壳为「搜索优先工作台」（顶栏 + 左侧导航 + 右侧详情），包含设置上下文、插件初始化、托盘与全局快捷键。
+- `_noLayout`：截图、贴图、全屏画板、录屏等工作窗口，不显示主窗口外壳。
 
 核心容器：
 
@@ -41,19 +41,39 @@ src-tauri 主 crate
 - `src/components/eventListener/index.tsx`
 - `src/components/globalShortcut/index.tsx`
 
+## 主窗口结构
+
+主窗口外壳在 `src/components/workbench/`：
+
+- `registry.ts`：导航条目注册表（动作 / 工具 / 设置），包括插件门控、搜索前缀和路由映射。新增页面只需加一条注册项，并在 `src/pages/workbench/index.tsx` 中映射详情内容。
+- `topBar.tsx` / `navigator.tsx` / `search.ts`：顶栏、左侧导航与基于多语言文案的设置搜索。
+- `detailPage.tsx`：`DetailPage`（动作与设置页）、`ToolPage`（翻译、对话、历史等全高工具）、`RelatedLinks`。
+
+设置按功能域组织在 `src/pages/settings/<域>/`，每个分区是一个自包含组件，通过 `shared/useSettingsGroupForm.ts` 绑定一个持久化设置组并即时保存：
+
+| 域 | 目录 | 内容 |
+|---|---|---|
+| 截图 | `capture/` | 截图行为与复制保存、选区与工具栏、绘制、滚动截图、文件命名、贴图、全屏画布 |
+| AI | `ai/` | 模型服务（`modelServices/`）、翻译偏好、AI 对话偏好、文本识别 |
+| 快捷键 | `shortcuts/` | 全局快捷键总表、全局快捷键策略、窗口内快捷键 |
+| 通用 | `general/` | 语言与外观、启动与更新、托盘、网络 |
+| 录制 | `recording/` | 录屏、编码、GIF、按键显示 |
+| 系统 | `system/` | macOS 权限、截图引擎、核心、数据目录与清除 |
+
+模型服务是对话、翻译、OCR 三个持久化列表的统一视图：`serviceModel.ts` 把三份列表合并为「服务 + 用途」，编辑后再按原格式写回，存储结构保持兼容；`detection.ts` 负责地址补全、服务类型识别、模型与能力读取以及本机端口扫描。
+
+AI 对话工具按职责拆分在 `src/pages/tools/chat/`：`hooks/useChatModels`（模型与思考开关）、`hooks/useChatAgent`（请求与流式解析）、`hooks/useChatSessions`（会话存储），`components/` 为工具栏、消息列表、输入区与会话抽屉，`page.tsx` 只做组装。
+
 ## 主要页面
 
 | 路由 | 页面 | 说明 |
 |---|---|---|
-| `/` | `src/pages/home` | 主功能入口和快捷键状态 |
-| `/settings/generalSettings` | `src/pages/settings/generalSettings` | 常规设置 |
-| `/settings/functionSettings` | `src/pages/settings/functionSettings` | 截图、OCR、翻译、聊天、录屏设置 |
-| `/settings/hotKeySettings` | `src/pages/settings/hotKeySettings` | 快捷键设置 |
-| `/settings/systemSettings` | `src/pages/settings/systemSettings` | 系统设置、配置目录、清理数据 |
+| `/` | `src/pages/workbench` | 默认显示「截图」动作 |
+| `/w/$itemId` | `src/pages/workbench` | 动作详情与设置页，`itemId` 来自注册表 |
 | `/tools/translation` | `src/pages/tools/translation` | 翻译工具 |
 | `/tools/chat` | `src/pages/tools/chat` | AI 对话工具 |
 | `/tools/captureHistory` | `src/pages/tools/captureHistory` | 截图历史 |
-| `/personalization/plugins` | `src/pages/personalization/plugins` | 插件状态和安装入口 |
+| `/settings/*`、`/personalization/*`、`/about` | 重定向 | 旧链接重定向到对应的 `/w/$itemId` |
 | `/draw` | `src/pages/draw` | 截图选区与标注窗口 |
 | `/fixedContent` | `src/pages/fixedContent` | 贴图窗口 |
 | `/fullScreenDraw` | `src/pages/fullScreenDraw` | 全屏画板 |

@@ -1,112 +1,106 @@
-# Snow Shot Design Contract — Capture Workbench
+# Snow Shot Design Contract — Search-first Workbench
 
-Snow Shot is a desktop capture instrument. Its interface must get people to a
-capture target quickly, keep the capture context legible, and make supporting
-tools easy to find without turning the application into a settings catalogue.
+Snow Shot is a desktop capture instrument that is mostly driven by global
+shortcuts. The main window exists to start an action, change its shortcut, and
+adjust the few settings that action owns. Everything is one search away.
 
 ## Product Shape
 
-The application has three levels of navigation, each with a single job:
+The main window has one shell and one master/detail split:
 
-1. The top application bar moves between the workbench, independent tools,
-   settings, extensions, and About. It is the only global navigation.
-2. The capture workbench prioritizes capture actions by task: begin capture,
-   target a focused window, capture a full display, or wait for a delay.
-   Secondary workflows such as OCR, translation, recording, pinning, and
-   history remain available, but do not compete with the main capture action.
-3. A settings route uses a local section rail and one active settings board.
-   It never combines a global sidebar, a horizontal tab strip, and a pile of
-   expanded cards in the same viewport.
+1. **Top bar (52px)** — brand, the global search field (`Ctrl/⌘ K`), the
+   S/M/L window size control and native window buttons. The bar is the drag
+   handle; interactive controls are not.
+2. **Navigator (left, 288–312px)** — every capture action, tool and settings
+   page in four sections: Capture, Translation & AI, Recording & desktop,
+   Settings. Filters (All / Functions / Settings) and search narrow the list.
+   Actions show their shortcut as a keycap; settings show a one-line summary.
+3. **Detail (right)** — the selected item. There is no second-level rail, tab
+   strip or nested card stack.
 
-Routes, fields, keyboard bindings, reset actions, persistence, plugin gates,
-and native window behavior are retained. Layout changes do not change a
-capture action's meaning or its shortcut.
+Below 900px the navigator becomes a drawer opened from the top bar menu
+button; opening an item closes it. Typing in search opens it.
 
-## Single Black-and-White Theme
+The navigator is driven by `src/components/workbench/registry.ts`. Adding a
+page means adding one registry entry and one detail mapping in
+`src/pages/workbench/index.tsx`; routes, search and the shortcut table follow.
 
-There is one visual system with two luminance modes:
+## Item Kinds
 
-- Dark mode uses near-black canvas, charcoal working surfaces, gray seams, and
-  white current/focus states.
-- Light mode uses off-white canvas, pale-gray working surfaces, gray seams, and
-  black current/focus states.
-- Gray is structural hierarchy, not a second accent. The interface does not use
-  preset finishes, accent-color selection, gradients, glow, glass, background
-  images, or decorative texture.
+- **Action** (`/w/<id>`) — header with a primary *Run now* button, a shortcut
+  group with the editable keycap and its registration state, then the settings
+  this action owns (e.g. Screenshot owns capture behavior and copy/save), then
+  related links.
+- **Tool** (`/tools/translation`, `/tools/chat`, `/tools/captureHistory`) — a
+  full-height working surface with a slim 48px header holding the tool's own
+  controls and a link to its preferences.
+- **Settings** (`/w/<id>`) — header, then settings groups.
 
-Historic `themePreset`, `mainColor`, radius, and skin settings remain readable
-in stored data for compatibility. They do not choose the capture workbench's
-runtime visual system. Existing data must never be deleted merely because its
-old appearance is no longer surfaced in the UI.
+Each persisted settings group is edited in exactly one place. Legacy routes
+(`/settings/*`, `/personalization/*`, `/about`) redirect to their new item.
 
-## Frame and Navigation
+## Settings Grammar
 
-- The top bar is 52px high and includes the Snow Shot mark, global navigation,
-  and native window controls. It is one quiet structural line, not a second
-  content card.
-- Global navigation uses readable 14px labels. A selected item changes surface,
-  border, and text weight; focus is visible without relying on color alone.
-- The content region is a single working surface with a modest 12px outer
-  clearance. Nested floating panels are avoided.
-- A local settings rail is 152–176px wide on desktop. It holds the section
-  names for only the current settings route, scrolls independently when needed,
-  and exposes a clear keyboard focus path. It collapses only when its content
-  would take space away from an essential form control.
+- A settings group has a muted 12px title, an optional description, an
+  optional *Reset* action, and rows. No group is wrapped in a card.
+- A row is label (14px/500) left, control right, 48px minimum height, 1px
+  hairline separator. Sliders, multi-selects, radio groups, paths, text areas
+  and long templates stack label above a full-width control.
+- Rows come from ordinary antd `Form.Item`s inside `SettingsGroup`; the row
+  CSS only applies inside `.settings-rows`. Free-form rows use `SettingsLine`.
+- `useSettingsGroupForm(group)` binds one form to one persisted group and saves
+  partial values immediately; a view can unmount at any time.
 
-## Capture Workbench
+## Model Services
 
-- The first visible action is the default capture action and its existing
-  shortcut. Focus order begins there.
-- Capture targets are arranged as a compact command deck, not as a category
-  list: the default capture, focused window, full screen, and delay are the
-  first choices; supporting capture transforms follow as a second tier.
-- Independent workflows (translation, AI, video, pinning, and history) appear
-  as a clearly separate secondary area. Plugin-dependent actions retain their
-  existing availability gates.
-- Every command keeps its action name and shortcut on a stable baseline. A
-  missing or conflicting shortcut remains understandable through text/icon
-  state, not color alone.
+Chat, translation and OCR share one list of model services. A service is an
+endpoint + key + model with capabilities (thinking, vision) and uses (chat,
+translation, OCR). The stored per-feature lists stay as they were; the service
+view is derived from them and written back (`serviceModel.ts`).
 
-## Settings Workspace
+Adding a service is paste-first: the scheme and API path are completed, the
+provider is detected (Ollama, LM Studio, llama.cpp, vLLM, OpenAI, DeepSeek,
+DashScope, Zhipu, SiliconFlow, OpenRouter, DeepL), models and capabilities are
+read, and uses are suggested. Loopback runtimes are scanned once per session.
+Thinking-capable models are asked not to reason (`reasoning_effort: "none"`)
+for translation and for chat when thinking is off.
 
-- Settings are master/detail: the local section rail selects exactly one active
-  board. All boards remain mounted so form state and immediate persistence are
-  preserved; inactive boards use `hidden` and are absent from keyboard order.
-- An active board has one heading, optional reset action, and aligned fields.
-  It does not surround every ordinary field with another card.
-- At an actual board width below 880px, ordinary fields use one full-width row.
-  At widths below 700px, horizontal label/control pairs become a label above a
-  full-width control. Type remains 14px or larger.
-- A two-column field grid is permitted only when each field has room for a
-  readable label and a full control. At intermediate widths, its labels sit
-  above controls rather than being squeezed beside them.
-- Shortcut editing is a key table. It has a two-column matrix only when the
-  actual board width is at least 760px; otherwise it becomes one column while
-  keeping action and keycap on one line.
+## Visual System
+
+Warm neutral surfaces with a single orange accent, in two luminance modes.
+
+| Role | Light | Dark |
+|---|---|---|
+| Canvas / navigator | `#FAFAF9` | `#141312` |
+| Detail surface | `#FFFFFF` | `#1B1A19` |
+| Elevated surface | `#F4F3F1` | `#232120` |
+| Ink / body / muted | `#1C1917` / `#44403C` / `#736D67` | `#F5F4F2` / `#CFCBC6` / `#A39E98` |
+| Accent | `#D9480F` | `#FF7A3D` |
+| Success / warning / error / info | `#15803D` / `#B45309` / `#DC2626` / `#2563EB` | `#4ADE80` / `#FACC15` / `#F87171` / `#6CA8FF` |
+
+- Status colors keep their hue. Shortcut conflicts, failed connections and
+  test results are also expressed with text and icons, never color alone.
+- Surfaces are flat. Only floating layers (menus, popovers, dialogs, the
+  compact navigator drawer) carry a soft shadow.
+- Radii: 8px controls, 12px icon tiles and panels, 13px chips.
+- Icons are 1.6px stroke icons on a 24px grid (`workbench/icons.tsx`).
+- Historic `themePreset`, `mainColor`, radius and skin values stay readable in
+  stored data but do not change the runtime look.
 
 ## Typography, Spacing, and States
 
-- Use the platform UI stack with the explicit CJK fallbacks in
-  `--snow-shot-font-ui`. Do not add display fonts or Latin tracking to Chinese
-  body copy.
-- Body and controls are 14px/21px. Section headings are 16px/24px. Compact
-  identifiers and keycaps may be 13px; ordinary labels are never reduced below
-  14px to rescue a tight layout.
-- Prefer flat surfaces, 1px seams, 4–8px radii, and 8px spacing rhythm. One
-  functional surface change is enough for hover. Pressed feedback is brief and
-  restrained.
-- Focus uses a 2px inset black/white ring so it is never clipped by a scroll
-  container. Selected, disabled, error, empty, and shortcut-conflict states
-  retain text, icon, or structural differentiation in addition to color.
-- `prefers-reduced-motion` removes non-essential transitions and smooth scroll.
+- Platform UI stack with explicit CJK fallbacks (`--snow-shot-font-ui`);
+  monospace (`--snow-shot-font-mono`) for keycaps, endpoints and model ids.
+- Body and controls 14px/21px, page titles 20px/28px, group titles 12px.
+- 4/8px spacing rhythm; detail content is capped at 780px.
+- Focus is a 2px accent outline (inset on list items). Keyboard: `Ctrl/⌘ K`
+  focuses search, arrows move the highlight, Enter opens, Escape clears.
+- `prefers-reduced-motion` removes non-essential transitions.
 
 ## Overlay and Compatibility Rules
 
-Ant Design portals (selects, pickers, modals, popovers, tooltips, messages, and
-dropdowns) use the same monochrome surface, seam, type, and focus grammar as the
-application shell. Runtime theme context continues to flow through
-`ConfigProvider -> Ant App -> application content`.
-
-Public CSS hooks such as `.menu-layout-wrap`, `.content-wrap`,
-`.snow-command-button`, and `--snow-shot-*` stay available where practical for
-compatibility, but are not permission to restore the retired preset system.
+Ant Design portals inherit the palette through `ConfigProvider` tokens
+(`src/constants/themePresets.ts`, `appSettingsContextProvider`). Runtime theme
+context continues to flow through `ConfigProvider -> Ant App -> application
+content`. `--snow-shot-*` CSS variables remain available to capture, pin and
+canvas windows.

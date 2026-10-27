@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppearancePage } from "@/pages/personalization/appearance/page";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
+// Legacy route kept for links from older windows and saved state.
 export const Route = createFileRoute("/_layout/personalization/appearance")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	return <AppearancePage />;
+	return <Navigate to="/w/$itemId" params={{ itemId: "general" }} replace />;
 }

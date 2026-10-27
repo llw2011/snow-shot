@@ -109,6 +109,16 @@ const ensureReadableTextColor = (value: string, surfaces: string[]) => {
 // Presets may vary their semantic palette, but the application shell is a
 // single workbench. Keeping material decisions here prevents one preset from
 // becoming a glass showcase while another behaves like a desktop utility.
+const isDarkPalette = (palette: AppThemePalette) => {
+	try {
+		return Color(palette.canvas).isDark();
+	} catch {
+		return true;
+	}
+};
+
+// Surfaces stay flat; only floating layers (menus, popovers, dialogs) carry a
+// soft shadow so they read as above the page.
 const createWorkbenchVisuals = (palette: AppThemePalette): AppThemeVisuals => ({
 	panelBackground: palette.surface,
 	siderBackground: palette.canvas,
@@ -116,8 +126,12 @@ const createWorkbenchVisuals = (palette: AppThemePalette): AppThemeVisuals => ({
 	atmosphere: "none",
 	pattern: "none",
 	patternSize: "auto",
-	shadow: "none",
-	cardShadow: "none",
+	shadow: isDarkPalette(palette)
+		? "0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 247, 240, 0.06)"
+		: "0 12px 32px rgba(28, 25, 23, 0.12), 0 1px 3px rgba(28, 25, 23, 0.08)",
+	cardShadow: isDarkPalette(palette)
+		? "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 247, 240, 0.06)"
+		: "0 8px 24px rgba(28, 25, 23, 0.1), 0 1px 2px rgba(28, 25, 23, 0.06)",
 	glow: "none",
 	backdropFilter: "none",
 	logoBackground: palette.surfaceCard,
@@ -204,51 +218,53 @@ export const APP_THEME_PRESET_ORDER = [
 
 // The six historic IDs stay valid in persisted settings, but there is only one
 // built-in visual system. Mode changes luminance; a preset no longer changes skin.
-export const APP_THEME_RADIUS = 6;
+export const APP_THEME_RADIUS = 8;
 
-const MONOCHROME_MODES: Record<ThemeMode, AppThemeModeDefinition> = {
+// Warm neutral surfaces with a single orange accent. Status colors keep their
+// hue so success, warning, and error never collapse into the same gray.
+const WORKBENCH_MODES: Record<ThemeMode, AppThemeModeDefinition> = {
 	[AppSettingsTheme.Dark]: createThemeMode({
-		canvas: "#090909",
-		surface: "#101010",
-		surfaceElevated: "#171717",
-		surfaceCard: "#1E1E1E",
-		hairline: "#383838",
-		hairlineSoft: "rgba(255, 255, 255, 0.10)",
-		hairlineStrong: "rgba(255, 255, 255, 0.20)",
-		ink: "#F5F5F5",
-		body: "#CCCCCC",
-		muted: "#9E9E9E",
-		ash: "#777777",
-		blue: "#D0D0D0",
-		red: "#D0D0D0",
-		green: "#D0D0D0",
-		yellow: "#D0D0D0",
-		recommendedAccent: "#F5F5F5",
+		canvas: "#141312",
+		surface: "#1B1A19",
+		surfaceElevated: "#232120",
+		surfaceCard: "#262423",
+		hairline: "#3A3734",
+		hairlineSoft: "rgba(255, 247, 240, 0.08)",
+		hairlineStrong: "rgba(255, 247, 240, 0.18)",
+		ink: "#F5F4F2",
+		body: "#CFCBC6",
+		muted: "#A39E98",
+		ash: "#7D7771",
+		blue: "#6CA8FF",
+		red: "#F87171",
+		green: "#4ADE80",
+		yellow: "#FACC15",
+		recommendedAccent: "#FF7A3D",
 	}),
 	[AppSettingsTheme.Light]: createThemeMode({
-		canvas: "#F3F3F3",
+		canvas: "#FAFAF9",
 		surface: "#FFFFFF",
-		surfaceElevated: "#F7F7F7",
+		surfaceElevated: "#F4F3F1",
 		surfaceCard: "#FFFFFF",
-		hairline: "#D6D6D6",
-		hairlineSoft: "rgba(20, 20, 20, 0.10)",
-		hairlineStrong: "rgba(20, 20, 20, 0.20)",
-		ink: "#161616",
-		body: "#414141",
-		muted: "#616161",
-		ash: "#7A7A7A",
-		blue: "#4D4D4D",
-		red: "#4D4D4D",
-		green: "#4D4D4D",
-		yellow: "#4D4D4D",
-		recommendedAccent: "#171717",
+		hairline: "#D6D3CF",
+		hairlineSoft: "rgba(28, 25, 23, 0.09)",
+		hairlineStrong: "rgba(28, 25, 23, 0.2)",
+		ink: "#1C1917",
+		body: "#44403C",
+		muted: "#736D67",
+		ash: "#A8A29E",
+		blue: "#2563EB",
+		red: "#DC2626",
+		green: "#15803D",
+		yellow: "#B45309",
+		recommendedAccent: "#D9480F",
 	}),
 };
 
 const createLegacyPreset = (id: AppThemePreset): AppThemePresetDefinition => ({
 	id,
 	recommendedRadius: APP_THEME_RADIUS,
-	modes: MONOCHROME_MODES,
+	modes: WORKBENCH_MODES,
 });
 
 export const APP_THEME_PRESETS: Record<
@@ -277,7 +293,7 @@ export const getAppThemeRuntime = (
 		mode === AppSettingsTheme.Dark
 			? AppSettingsTheme.Dark
 			: AppSettingsTheme.Light;
-	return MONOCHROME_MODES[resolvedMode];
+	return WORKBENCH_MODES[resolvedMode];
 };
 
 export const resolveThemePrimaryColor = (

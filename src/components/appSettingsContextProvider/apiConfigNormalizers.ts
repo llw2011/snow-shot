@@ -67,6 +67,10 @@ export const normalizeTranslationApiConfig = (
 		api_model: apiModel,
 		model_name: modelName,
 		deepl_prefer_quality_optimized: deeplPreferQualityOptimized,
+		support_thinking:
+			typeof config?.support_thinking === "boolean"
+				? config.support_thinking
+				: (fallback?.support_thinking ?? false),
 	};
 };
 

@@ -1,0 +1,313 @@
+/* Settings groups: a muted heading, optional actions, and a list of rows.
+   Rows are drawn from ordinary antd Form.Items so every settings form keeps its
+   own field bindings. Selectors stay inside .settings-rows; nested custom
+   editors opt out with .settings-rows-ignore. */
+
+.settings-group {
+    margin: 0 0 28px;
+    min-width: 0;
+}
+
+.settings-group-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    min-height: 28px;
+    margin: 0 0 2px;
+}
+
+.settings-group-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.settings-group-title {
+    margin: 0;
+    color: var(--snow-shot-muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+    letter-spacing: 0.02em;
+}
+
+.settings-group-description {
+    margin: 2px 0 0;
+    color: var(--snow-shot-muted);
+    font-size: 12.5px;
+    line-height: 18px;
+}
+
+.settings-group-extra {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+}
+
+.settings-group-extra .reset-settings-button.ant-btn {
+    height: 26px;
+    padding-inline: 8px;
+    font-size: 12.5px;
+}
+
+.settings-group-body {
+    min-width: 0;
+    /* Hide the last row separator while leaving room for focus rings. */
+    clip-path: inset(-8px -8px 1px -8px);
+}
+
+.settings-group-body .ant-spin-nested-loading,
+.settings-group-body .ant-spin-container {
+    min-width: 0;
+}
+
+/* Row grammar ------------------------------------------------------------ */
+
+body .settings-rows .ant-form {
+    width: 100%;
+}
+
+body .settings-rows .ant-form-item {
+    margin: 0;
+    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+}
+
+body .settings-rows .settings-rows-ignore .ant-form-item {
+    border-bottom: 0;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    min-height: 48px;
+    padding: 8px 0;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-label {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    overflow: visible;
+    text-align: start;
+    white-space: normal;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-label > label {
+    height: auto;
+    min-height: 21px;
+    color: var(--snow-shot-ink);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 21px;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-label > label::after {
+    display: none;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-label .icon-label-label {
+    overflow: visible;
+    white-space: normal;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-label .anticon-info-circle {
+    color: var(--snow-shot-muted);
+}
+
+body .settings-rows .ant-form-item .ant-form-item-control {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: min(62%, 360px);
+}
+
+body .settings-rows .ant-form-item .ant-form-item-control-input {
+    min-height: 32px;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-control-input-content {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-control-input-content > .ant-select:not(.ant-select-multiple),
+body .settings-rows .ant-form-item .ant-form-item-control-input-content > .ant-input-number,
+body .settings-rows .ant-form-item .ant-form-item-control-input-content > .ant-input-number-group-wrapper,
+body .settings-rows .ant-form-item .ant-form-item-control-input-content > .ant-input-affix-wrapper,
+body .settings-rows .ant-form-item .ant-form-item-control-input-content > input.ant-input {
+    width: 220px;
+    max-width: 100%;
+}
+
+body .settings-rows .ant-form-item .ant-form-item-explain,
+body .settings-rows .ant-form-item .ant-form-item-extra {
+    padding-top: 4px;
+    font-size: 12.5px;
+    line-height: 18px;
+    text-align: end;
+}
+
+/* Wide controls sit below their label and use the full width. */
+body .settings-rows .ant-form-item:is(
+        :has(.ant-slider),
+        :has(.ant-select-multiple),
+        :has(textarea),
+        :has(.path-input),
+        :has(.directory-input),
+        :has(.ant-radio-group),
+        :has(.ant-checkbox-group),
+        :has(.settings-stack)
+    )
+    .ant-form-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0;
+}
+
+body .settings-rows .ant-form-item:is(
+        :has(.ant-slider),
+        :has(.ant-select-multiple),
+        :has(textarea),
+        :has(.path-input),
+        :has(.directory-input),
+        :has(.ant-radio-group),
+        :has(.ant-checkbox-group),
+        :has(.settings-stack)
+    )
+    .ant-form-item-control {
+    width: 100%;
+    max-width: none;
+}
+
+body .settings-rows .ant-form-item:is(
+        :has(.ant-slider),
+        :has(.ant-select-multiple),
+        :has(textarea),
+        :has(.path-input),
+        :has(.directory-input),
+        :has(.ant-radio-group),
+        :has(.ant-checkbox-group),
+        :has(.settings-stack)
+    )
+    .ant-form-item-control-input-content {
+    justify-content: flex-start;
+}
+
+body .settings-rows .ant-form-item:is(
+        :has(.ant-slider),
+        :has(.ant-select-multiple),
+        :has(textarea),
+        :has(.path-input),
+        :has(.directory-input),
+        :has(.ant-radio-group),
+        :has(.ant-checkbox-group),
+        :has(.settings-stack)
+    )
+    .ant-form-item-explain {
+    text-align: start;
+}
+
+body .settings-rows .ant-form-item:is(
+        :has(.ant-slider),
+        :has(.ant-select-multiple),
+        :has(textarea),
+        :has(.path-input),
+        :has(.directory-input),
+        :has(.ant-radio-group),
+        :has(.ant-checkbox-group),
+        :has(.settings-stack)
+    )
+    .ant-form-item-control-input-content
+    > * {
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+/* Leave room for the end marks (e.g. "100%") inside the clipped body. */
+body .settings-rows .ant-slider {
+    margin-inline: 16px;
+}
+
+body .settings-rows .ant-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+}
+
+body .settings-rows .ant-radio-wrapper {
+    margin-inline-end: 0;
+}
+
+/* Free-form rows (SettingsLine) share the same rhythm as form rows. */
+.settings-line {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 48px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--snow-shot-hairline-soft);
+}
+
+.settings-line.is-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.settings-line-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.settings-line-label {
+    color: var(--snow-shot-ink);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 21px;
+}
+
+.settings-line-description,
+.settings-line-hint {
+    margin-top: 2px;
+    color: var(--snow-shot-muted);
+    font-size: 12.5px;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+}
+
+.settings-line-description .settings-line-path {
+    color: var(--snow-shot-body);
+    font-family: var(--snow-shot-font-mono);
+    font-size: 12px;
+}
+
+.settings-line-control {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Narrow detail panes stack every row. */
+@container snow-detail (max-width: 520px) {
+    body .settings-rows .ant-form-item .ant-form-item-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    body .settings-rows .ant-form-item .ant-form-item-control {
+        max-width: none;
+    }
+
+    body .settings-rows .ant-form-item .ant-form-item-control-input-content {
+        justify-content: flex-start;
+    }
+}

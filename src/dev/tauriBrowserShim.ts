@@ -77,6 +77,13 @@ const installTauriBrowserShim = () => {
 	let nextResourceId = 1000;
 	const storesByPath = new Map<string, number>();
 	const storeDataByRid = new Map<number, Map<string, unknown>>();
+	// plugin-http is forwarded to the browser fetch so model services can be
+	// exercised in development. Only loopback dev hosts install this shim.
+	const httpRequests = new Map<
+		number,
+		{ init: RequestInit & { url: string }; abort: AbortController }
+	>();
+	const httpResponses = new Map<number, Response>();
 
 	// The browser shim uses an in-memory namespace; it never touches a host path.
 	const baseConfigDir = "snow-shot-dev";
@@ -253,6 +260,78 @@ const installTauriBrowserShim = () => {
 			case "plugin:store|reload":
 			case "plugin:store|save":
 				return undefined as T;
+
+			case "plugin:http|fetch": {
+				const clientConfig = (args as Record<string, unknown> | undefined)
+					?.clientConfig as
+					| {
+							method: string;
+							url: string;
+							headers: [string, string][];
+							data: number[] | null;
+					  }
+					| undefined;
+				const rid = nextResourceId++;
+				httpRequests.set(rid, {
+					init: {
+						url: clientConfig?.url ?? "",
+						method: clientConfig?.method,
+						headers: clientConfig?.headers,
+						body: clientConfig?.data
+							? new Uint8Array(clientConfig.data)
+							: undefined,
+					},
+					abort: new AbortController(),
+				});
+				return rid as T;
+			}
+			case "plugin:http|fetch_cancel": {
+				const rid = Number((args as Record<string, unknown> | undefined)?.rid);
+				httpRequests.get(rid)?.abort.abort();
+				httpRequests.delete(rid);
+				return undefined as T;
+			}
+			case "plugin:http|fetch_send": {
+				const rid = Number((args as Record<string, unknown> | undefined)?.rid);
+				const request = httpRequests.get(rid);
+				if (!request) {
+					throw new Error("[dev-tauri-shim] unknown http request");
+				}
+				httpRequests.delete(rid);
+				const { url, ...init } = request.init;
+				const response = await window.fetch(url, {
+					...init,
+					signal: request.abort.signal,
+				});
+				const responseRid = nextResourceId++;
+				httpResponses.set(responseRid, response);
+				return {
+					status: response.status,
+					statusText: response.statusText,
+					url: response.url,
+					headers: Array.from(response.headers.entries()),
+					rid: responseRid,
+				} as T;
+			}
+			case "plugin:http|fetch_read_body": {
+				const record = args as Record<string, unknown> | undefined;
+				const response = httpResponses.get(Number(record?.rid));
+				httpResponses.delete(Number(record?.rid));
+				const channelId = (record?.streamChannel as { id?: number })?.id;
+				const send =
+					channelId === undefined ? undefined : callbacks.get(channelId);
+				let index = 0;
+				const reader = response?.body?.getReader();
+				while (reader) {
+					const { done, value } = await reader.read();
+					if (done) {
+						break;
+					}
+					send?.({ index: index++, message: [...value, 0] });
+				}
+				send?.({ index: index++, message: [1] });
+				return undefined as T;
+			}
 
 			case "plugin:menu|new":
 			case "plugin:menu|create_default":

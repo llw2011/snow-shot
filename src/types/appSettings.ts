@@ -80,6 +80,8 @@ export type TranslationApiConfig = {
 	api_model?: string;
 	model_name?: string;
 	deepl_prefer_quality_optimized?: boolean;
+	/** The model reasons by default; translation requests then ask it not to. */
+	support_thinking?: boolean;
 };
 
 export enum AppSettingsGroup {

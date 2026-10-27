@@ -268,13 +268,13 @@ export const MainWindowSizeControl = () => {
 				.window-size-control {
 					display: inline-flex;
 					align-items: center;
+					gap: 2px;
 					min-width: 0;
 					margin: 0;
-					padding: 0;
-					overflow: hidden;
-					border: 1px solid var(--snow-shot-hairline);
-					border-radius: var(--snow-shot-radius-sm);
-					background: var(--snow-shot-surface);
+					padding: 2px;
+					border: 0;
+					border-radius: 8px;
+					background: var(--snow-shot-surface-elevated);
 				}
 
 				.window-size-control > span {
@@ -282,34 +282,27 @@ export const MainWindowSizeControl = () => {
 				}
 
 				.window-size-control .ant-btn {
-					width: 28px;
-					height: 28px;
+					width: 24px;
+					height: 24px;
+					min-width: 24px;
 					padding: 0;
 					border: 0;
-					border-inline-end: 1px solid var(--snow-shot-hairline-soft);
-					border-radius: 0;
+					border-radius: 6px;
 					color: var(--snow-shot-muted);
-					font-size: 13px;
+					font-size: 12px;
 					font-weight: 600;
 				}
 
-				.window-size-control > span:last-child .ant-btn {
-					border-inline-end: 0;
-				}
-
-				.window-size-control .ant-btn.is-active {
-					background: var(--snow-shot-ink);
-					color: var(--snow-shot-canvas);
+				.window-size-control .ant-btn.is-active,
+				.window-size-control .ant-btn.is-active:not(:disabled):hover {
+					background: var(--snow-shot-surface);
+					color: var(--snow-shot-ink);
+					box-shadow: 0 0 0 1px var(--snow-shot-hairline-soft);
 				}
 
 				.window-size-control .ant-btn:not(:disabled):hover {
-					background: var(--snow-shot-surface-elevated);
+					background: transparent;
 					color: var(--snow-shot-ink);
-				}
-
-				.window-size-control .ant-btn.is-active:not(:disabled):hover {
-					background: var(--snow-shot-ink);
-					color: var(--snow-shot-canvas);
 				}
 			`}</style>
 		</fieldset>

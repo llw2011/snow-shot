@@ -12,12 +12,9 @@ import { AntdContext } from "@/contexts/antdContext";
 import { AppSettingsActionContext } from "@/contexts/appSettingsActionContext";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
 import { useStateRef } from "@/hooks/useStateRef";
-import {
-	convertLanguageCodeToDeepLSourceLanguageCode,
-	convertLanguageCodeToDeepLTargetLanguageCode,
-} from "@/pages/settings/functionSettings/extra";
 import { getTranslationPrompt } from "@/pages/tools/translation/extra";
 import { appFetch } from "@/services/tools";
+import { getDisableReasoningParams } from "@/services/tools/reasoning";
 import { translateTextDeepL } from "@/services/tools/translation";
 import {
 	type AppSettingsData,
@@ -35,6 +32,10 @@ import {
 import { isUsableTranslationApiConfig } from "@/utils/apiConfig";
 import { getCachedData, setCachedData } from "@/utils/cache";
 import { appError } from "@/utils/log";
+import {
+	convertLanguageCodeToDeepLSourceLanguageCode,
+	convertLanguageCodeToDeepLTargetLanguageCode,
+} from "./deeplLanguage";
 import {
 	buildStructuredTranslationInput,
 	parseStructuredTranslationResult,
@@ -342,7 +343,7 @@ export const useTranslationRequest = (options?: {
 								api_key: item.api_key,
 								api_model: item.api_model ?? "",
 								model_name: item.model_name ?? item.api_model ?? "",
-								support_thinking: false,
+								support_thinking: !!item.support_thinking,
 								support_vision: false,
 							},
 							isOfficial: false,
@@ -509,6 +510,7 @@ export const useTranslationRequest = (options?: {
 				max_completion_tokens: translationConfig?.translationMaxTokens ?? 4096,
 				temperature: translationConfig?.translationTemperature ?? 0.2,
 				top_p: translationConfig?.translationTopP ?? 0.9,
+				...getDisableReasoningParams(config.apiConfig.support_thinking),
 			};
 			let translationCacheKey: string | undefined;
 			try {

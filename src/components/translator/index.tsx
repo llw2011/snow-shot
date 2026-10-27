@@ -1,15 +1,5 @@
 import { CloseOutlined, CopyOutlined, SwapOutlined } from "@ant-design/icons";
-import {
-	Button,
-	Col,
-	Flex,
-	Form,
-	Row,
-	Select,
-	type SelectProps,
-	Spin,
-	theme,
-} from "antd";
+import { Button, Select, type SelectProps, Spin, theme } from "antd";
 import TextArea, { type TextAreaRef } from "antd/es/input/TextArea";
 import { debounce } from "es-toolkit";
 import React, {
@@ -297,8 +287,6 @@ const TranslatorCore: React.FC<{
 }> = ({ actionRef }) => {
 	const intl = useIntl();
 
-	const { token } = theme.useToken();
-
 	const { sourceLanguageOptions, targetLanguageOptions } = useLanguageOptions();
 	const translationDomainOptions = useTranslationDomainOptions();
 
@@ -411,315 +399,231 @@ const TranslatorCore: React.FC<{
 		),
 	);
 
+	const popupStyles = (minWidth: number) => ({
+		popup: { root: { minWidth } },
+	});
+
 	return (
-		<>
-			{/* 用表单处理下样式，但不用表单处理数据验证 */}
-			<Form className="tool-translator-container" layout="vertical">
-				<Flex
-					className="tool-translator-toolbar"
-					gap={0}
-					justify="space-between"
-				>
-					<Flex
-						className="tool-translator-toolbar-group tool-translator-language-controls"
-						gap={0}
-						align="center"
-					>
-						<Form.Item
-							className="tool-translator-toolbar-field"
-							style={{ marginBottom: token.marginXS }}
-							label={<FormattedMessage id="tools.translation.sourceLanguage" />}
-						>
-							<Select
-								className="tool-translator-toolbar-select"
-								value={sourceLanguage}
-								showSearch
-								onChange={(value) => updateSourceLanguage(value)}
-								options={sourceLanguageOptions}
-								variant="underlined"
-								styles={{
-									popup: {
-										root: {
-											minWidth: 200,
-										},
-									},
-								}}
-								filterOption={selectFilterOption}
-							/>
-						</Form.Item>
-						<Button
-							className="tool-translator-swap-button"
-							type="link"
-							disabled={
-								sourceLanguage === "auto" || sourceLanguage === targetLanguage
-							}
-							icon={<SwapOutlined />}
-							style={{ marginTop: token.margin }}
-							onClick={() => {
-								updateSourceLanguage(targetLanguage);
-								updateTargetLanguage(sourceLanguage);
-							}}
-						/>
-						<Form.Item
-							className="tool-translator-toolbar-field"
-							style={{ marginBottom: token.marginXS }}
-							label={<FormattedMessage id="tools.translation.targetLanguage" />}
-						>
-							<Select
-								className="tool-translator-toolbar-select"
-								showSearch
-								value={targetLanguage}
-								onChange={(value) => {
-									updateTargetLanguage(value);
-								}}
-								options={targetLanguageOptions}
-								filterOption={selectFilterOption}
-								styles={{
-									popup: {
-										root: {
-											minWidth: 200,
-										},
-									},
-								}}
-								variant="underlined"
-							/>
-						</Form.Item>
-					</Flex>
-					<Flex
-						className="tool-translator-toolbar-group tool-translator-service-controls"
-						gap={token.margin}
-					>
-						<Form.Item
-							className="tool-translator-toolbar-field"
-							style={{ marginBottom: token.marginXS }}
-							label={<FormattedMessage id="tools.translation.type" />}
-						>
-							<Select
-								className="tool-translator-toolbar-select"
-								showSearch
-								value={translationType}
-								onChange={(value) => {
-									updateTranslationType(value);
-								}}
-								options={translationTypeOptions}
-								loading={supportedTranslationTypesLoading}
-								filterOption={selectFilterOption}
-								styles={{
-									popup: {
-										root: {
-											minWidth: 200,
-										},
-									},
-								}}
-								variant="underlined"
-							/>
-						</Form.Item>
-						<Form.Item
-							className="tool-translator-toolbar-field"
-							style={{ marginBottom: token.marginXS }}
-							label={<FormattedMessage id="tools.translation.domain" />}
-							hidden={!supportDomain}
-						>
-							<Select
-								className="tool-translator-toolbar-select"
-								showSearch
-								value={translationDomain}
-								onChange={(value) => {
-									updateTranslationDomain(value);
-								}}
-								options={translationDomainOptions}
-								filterOption={selectFilterOption}
-								styles={{
-									popup: {
-										root: {
-											minWidth: 200,
-										},
-									},
-								}}
-								variant="underlined"
-							/>
-						</Form.Item>
-					</Flex>
-				</Flex>
-				<Row
-					className="tool-translator-content-row"
-					gutter={token.marginLG}
-					style={{ marginTop: token.marginXXS }}
-				>
-					<Col span={12} style={{ position: "relative" }}>
-						<TextArea
-							rows={12}
-							maxLength={5000}
-							showCount
-							autoSize={{ minRows: 12 }}
-							placeholder={intl.formatMessage({
-								id: "tools.translation.placeholder",
+		<div className="translator">
+			<div className="translator-bar">
+				<div className="translator-languages">
+					<Select
+						className="translator-language"
+						aria-label={intl.formatMessage({
+							id: "tools.translation.sourceLanguage",
+						})}
+						value={sourceLanguage}
+						showSearch
+						onChange={(value) => updateSourceLanguage(value)}
+						options={sourceLanguageOptions}
+						filterOption={selectFilterOption}
+						styles={popupStyles(200)}
+					/>
+					<Button
+						className="translator-swap"
+						type="text"
+						disabled={
+							sourceLanguage === "auto" || sourceLanguage === targetLanguage
+						}
+						icon={<SwapOutlined />}
+						aria-label={intl.formatMessage({
+							id: "workbench.translation.swap",
+						})}
+						title={intl.formatMessage({ id: "workbench.translation.swap" })}
+						onClick={() => {
+							updateSourceLanguage(targetLanguage);
+							updateTargetLanguage(sourceLanguage);
+						}}
+					/>
+					<Select
+						className="translator-language"
+						aria-label={intl.formatMessage({
+							id: "tools.translation.targetLanguage",
+						})}
+						showSearch
+						value={targetLanguage}
+						onChange={(value) => updateTargetLanguage(value)}
+						options={targetLanguageOptions}
+						filterOption={selectFilterOption}
+						styles={popupStyles(200)}
+					/>
+				</div>
+				<div className="translator-engine">
+					<Select
+						className="translator-service"
+						aria-label={intl.formatMessage({ id: "tools.translation.type" })}
+						showSearch
+						value={translationType}
+						onChange={(value) => updateTranslationType(value)}
+						options={translationTypeOptions}
+						loading={supportedTranslationTypesLoading}
+						filterOption={selectFilterOption}
+						placeholder={intl.formatMessage({ id: "tools.translation.type" })}
+						styles={popupStyles(220)}
+					/>
+					{supportDomain && (
+						<Select
+							className="translator-domain"
+							aria-label={intl.formatMessage({
+								id: "tools.translation.domain",
 							})}
-							value={sourceContent}
-							style={{ flex: 1 }}
-							onChange={(e) => setSourceContent(e.target.value)}
-							ref={sourceContentRef}
+							showSearch
+							value={translationDomain}
+							onChange={(value) => updateTranslationDomain(value)}
+							options={translationDomainOptions}
+							filterOption={selectFilterOption}
+							placeholder={intl.formatMessage({
+								id: "tools.translation.domain",
+							})}
+							styles={popupStyles(160)}
 						/>
+					)}
+				</div>
+			</div>
 
+			<div className="translator-panes">
+				<div className="translator-pane">
+					<TextArea
+						maxLength={5000}
+						showCount
+						autoSize={{ minRows: 10 }}
+						placeholder={intl.formatMessage({
+							id: "tools.translation.placeholder",
+						})}
+						value={sourceContent}
+						onChange={(e) => setSourceContent(e.target.value)}
+						ref={sourceContentRef}
+					/>
+					<Button
+						className="translator-pane-action translator-clear"
+						type="text"
+						size="small"
+						icon={<CloseOutlined />}
+						aria-label={intl.formatMessage({
+							id: "workbench.translation.clear",
+						})}
+						onClick={() => setSourceContent("")}
+					/>
+				</div>
+				<div className="translator-pane is-result">
+					<Spin spinning={startTranslateLoading}>
+						<TextArea
+							variant="filled"
+							autoSize={{ minRows: 10 }}
+							readOnly
+							value={translatedContent}
+							aria-live="polite"
+						/>
+						{deltaTranslateLoading && (
+							<Spin size="small" className="translator-streaming" />
+						)}
 						<Button
-							className="tool-translator-container-clear-button"
+							className="translator-pane-action translator-copy"
 							type="text"
-							shape="circle"
-							icon={<CloseOutlined />}
-							onClick={() => {
-								setSourceContent("");
-							}}
+							size="small"
+							icon={<CopyOutlined />}
+							aria-label={intl.formatMessage({ id: "tools.translation.copy" })}
+							onClick={onCopy}
 						/>
-					</Col>
-					<Col span={12}>
-						<Spin spinning={startTranslateLoading}>
-							<div style={{ position: "relative" }}>
-								<Spin
-									spinning={deltaTranslateLoading}
-									style={{
-										position: "absolute",
-										bottom: token.margin,
-										right: token.marginLG,
-									}}
-								/>
-								<TextArea
-									rows={12}
-									variant="filled"
-									style={{ flex: 1 }}
-									autoSize={{ minRows: 12 }}
-									readOnly
-									value={translatedContent}
-								/>
-
-								<Flex
-									className="tool-translator-container-translate-button-container"
-									gap={token.marginXXS}
-									align="center"
-									justify="end"
-								>
-									<Button
-										type="text"
-										shape="circle"
-										icon={<CopyOutlined />}
-										onClick={onCopy}
-									/>
-								</Flex>
-							</div>
-						</Spin>
-					</Col>
-				</Row>
-			</Form>
+					</Spin>
+				</div>
+			</div>
 
 			<style jsx>{`
-                :global(.tool-translator-container .ant-form-item-label) {
-                    padding-bottom: ${token.paddingXXS}px !important;
-                }
+				.translator {
+					display: flex;
+					flex-direction: column;
+					gap: 12px;
+					width: 100%;
+				}
 
-                :global(.tool-translator-container .ant-form-item-label label) {
-                    font-size: 13px !important;
-                    color: ${token.colorTextDescription} !important;
-                }
+				.translator-bar {
+					display: flex;
+					flex-wrap: wrap;
+					align-items: center;
+					justify-content: space-between;
+					gap: 8px 16px;
+				}
 
-                :global(.tool-translator-container .ant-input) {
-                    padding-right: ${32 + token.marginXXS * 2}px !important;
-                }
+				.translator-languages,
+				.translator-engine {
+					display: flex;
+					align-items: center;
+					gap: 6px;
+					min-width: 0;
+				}
 
-                :global(.tool-translator-toolbar),
-                :global(.tool-translator-toolbar-group),
-                :global(.tool-translator-toolbar-field),
-                :global(.tool-translator-toolbar-select),
-                :global(.tool-translator-content-row > .ant-col) {
-                    min-width: 0;
-                }
+				.translator :global(.translator-language) {
+					width: 150px;
+				}
 
-                :global(.tool-translator-toolbar-select .ant-select-selector) {
-                    min-width: 0;
-                }
+				.translator :global(.translator-service) {
+					width: 190px;
+				}
 
-                :global(.tool-translator-toolbar-select .ant-select-selection-item),
-                :global(.tool-translator-toolbar-select .ant-select-selection-placeholder),
-                :global(.tool-translator-toolbar-select .ant-select-selection-item > *) {
-                    max-width: 100%;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
+				.translator :global(.translator-domain) {
+					width: 120px;
+				}
 
-                :global(.tool-translator-toolbar-select .ant-select-selection-item .ant-space),
-                :global(.tool-translator-toolbar-select .ant-select-selection-item .ant-space-item) {
-                    min-width: 0;
-                    max-width: 100%;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
+				.translator :global(.translator-swap) {
+					color: var(--snow-shot-muted);
+				}
 
-                :global(.tool-translator-container-clear-button) {
-                    position: absolute !important;
-                    right: ${token.paddingXS + token.marginXXS}px;
-                    top: ${token.marginXXS}px;
-                    z-index: 1;
-                    pointer-events: ${hasSourceContent ? "auto" : "none"};
-                    opacity: ${hasSourceContent ? 1 : 0};
-                    transition: opacity ${token.motionDurationMid} ${token.motionEaseInOut};
-                }
+				.translator-panes {
+					display: grid;
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+					gap: 12px;
+				}
 
-                :global(.tool-translator-container-translate-button-container) {
-                    position: absolute;
-                    bottom: ${token.marginXXS}px;
-                    right: ${token.marginXXS}px;
-                    z-index: 1;
-                    pointer-events: ${hasTranslatedContent ? "auto" : "none"};
-                    opacity: ${hasTranslatedContent ? 1 : 0};
-                    transition: opacity ${token.motionDurationMid} ${token.motionEaseInOut};
-                }
+				.translator-pane {
+					position: relative;
+					min-width: 0;
+				}
 
-                @container snow-content (max-width: 700px) {
-                    :global(.tool-translator-toolbar) {
-                        align-items: stretch;
-                        flex-direction: column;
-                        justify-content: flex-start !important;
-                        row-gap: ${token.margin}px !important;
-                    }
+				.translator :global(.ant-input) {
+					padding: 12px 40px 12px 14px;
+					border-radius: 10px;
+					font-size: 14px;
+					line-height: 1.65;
+				}
 
-                    :global(.tool-translator-toolbar-group) {
-                        width: 100%;
-                    }
+				.translator :global(.translator-pane-action) {
+					position: absolute;
+					right: 8px;
+					z-index: 1;
+					color: var(--snow-shot-muted);
+					transition: opacity var(--snow-shot-motion-fast) ease;
+				}
 
-                    :global(.tool-translator-language-controls) {
-                        flex-wrap: wrap;
-                    }
+				.translator :global(.translator-clear) {
+					top: 8px;
+					opacity: ${hasSourceContent ? 1 : 0};
+					pointer-events: ${hasSourceContent ? "auto" : "none"};
+				}
 
-                    :global(.tool-translator-toolbar-field) {
-                        flex: 0 0 100%;
-                        width: 100%;
-                    }
+				.translator :global(.translator-copy) {
+					bottom: 8px;
+					opacity: ${hasTranslatedContent ? 1 : 0};
+					pointer-events: ${hasTranslatedContent ? "auto" : "none"};
+				}
 
-                    :global(.tool-translator-toolbar-select) {
-                        width: 100%;
-                    }
+				.translator :global(.translator-streaming) {
+					position: absolute;
+					right: 44px;
+					bottom: 12px;
+				}
 
-                    :global(.tool-translator-swap-button) {
-                        align-self: center;
-                        margin-top: 0 !important;
-                    }
+				@container snow-detail (max-width: 640px) {
+					.translator-panes {
+						grid-template-columns: minmax(0, 1fr);
+					}
 
-                    :global(.tool-translator-service-controls) {
-                        flex-direction: column;
-                    }
-
-                    :global(.tool-translator-content-row) {
-                        row-gap: ${token.marginLG}px;
-                    }
-
-                    :global(.tool-translator-content-row > .ant-col) {
-                        flex: 0 0 100%;
-                        max-width: 100%;
-                    }
-                }
-            `}</style>
-		</>
+					.translator :global(.translator-language) {
+						width: 128px;
+					}
+				}
+			`}</style>
+		</div>
 	);
 };
-
 export const Translator = React.memo(TranslatorCore);

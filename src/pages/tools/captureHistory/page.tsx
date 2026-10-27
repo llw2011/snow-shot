@@ -9,6 +9,7 @@ import type { Key } from "react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { EventListenerContext } from "@/components/eventListener";
+import { ToolPage } from "@/components/workbench";
 import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
 import { executeScreenshot } from "@/functions/screenshot";
 import { useAppSettingsLoad } from "@/hooks/useAppSettingsLoad";
@@ -165,250 +166,266 @@ export const CaptureHistoryPage = () => {
 	}, [selectedRowKeys, token, reloadList]);
 
 	return (
-		<>
-			<ProList<CaptureHistoryRecordItem>
-				rowSelection={{
-					selectedRowKeys,
-					onChange: (keys: Key[]) => setSelectedRowKeys(keys),
-					preserveSelectedRowKeys: true,
-					hideSelectAll: false,
-				}}
-				tableAlertOptionRender={tableAlertOptionRender}
-				itemLayout="vertical"
-				rowKey="id"
-				headerTitle={
-					<>
-						<FormattedMessage id="tools.captureHistory.count" />
-						{`: ${dataSource?.length ?? "-"}`}
-					</>
-				}
-				loading={loading}
-				className="capture-history-list"
-				actionRef={actionRef}
-				toolBarRender={() => [
-					<div key="clearAll">
-						<Popconfirm
-							key="clearAll"
-							title={
-								<FormattedMessage id="tools.captureHistory.clearAll.confirm" />
-							}
-							onConfirm={async () => {
-								await captureHistoryRef.current?.clearAll();
+		<ToolPage
+			icon="history"
+			title={<FormattedMessage id="workbench.item.captureHistory" />}
+		>
+			<div className="capture-history-body snow-scroll">
+				<ProList<CaptureHistoryRecordItem>
+					rowSelection={{
+						selectedRowKeys,
+						onChange: (keys: Key[]) => setSelectedRowKeys(keys),
+						preserveSelectedRowKeys: true,
+						hideSelectAll: false,
+					}}
+					tableAlertOptionRender={tableAlertOptionRender}
+					itemLayout="vertical"
+					rowKey="id"
+					headerTitle={
+						<>
+							<FormattedMessage id="tools.captureHistory.count" />
+							{`: ${dataSource?.length ?? "-"}`}
+						</>
+					}
+					loading={loading}
+					className="capture-history-list"
+					actionRef={actionRef}
+					toolBarRender={() => [
+						<div key="clearAll">
+							<Popconfirm
+								key="clearAll"
+								title={
+									<FormattedMessage id="tools.captureHistory.clearAll.confirm" />
+								}
+								onConfirm={async () => {
+									await captureHistoryRef.current?.clearAll();
+									reloadList();
+								}}
+							>
+								<Button
+									type="text"
+									icon={<DeleteOutlined />}
+									style={{ color: token.colorError }}
+									title={intl.formatMessage({
+										id: "tools.captureHistory.clearAll",
+									})}
+								/>
+							</Popconfirm>
+						</div>,
+						<Button
+							key="reload"
+							type="text"
+							loading={loading}
+							onClick={() => {
 								reloadList();
 							}}
-						>
-							<Button
-								type="text"
-								icon={<DeleteOutlined />}
-								style={{ color: token.colorError }}
-								title={intl.formatMessage({
-									id: "tools.captureHistory.clearAll",
-								})}
-							/>
-						</Popconfirm>
-					</div>,
-					<Button
-						key="reload"
-						type="text"
-						loading={loading}
-						onClick={() => {
-							reloadList();
-						}}
-						icon={<ReloadOutlined />}
-					/>,
-				]}
-				request={async (params) => {
-					setLoading(true);
+							icon={<ReloadOutlined />}
+						/>,
+					]}
+					request={async (params) => {
+						setLoading(true);
 
-					if (!dataSourceRef.current) {
-						currentFilterDataRef.current = [];
+						if (!dataSourceRef.current) {
+							currentFilterDataRef.current = [];
+							return {
+								data: [],
+								success: false,
+								pageSize: 10,
+								total: 0,
+							};
+						}
+
+						const pageSize = params.pageSize ?? 10;
+						const current = params.current ?? 1;
+						const startIndex = (current - 1) * pageSize;
+
+						let startTs: number | undefined;
+						let endTs: number | undefined;
+						if (
+							"create_ts" in params &&
+							Array.isArray(params.create_ts) &&
+							params.create_ts.length === 2
+						) {
+							startTs = dayjs(
+								params.create_ts[0],
+								"YYYY-MM-DD HH:mm:ss",
+							).valueOf();
+							endTs = dayjs(
+								params.create_ts[1],
+								"YYYY-MM-DD HH:mm:ss",
+							).valueOf();
+						}
+
+						const filterData = dataSourceRef.current.filter((item) => {
+							let isMatch = true;
+							if (startTs && endTs) {
+								isMatch &&=
+									item.create_ts >= startTs && item.create_ts <= endTs;
+							}
+							if (params.source) {
+								isMatch &&= item.source === params.source;
+							}
+							return isMatch;
+						});
+						const data = await Promise.all(
+							filterData
+								.slice(startIndex, startIndex + pageSize)
+								.map(async (item, index) => {
+									const file_path = await getCaptureHistoryImageAbsPath(
+										item.file_name,
+									);
+									const capture_result_file_path = item.capture_result_file_name
+										? await getCaptureHistoryImageAbsPath(
+												item.capture_result_file_name,
+											)
+										: undefined;
+									return {
+										...item,
+										serial_number: startIndex + index + 1,
+										file_path,
+										file_url: convertFileSrc(file_path),
+										capture_result_file_path,
+										capture_result_file_url: capture_result_file_path
+											? convertFileSrc(capture_result_file_path)
+											: undefined,
+									};
+								}),
+						);
+
+						setLoading(false);
+
+						currentFilterDataRef.current = data;
 						return {
-							data: [],
-							success: false,
-							pageSize: 10,
-							total: 0,
+							data,
+							success: true,
+							pageSize: pageSize,
+							total: filterData.length,
 						};
-					}
-
-					const pageSize = params.pageSize ?? 10;
-					const current = params.current ?? 1;
-					const startIndex = (current - 1) * pageSize;
-
-					let startTs: number | undefined;
-					let endTs: number | undefined;
-					if (
-						"create_ts" in params &&
-						Array.isArray(params.create_ts) &&
-						params.create_ts.length === 2
-					) {
-						startTs = dayjs(
-							params.create_ts[0],
-							"YYYY-MM-DD HH:mm:ss",
-						).valueOf();
-						endTs = dayjs(params.create_ts[1], "YYYY-MM-DD HH:mm:ss").valueOf();
-					}
-
-					const filterData = dataSourceRef.current.filter((item) => {
-						let isMatch = true;
-						if (startTs && endTs) {
-							isMatch &&= item.create_ts >= startTs && item.create_ts <= endTs;
-						}
-						if (params.source) {
-							isMatch &&= item.source === params.source;
-						}
-						return isMatch;
-					});
-					const data = await Promise.all(
-						filterData
-							.slice(startIndex, startIndex + pageSize)
-							.map(async (item, index) => {
-								const file_path = await getCaptureHistoryImageAbsPath(
-									item.file_name,
+					}}
+					pagination={{
+						defaultPageSize: 20,
+						showSizeChanger: true,
+					}}
+					search={{
+						filterType: "light",
+					}}
+					metas={{
+						source: {
+							search: true,
+							dataIndex: "source",
+							valueType: "select",
+							title: <FormattedMessage id="tools.captureHistory.source" />,
+							valueEnum: {
+								[CaptureHistorySource.Copy]: (
+									<FormattedMessage id="tools.captureHistory.source.copy" />
+								),
+								[CaptureHistorySource.Save]: (
+									<FormattedMessage id="tools.captureHistory.source.save" />
+								),
+								[CaptureHistorySource.Fixed]: (
+									<FormattedMessage id="tools.captureHistory.source.fixed" />
+								),
+								[CaptureHistorySource.FullScreen]: (
+									<FormattedMessage id="tools.captureHistory.source.fullScreen" />
+								),
+								[CaptureHistorySource.ScrollScreenshotCopy]: (
+									<FormattedMessage id="tools.captureHistory.source.scrollScreenshotCopy" />
+								),
+								[CaptureHistorySource.ScrollScreenshotSave]: (
+									<FormattedMessage id="tools.captureHistory.source.scrollScreenshotSave" />
+								),
+								[CaptureHistorySource.ScrollScreenshotFixed]: (
+									<FormattedMessage id="tools.captureHistory.source.scrollScreenshotFixed" />
+								),
+							},
+						},
+						title: {
+							title: <FormattedMessage id="tools.captureHistory.date" />,
+							render: (_, item) => {
+								return (
+									<div
+										onClick={() => {
+											executeScreenshot(
+												ScreenshotType.SwitchCaptureHistory,
+												undefined,
+												item.id,
+											);
+										}}
+									>
+										{`${item.serial_number}. `}
+										<FormattedMessage id="tools.captureHistory.date" />
+										{`: ${dayjs(item.create_ts).format("YYYY-MM-DD HH:mm:ss")}`}
+									</div>
 								);
-								const capture_result_file_path = item.capture_result_file_name
-									? await getCaptureHistoryImageAbsPath(
-											item.capture_result_file_name,
-										)
-									: undefined;
-								return {
-									...item,
-									serial_number: startIndex + index + 1,
-									file_path,
-									file_url: convertFileSrc(file_path),
-									capture_result_file_path,
-									capture_result_file_url: capture_result_file_path
-										? convertFileSrc(capture_result_file_path)
-										: undefined,
-								};
-							}),
-					);
+							},
+							search: true,
+							dataIndex: "create_ts",
+							valueType: "dateTimeRange",
+						},
+						description: {
+							search: false,
+							render: (_, item) => {
+								const { selected_rect } = item;
 
-					setLoading(false);
-
-					currentFilterDataRef.current = data;
-					return {
-						data,
-						success: true,
-						pageSize: pageSize,
-						total: filterData.length,
-					};
-				}}
-				pagination={{
-					defaultPageSize: 20,
-					showSizeChanger: true,
-				}}
-				search={{
-					filterType: "light",
-				}}
-				metas={{
-					source: {
-						search: true,
-						dataIndex: "source",
-						valueType: "select",
-						title: <FormattedMessage id="tools.captureHistory.source" />,
-						valueEnum: {
-							[CaptureHistorySource.Copy]: (
-								<FormattedMessage id="tools.captureHistory.source.copy" />
-							),
-							[CaptureHistorySource.Save]: (
-								<FormattedMessage id="tools.captureHistory.source.save" />
-							),
-							[CaptureHistorySource.Fixed]: (
-								<FormattedMessage id="tools.captureHistory.source.fixed" />
-							),
-							[CaptureHistorySource.FullScreen]: (
-								<FormattedMessage id="tools.captureHistory.source.fullScreen" />
-							),
-							[CaptureHistorySource.ScrollScreenshotCopy]: (
-								<FormattedMessage id="tools.captureHistory.source.scrollScreenshotCopy" />
-							),
-							[CaptureHistorySource.ScrollScreenshotSave]: (
-								<FormattedMessage id="tools.captureHistory.source.scrollScreenshotSave" />
-							),
-							[CaptureHistorySource.ScrollScreenshotFixed]: (
-								<FormattedMessage id="tools.captureHistory.source.scrollScreenshotFixed" />
-							),
+								return (
+									<>
+										<Tag>
+											<FormattedMessage id="tools.captureHistory.position" />
+											{`: ${selected_rect.min_x} , ${selected_rect.min_y}`}
+										</Tag>
+										<Tag>
+											<FormattedMessage id="tools.captureHistory.size" />
+											{`: ${selected_rect.max_x - selected_rect.min_x} x ${selected_rect.max_y - selected_rect.min_y}`}
+										</Tag>
+										<Tag>
+											<FormattedMessage id="tools.captureHistory.drawElements" />
+											{`: ${item.excalidraw_elements?.length ?? 0}`}
+										</Tag>
+										<Tag>
+											<FormattedMessage id="tools.captureHistory.source" />
+											{`: `}
+											{getSourceDesc(item.source)}
+										</Tag>
+									</>
+								);
+							},
 						},
-					},
-					title: {
-						title: <FormattedMessage id="tools.captureHistory.date" />,
-						render: (_, item) => {
-							return (
-								<div
-									onClick={() => {
-										executeScreenshot(
-											ScreenshotType.SwitchCaptureHistory,
-											undefined,
-											item.id,
-										);
-									}}
-								>
-									{`${item.serial_number}. `}
-									<FormattedMessage id="tools.captureHistory.date" />
-									{`: ${dayjs(item.create_ts).format("YYYY-MM-DD HH:mm:ss")}`}
-								</div>
-							);
+						actions: {
+							search: false,
+							cardActionProps: "extra",
+							render: (_, item: CaptureHistoryRecordItem) => {
+								return (
+									<CaptureHistoryItemActions
+										item={item}
+										reloadList={reloadList}
+										captureHistoryRef={captureHistoryRef}
+									/>
+								);
+							},
 						},
-						search: true,
-						dataIndex: "create_ts",
-						valueType: "dateTimeRange",
-					},
-					description: {
-						search: false,
-						render: (_, item) => {
-							const { selected_rect } = item;
-
-							return (
-								<>
-									<Tag>
-										<FormattedMessage id="tools.captureHistory.position" />
-										{`: ${selected_rect.min_x} , ${selected_rect.min_y}`}
-									</Tag>
-									<Tag>
-										<FormattedMessage id="tools.captureHistory.size" />
-										{`: ${selected_rect.max_x - selected_rect.min_x} x ${selected_rect.max_y - selected_rect.min_y}`}
-									</Tag>
-									<Tag>
-										<FormattedMessage id="tools.captureHistory.drawElements" />
-										{`: ${item.excalidraw_elements?.length ?? 0}`}
-									</Tag>
-									<Tag>
-										<FormattedMessage id="tools.captureHistory.source" />
-										{`: `}
-										{getSourceDesc(item.source)}
-									</Tag>
-								</>
-							);
+						extra: {
+							search: false,
+							render: (_: unknown, item: CaptureHistoryRecordItem) => {
+								return <CaptureHistoryItemPreview item={item} />;
+							},
 						},
-					},
-					actions: {
-						search: false,
-						cardActionProps: "extra",
-						render: (_, item: CaptureHistoryRecordItem) => {
-							return (
-								<CaptureHistoryItemActions
-									item={item}
-									reloadList={reloadList}
-									captureHistoryRef={captureHistoryRef}
-								/>
-							);
-						},
-					},
-					extra: {
-						search: false,
-						render: (_: unknown, item: CaptureHistoryRecordItem) => {
-							return <CaptureHistoryItemPreview item={item} />;
-						},
-					},
-				}}
-			/>
+					}}
+				/>
+			</div>
 
 			<style jsx>{`
+                .capture-history-body {
+                    box-sizing: border-box;
+                    height: 100%;
+                    padding: 8px 20px 20px;
+                    overflow: auto;
+                }
+
                 :global(.capture-history-list .ant-pro-card-body) {
                     padding-inline: 0 !important;
                     padding-block: 0 !important;
                 }
             `}</style>
-		</>
+		</ToolPage>
 	);
 };

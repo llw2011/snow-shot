@@ -1,10 +1,10 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
-import { PluginsPage } from "@/pages/personalization/plugins/page";
+import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
 
+// Legacy route kept for links from older windows and saved state.
 export const Route = createLazyFileRoute("/_layout/personalization/plugins")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	return <PluginsPage />;
+	return <Navigate to="/w/$itemId" params={{ itemId: "plugins" }} replace />;
 }

@@ -21,6 +21,7 @@ export const DirectoryInput: React.FC<{
 
 	return (
 		<Input.Search
+			className="directory-input"
 			disabled={disabled}
 			enterButton={
 				<Button

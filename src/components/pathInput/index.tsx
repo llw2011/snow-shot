@@ -22,6 +22,7 @@ export const PathInput: React.FC<{
 
 	return (
 		<Input.Search
+			className="path-input"
 			placeholder={placeholder}
 			enterButton={
 				<Button

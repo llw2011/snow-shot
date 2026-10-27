@@ -10,6 +10,7 @@ import { plugin } from "./plugin";
 import { settings } from "./settings";
 import { tools } from "./tools";
 import { videoRecord } from "./videoRecord";
+import { workbench } from "./workbench";
 
 export const zhHans = {
 	...menu,
@@ -24,4 +25,5 @@ export const zhHans = {
 	...plugin,
 	...personalization,
 	...appearance,
+	...workbench,
 };

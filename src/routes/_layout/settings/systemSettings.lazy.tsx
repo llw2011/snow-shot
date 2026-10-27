@@ -1,10 +1,10 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
-import { SystemSettingsPage } from "@/pages/settings/systemSettings/page";
+import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
 
+// Legacy route kept for links from older windows and saved state.
 export const Route = createLazyFileRoute("/_layout/settings/systemSettings")({
-	component: SystemSettingsComponent,
+	component: RouteComponent,
 });
 
-function SystemSettingsComponent() {
-	return <SystemSettingsPage />;
+function RouteComponent() {
+	return <Navigate to="/w/$itemId" params={{ itemId: "system" }} replace />;
 }

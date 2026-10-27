@@ -15,13 +15,13 @@ import {
 import { FormattedMessage, useIntl } from "react-intl";
 import { ocrDetect, ocrDetectWithSharedBuffer } from "@/commands/ocr";
 import { createWebViewSharedBufferChannel } from "@/commands/webview";
+import { MarkdownContent } from "@/components/markdownContent";
 import { CUSTOM_MODEL_PREFIX } from "@/constants/buildFlavor";
 import {
 	PLUGIN_ID_GLM_OCR,
 	PLUGIN_ID_RAPID_OCR,
 } from "@/constants/pluginService";
 import { AntdContext } from "@/contexts/antdContext";
-import { AppContext } from "@/contexts/appContext";
 import { AppSettingsPublisher } from "@/contexts/appSettingsActionContext";
 import { usePluginServiceContext } from "@/contexts/pluginServiceContext";
 import { useTranslationRequest } from "@/core/translations";
@@ -34,7 +34,6 @@ import {
 	type CaptureBoundingBoxInfo,
 	ElementDraggingPublisher,
 } from "@/pages/draw/extra";
-import { MarkdownContent } from "@/pages/tools/chat/page";
 import { appFetch } from "@/services/tools";
 import { AppSettingsGroup, type ChatApiConfig } from "@/types/appSettings";
 import type { OcrDetectResult } from "@/types/commands/ocr";
@@ -231,7 +230,6 @@ export const OcrResult: React.FC<{
 	const intl = useIntl();
 	const { token } = theme.useToken();
 	const { message } = useContext(AntdContext);
-	const { currentTheme } = useContext(AppContext);
 
 	const containerElementRef = useRef<HTMLDivElement>(null);
 	const textContainerElementRef = useRef<HTMLDivElement>(null);
@@ -1550,7 +1548,6 @@ export const OcrResult: React.FC<{
 						<MarkdownContent
 							content={textContainerContent}
 							clipboardContent={textContainerContent}
-							darkMode={currentTheme === "dark"}
 							disableCodeCard
 						/>
 					</div>

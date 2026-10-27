@@ -1,10 +1,10 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
-import { GeneralSettingsPage } from "@/pages/settings/generalSettings/page";
+import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
 
+// Legacy route kept for links from older windows and saved state.
 export const Route = createLazyFileRoute("/_layout/settings/generalSettings")({
-	component: GeneralSettingsComponent,
+	component: RouteComponent,
 });
 
-function GeneralSettingsComponent() {
-	return <GeneralSettingsPage />;
+function RouteComponent() {
+	return <Navigate to="/w/$itemId" params={{ itemId: "general" }} replace />;
 }

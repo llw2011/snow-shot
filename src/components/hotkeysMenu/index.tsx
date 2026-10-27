@@ -5,20 +5,24 @@ import { KeyboardIcon } from "../icons";
 export const HotkeysMenu: React.FC<{
 	menu: React.ComponentProps<typeof Dropdown>["menu"];
 	className?: string;
-}> = ({ menu, className }) => {
+	/** "toolbar" sits in a header and opens downwards. */
+	variant?: "floating" | "toolbar";
+}> = ({ menu, className, variant = "floating" }) => {
+	const isToolbar = variant === "toolbar";
 	return (
-		<div className={`component-hotkeys-menu ${className}`}>
+		<div className={`component-hotkeys-menu ${className ?? ""}`}>
 			<Dropdown
 				menu={menu}
 				arrow={{
 					pointAtCenter: true,
 				}}
-				placement="topRight"
+				placement={isToolbar ? "bottomRight" : "topRight"}
 			>
 				<Button
 					className="hotkeys-menu-button"
 					icon={<KeyboardIcon />}
-					shape="circle"
+					shape={isToolbar ? "default" : "circle"}
+					type={isToolbar ? "text" : "default"}
 				/>
 			</Dropdown>
 

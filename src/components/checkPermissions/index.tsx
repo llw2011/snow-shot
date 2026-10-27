@@ -52,8 +52,8 @@ export const CheckPermissions = () => {
 					type="primary"
 					onClick={() => {
 						router.navigate({
-							to: "/settings/systemSettings",
-							hash: "macosPermissionsSettings",
+							to: "/w/$itemId",
+							params: { itemId: "system" },
 						});
 					}}
 				>

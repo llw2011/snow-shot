@@ -1,0 +1,94 @@
+/* AI chat tool inside the workbench detail pane. */
+
+.chat-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.chat-list {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.chat-welcome {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 24px 10%;
+}
+
+.chat-composer {
+    flex: none;
+    padding: 8px 16px 16px;
+}
+
+.chat-composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chat-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.chat-model-select {
+    width: 200px;
+    min-width: 0;
+}
+
+.chat-thinking.ant-btn {
+    color: var(--snow-shot-muted);
+}
+
+.chat-thinking.is-on.ant-btn {
+    color: var(--snow-shot-primary);
+}
+
+.chat-tool .ant-sender {
+    border: 1px solid var(--snow-shot-hairline);
+    border-radius: 12px;
+    background: var(--snow-shot-surface);
+    box-shadow: none;
+}
+
+.chat-tool .ant-sender:focus-within {
+    border-color: var(--snow-shot-primary);
+    box-shadow: 0 0 0 3px var(--snow-shot-primary-soft);
+}
+
+.chat-tool .ant-bubble-content-wrapper .ant-bubble-footer {
+    opacity: 0;
+    transition: opacity var(--snow-shot-motion-fast) ease;
+}
+
+.chat-tool .ant-bubble-content-wrapper:hover .ant-bubble-footer {
+    opacity: 1;
+}
+
+.chat-tool .ant-bubble-content-filled {
+    background: var(--snow-shot-surface-elevated);
+    color: var(--snow-shot-ink);
+}
+
+.chat-sessions {
+    padding: 0;
+}
+
+@container snow-detail (max-width: 560px) {
+    .chat-model-select {
+        width: 140px;
+    }
+
+    .chat-toolbar .ant-btn > span:not(.ant-btn-icon) {
+        display: none;
+    }
+}

@@ -34,6 +34,7 @@ const NoLayoutFixedContentLazyRouteImport = createFileRoute(
 )()
 const NoLayoutDrawLazyRouteImport = createFileRoute('/_noLayout/draw')()
 const LayoutAboutLazyRouteImport = createFileRoute('/_layout/about')()
+const LayoutWItemIdLazyRouteImport = createFileRoute('/_layout/w/$itemId')()
 const LayoutToolsTranslationLazyRouteImport = createFileRoute(
   '/_layout/tools/translation',
 )()
@@ -130,6 +131,13 @@ const LayoutAboutLazyRoute = LayoutAboutLazyRouteImport.update({
   path: '/about',
   getParentRoute: () => LayoutRouteRoute,
 } as any).lazy(() => import('./routes/_layout/about.lazy').then((d) => d.Route))
+const LayoutWItemIdLazyRoute = LayoutWItemIdLazyRouteImport.update({
+  id: '/w/$itemId',
+  path: '/w/$itemId',
+  getParentRoute: () => LayoutRouteRoute,
+} as any).lazy(() =>
+  import('./routes/_layout/w/$itemId.lazy').then((d) => d.Route),
+)
 const LayoutToolsTranslationLazyRoute =
   LayoutToolsTranslationLazyRouteImport.update({
     id: '/tools/translation',
@@ -229,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/tools/captureHistory': typeof LayoutToolsCaptureHistoryLazyRoute
   '/tools/chat': typeof LayoutToolsChatLazyRoute
   '/tools/translation': typeof LayoutToolsTranslationLazyRoute
+  '/w/$itemId': typeof LayoutWItemIdLazyRoute
 }
 export interface FileRoutesByTo {
   '/about': typeof LayoutAboutLazyRoute
@@ -249,6 +258,7 @@ export interface FileRoutesByTo {
   '/tools/captureHistory': typeof LayoutToolsCaptureHistoryLazyRoute
   '/tools/chat': typeof LayoutToolsChatLazyRoute
   '/tools/translation': typeof LayoutToolsTranslationLazyRoute
+  '/w/$itemId': typeof LayoutWItemIdLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -272,6 +282,7 @@ export interface FileRoutesById {
   '/_layout/tools/captureHistory': typeof LayoutToolsCaptureHistoryLazyRoute
   '/_layout/tools/chat': typeof LayoutToolsChatLazyRoute
   '/_layout/tools/translation': typeof LayoutToolsTranslationLazyRoute
+  '/_layout/w/$itemId': typeof LayoutWItemIdLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/tools/captureHistory'
     | '/tools/chat'
     | '/tools/translation'
+    | '/w/$itemId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/about'
@@ -314,6 +326,7 @@ export interface FileRouteTypes {
     | '/tools/captureHistory'
     | '/tools/chat'
     | '/tools/translation'
+    | '/w/$itemId'
   id:
     | '__root__'
     | '/_layout'
@@ -336,6 +349,7 @@ export interface FileRouteTypes {
     | '/_layout/tools/captureHistory'
     | '/_layout/tools/chat'
     | '/_layout/tools/translation'
+    | '/_layout/w/$itemId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -422,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAboutLazyRouteImport
       parentRoute: typeof LayoutRouteRoute
     }
+    '/_layout/w/$itemId': {
+      id: '/_layout/w/$itemId'
+      path: '/w/$itemId'
+      fullPath: '/w/$itemId'
+      preLoaderRoute: typeof LayoutWItemIdLazyRouteImport
+      parentRoute: typeof LayoutRouteRoute
+    }
     '/_layout/tools/translation': {
       id: '/_layout/tools/translation'
       path: '/tools/translation'
@@ -500,6 +521,7 @@ interface LayoutRouteRouteChildren {
   LayoutToolsCaptureHistoryLazyRoute: typeof LayoutToolsCaptureHistoryLazyRoute
   LayoutToolsChatLazyRoute: typeof LayoutToolsChatLazyRoute
   LayoutToolsTranslationLazyRoute: typeof LayoutToolsTranslationLazyRoute
+  LayoutWItemIdLazyRoute: typeof LayoutWItemIdLazyRoute
 }
 
 const LayoutRouteRouteChildren: LayoutRouteRouteChildren = {
@@ -516,6 +538,7 @@ const LayoutRouteRouteChildren: LayoutRouteRouteChildren = {
   LayoutToolsCaptureHistoryLazyRoute: LayoutToolsCaptureHistoryLazyRoute,
   LayoutToolsChatLazyRoute: LayoutToolsChatLazyRoute,
   LayoutToolsTranslationLazyRoute: LayoutToolsTranslationLazyRoute,
+  LayoutWItemIdLazyRoute: LayoutWItemIdLazyRoute,
 }
 
 const LayoutRouteRouteWithChildren = LayoutRouteRoute._addFileChildren(

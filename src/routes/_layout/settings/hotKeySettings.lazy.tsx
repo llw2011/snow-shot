@@ -1,10 +1,10 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
-import { HotKeySettingsPage } from "@/pages/settings/hotKeySettings/page";
+import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
 
+// Legacy route kept for links from older windows and saved state.
 export const Route = createLazyFileRoute("/_layout/settings/hotKeySettings")({
-	component: HotKeySettingsComponent,
+	component: RouteComponent,
 });
 
-function HotKeySettingsComponent() {
-	return <HotKeySettingsPage />;
+function RouteComponent() {
+	return <Navigate to="/w/$itemId" params={{ itemId: "shortcuts" }} replace />;
 }

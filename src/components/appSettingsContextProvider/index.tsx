@@ -449,7 +449,6 @@ const AppSettingsContextProviderCore: React.FC<{
 				appContextValue.currentTheme === AppSettingsTheme.Dark
 					? theme.darkAlgorithm
 					: theme.defaultAlgorithm,
-				theme.compactAlgorithm,
 				preserveReadableThemeColors,
 			],
 			token: {
@@ -466,14 +465,17 @@ const AppSettingsContextProviderCore: React.FC<{
 				colorPrimaryBorder: colorWithAlpha(currentPrimaryColor, 0.42),
 				colorLink: currentPrimaryColor,
 				borderRadius: APP_THEME_RADIUS,
-				controlHeight: 36,
+				borderRadiusSM: APP_THEME_RADIUS - 2,
+				borderRadiusLG: APP_THEME_RADIUS + 2,
+				controlHeight: 32,
 				fontFamily: "var(--snow-shot-font-ui)",
 				fontSize: 14,
 				fontSizeSM: 13,
-				fontSizeLG: 17,
+				fontSizeLG: 16,
 				lineHeight: 1.5,
 				motionDurationFast: "0.12s",
 				motionDurationMid: "0.18s",
+				wireframe: false,
 			},
 			components: {
 				App: {
@@ -489,7 +491,10 @@ const AppSettingsContextProviderCore: React.FC<{
 					dangerColor: currentThemeRuntime.palette.canvas,
 					contentFontSize: 14,
 					contentLineHeight: 1.5,
-					paddingInline: 16,
+					paddingInline: 14,
+					primaryShadow: "none",
+					defaultShadow: "none",
+					dangerShadow: "none",
 				},
 				Menu: {
 					itemColor: currentThemeRuntime.palette.body,
@@ -500,7 +505,17 @@ const AppSettingsContextProviderCore: React.FC<{
 					popupBg: currentThemeRuntime.palette.surfaceElevated,
 				},
 				Switch: {
-					handleBg: currentThemeRuntime.palette.canvas,
+					handleBg: "#FFFFFF",
+				},
+				Input: {
+					activeShadow: `0 0 0 3px ${colorWithAlpha(currentPrimaryColor, 0.14)}`,
+				},
+				Select: {
+					activeOutlineColor: colorWithAlpha(currentPrimaryColor, 0.14),
+				},
+				Modal: {
+					contentBg: currentThemeRuntime.palette.surface,
+					headerBg: currentThemeRuntime.palette.surface,
 				},
 				Tabs: {
 					itemActiveColor: currentThemeRuntime.palette.ink,

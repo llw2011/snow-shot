@@ -1,52 +1,43 @@
+/* Global base. Component and domain styles live next to their owners:
+   - src/components/workbench/workbench.css   shell, navigator, detail pane
+   - src/components/settingsGroup/settingsGroup.css   settings groups and rows */
+
 :root {
-    --background: #0a0a0a;
     --snow-shot-window-radius: 8px;
-    --snow-shot-content-max-width: 1180px;
-    --snow-shot-settings-max-width: 1120px;
     --snow-shot-motion-fast: 0.12s;
     --snow-shot-motion-mid: 0.18s;
     --snow-shot-font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
     --snow-shot-font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
-    /* Startup values keep the first paint neutral until the active mode loads. */
-    --snow-shot-canvas: #0a0a0a;
-    --snow-shot-surface: #111111;
-    --snow-shot-surface-elevated: #191919;
-    --snow-shot-surface-card: #202020;
-    --snow-shot-panel-bg: #111111;
-    --snow-shot-sider-bg: #0a0a0a;
-    --snow-shot-header-bg: #0a0a0a;
-    --snow-shot-hairline: #353535;
-    --snow-shot-hairline-soft: rgba(255, 255, 255, 0.12);
-    --snow-shot-hairline-strong: rgba(255, 255, 255, 0.54);
-    --snow-shot-ink: #f4f4f2;
-    --snow-shot-body: #d1d1cf;
-    --snow-shot-muted: #969694;
-    --snow-shot-ash: #6e6e6c;
-    --snow-shot-blue: #d1d1cf;
-    --snow-shot-red: #d1d1cf;
-    --snow-shot-green: #d1d1cf;
-    --snow-shot-yellow: #d1d1cf;
-    --snow-shot-on-error: #101010;
-    --snow-shot-primary: #f4f4f2;
-    --snow-shot-primary-soft: rgba(255, 255, 255, 0.12);
-    --snow-shot-primary-strong: rgba(255, 255, 255, 0.54);
-    --snow-shot-atmosphere: none;
-    --snow-shot-pattern: none;
-    --snow-shot-pattern-size: auto;
+    /* Startup values match the default dark mode until settings load. */
+    --snow-shot-canvas: #141312;
+    --snow-shot-surface: #1b1a19;
+    --snow-shot-surface-elevated: #232120;
+    --snow-shot-surface-card: #262423;
+    --snow-shot-panel-bg: #1b1a19;
+    --snow-shot-sider-bg: #141312;
+    --snow-shot-header-bg: #141312;
+    --snow-shot-hairline: #3a3734;
+    --snow-shot-hairline-soft: rgba(255, 247, 240, 0.08);
+    --snow-shot-hairline-strong: rgba(255, 247, 240, 0.18);
+    --snow-shot-ink: #f5f4f2;
+    --snow-shot-body: #cfcbc6;
+    --snow-shot-muted: #a39e98;
+    --snow-shot-ash: #7d7771;
+    --snow-shot-blue: #6ca8ff;
+    --snow-shot-red: #f87171;
+    --snow-shot-green: #4ade80;
+    --snow-shot-yellow: #facc15;
+    --snow-shot-on-error: #141312;
+    --snow-shot-primary: #ff7a3d;
+    --snow-shot-primary-soft: rgba(255, 122, 61, 0.13);
+    --snow-shot-primary-strong: rgba(255, 122, 61, 0.38);
     --snow-shot-shadow: none;
     --snow-shot-card-shadow: none;
-    --snow-shot-glow: none;
-    --snow-shot-backdrop-filter: none;
-    --snow-shot-logo-bg: #202020;
-    --snow-shot-keycap-bg: #171717;
-    --snow-shot-command-group-bg: #111111;
-    --snow-shot-accent-alt-one: #d1d1cf;
-    --snow-shot-accent-alt-two: #a4a4a2;
-    --snow-shot-accent-alt-three: #767674;
-    --snow-shot-radius: 6px;
-    --snow-shot-radius-sm: 4px;
-    --snow-shot-radius-lg: 8px;
+    --snow-shot-keycap-bg: #232120;
+    --snow-shot-radius: 8px;
+    --snow-shot-radius-sm: 6px;
+    --snow-shot-radius-lg: 12px;
 }
 
 html,
@@ -70,6 +61,7 @@ body {
     font-feature-settings: "calt", "kern", "liga";
     font-kerning: normal;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
 }
 
 body.app-light,
@@ -137,80 +129,82 @@ body.app-dark .markdown-body {
 }
 
 .app-tauri-drag-region {
-    cursor: grab;
-}
-
-.app-tauri-drag-region:active {
-    cursor: grabbing;
+    cursor: default;
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Track {
     --scrollbar-width: 6px;
     width: var(--scrollbar-width) !important;
     height: 100% !important;
-    border-radius: 0 !important;
+    border-radius: 3px !important;
     background: transparent !important;
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Thumb {
     right: 0 !important;
     width: var(--scrollbar-width) !important;
-    border-radius: 0 !important;
-    background: color-mix(in srgb, var(--snow-shot-muted) 58%, transparent) !important;
+    border-radius: 3px !important;
+    background: color-mix(in srgb, var(--snow-shot-muted) 40%, transparent) !important;
 }
 
 .ScrollbarsCustom .ScrollbarsCustom-Track:hover .ScrollbarsCustom-Thumb {
-    background: var(--snow-shot-body) !important;
+    background: color-mix(in srgb, var(--snow-shot-muted) 70%, transparent) !important;
 }
 
-/* GitHub Markdown is rendered inside the same monochrome workspace. */
+/* Native scroll containers in the main window use the same slim thumb. */
+.snow-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--snow-shot-muted) 40%, transparent) transparent;
+}
+
+/* GitHub Markdown is rendered inside the workbench surfaces. */
 .markdown-body {
     --focus-outlineColor: var(--snow-shot-primary);
     --fgColor-default: var(--snow-shot-body);
     --fgColor-muted: var(--snow-shot-muted);
     --fgColor-accent: var(--snow-shot-primary);
-    --fgColor-success: var(--snow-shot-body);
-    --fgColor-attention: var(--snow-shot-body);
-    --fgColor-danger: var(--snow-shot-body);
+    --fgColor-success: var(--snow-shot-green);
+    --fgColor-attention: var(--snow-shot-yellow);
+    --fgColor-danger: var(--snow-shot-red);
     --fgColor-done: var(--snow-shot-primary);
     --bgColor-default: transparent;
     --bgColor-muted: var(--snow-shot-surface-elevated);
-    --bgColor-neutral-muted: color-mix(in srgb, var(--snow-shot-ink) 9%, transparent);
-    --bgColor-attention-muted: color-mix(in srgb, var(--snow-shot-ink) 9%, transparent);
+    --bgColor-neutral-muted: color-mix(in srgb, var(--snow-shot-ink) 8%, transparent);
+    --bgColor-attention-muted: color-mix(in srgb, var(--snow-shot-yellow) 12%, transparent);
     --borderColor-default: var(--snow-shot-hairline);
     --borderColor-muted: var(--snow-shot-hairline-soft);
     --borderColor-neutral-muted: var(--snow-shot-hairline-soft);
     --borderColor-accent-emphasis: var(--snow-shot-primary);
-    --borderColor-success-emphasis: var(--snow-shot-body);
-    --borderColor-attention-emphasis: var(--snow-shot-body);
-    --borderColor-danger-emphasis: var(--snow-shot-body);
+    --borderColor-success-emphasis: var(--snow-shot-green);
+    --borderColor-attention-emphasis: var(--snow-shot-yellow);
+    --borderColor-danger-emphasis: var(--snow-shot-red);
     --borderColor-done-emphasis: var(--snow-shot-primary);
     --color-prettylights-syntax-comment: var(--snow-shot-muted);
-    --color-prettylights-syntax-constant: var(--snow-shot-body);
-    --color-prettylights-syntax-constant-other-reference-link: var(--snow-shot-body);
+    --color-prettylights-syntax-constant: var(--snow-shot-blue);
+    --color-prettylights-syntax-constant-other-reference-link: var(--snow-shot-blue);
     --color-prettylights-syntax-entity: var(--snow-shot-primary);
     --color-prettylights-syntax-storage-modifier-import: var(--snow-shot-body);
-    --color-prettylights-syntax-entity-tag: var(--snow-shot-body);
-    --color-prettylights-syntax-keyword: var(--snow-shot-ink);
-    --color-prettylights-syntax-string: var(--snow-shot-body);
-    --color-prettylights-syntax-variable: var(--snow-shot-body);
-    --color-prettylights-syntax-brackethighlighter-unmatched: var(--snow-shot-ink);
+    --color-prettylights-syntax-entity-tag: var(--snow-shot-green);
+    --color-prettylights-syntax-keyword: var(--snow-shot-red);
+    --color-prettylights-syntax-string: var(--snow-shot-blue);
+    --color-prettylights-syntax-variable: var(--snow-shot-primary);
+    --color-prettylights-syntax-brackethighlighter-unmatched: var(--snow-shot-red);
     --color-prettylights-syntax-brackethighlighter-angle: var(--snow-shot-muted);
     --color-prettylights-syntax-invalid-illegal-text: var(--snow-shot-ink);
-    --color-prettylights-syntax-invalid-illegal-bg: color-mix(in srgb, var(--snow-shot-ink) 16%, transparent);
+    --color-prettylights-syntax-invalid-illegal-bg: color-mix(in srgb, var(--snow-shot-red) 20%, transparent);
     --color-prettylights-syntax-carriage-return-text: var(--snow-shot-ink);
-    --color-prettylights-syntax-carriage-return-bg: color-mix(in srgb, var(--snow-shot-ink) 16%, transparent);
-    --color-prettylights-syntax-string-regexp: var(--snow-shot-body);
-    --color-prettylights-syntax-markup-list: var(--snow-shot-body);
+    --color-prettylights-syntax-carriage-return-bg: color-mix(in srgb, var(--snow-shot-red) 20%, transparent);
+    --color-prettylights-syntax-string-regexp: var(--snow-shot-green);
+    --color-prettylights-syntax-markup-list: var(--snow-shot-yellow);
     --color-prettylights-syntax-markup-heading: var(--snow-shot-primary);
     --color-prettylights-syntax-markup-italic: var(--snow-shot-body);
     --color-prettylights-syntax-markup-bold: var(--snow-shot-ink);
-    --color-prettylights-syntax-markup-deleted-text: var(--snow-shot-body);
-    --color-prettylights-syntax-markup-deleted-bg: color-mix(in srgb, var(--snow-shot-ink) 12%, transparent);
-    --color-prettylights-syntax-markup-inserted-text: var(--snow-shot-body);
-    --color-prettylights-syntax-markup-inserted-bg: color-mix(in srgb, var(--snow-shot-ink) 12%, transparent);
-    --color-prettylights-syntax-markup-changed-text: var(--snow-shot-body);
-    --color-prettylights-syntax-markup-changed-bg: color-mix(in srgb, var(--snow-shot-ink) 12%, transparent);
+    --color-prettylights-syntax-markup-deleted-text: var(--snow-shot-red);
+    --color-prettylights-syntax-markup-deleted-bg: color-mix(in srgb, var(--snow-shot-red) 12%, transparent);
+    --color-prettylights-syntax-markup-inserted-text: var(--snow-shot-green);
+    --color-prettylights-syntax-markup-inserted-bg: color-mix(in srgb, var(--snow-shot-green) 12%, transparent);
+    --color-prettylights-syntax-markup-changed-text: var(--snow-shot-yellow);
+    --color-prettylights-syntax-markup-changed-bg: color-mix(in srgb, var(--snow-shot-yellow) 12%, transparent);
     --color-prettylights-syntax-markup-ignored-text: var(--snow-shot-muted);
     --color-prettylights-syntax-markup-ignored-bg: color-mix(in srgb, var(--snow-shot-ink) 10%, transparent);
     --color-prettylights-syntax-meta-diff-range: var(--snow-shot-primary);
@@ -224,376 +218,68 @@ body.app-dark .markdown-body {
     font-family: var(--snow-shot-font-ui);
 }
 
-.ant-app .menu-layout-wrap {
-    height: 100%;
-    background: var(--snow-shot-canvas);
-    font-size: 14px;
+/* Keycaps: one shape for every shortcut, in lists, details, and dialogs. */
+.snow-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border: 1px solid var(--snow-shot-hairline);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--snow-shot-surface);
+    color: var(--snow-shot-ink);
+    font: 12px/1 var(--snow-shot-font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-.ant-app .menu-layout-wrap .ant-layout {
+.snow-kbd[data-state="empty"] {
+    border-style: dashed;
+    border-bottom-width: 1px;
     background: transparent;
-}
-
-.ant-app .menu-layout-wrap .ant-btn {
-    font-size: 14px;
-}
-
-.ant-app .menu-layout-wrap .ant-btn:not(.ant-btn-primary) {
-    border-color: var(--snow-shot-hairline);
-}
-
-.ant-app .menu-layout-wrap .ant-btn-primary {
-    box-shadow: none;
-}
-
-.ant-app .menu-layout-wrap .ant-input,
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper,
-.ant-app .menu-layout-wrap .ant-input-number,
-.ant-app .menu-layout-wrap .ant-select-selector,
-.ant-app .menu-layout-wrap .ant-picker,
-.ant-app .menu-layout-wrap .ant-color-picker-trigger {
-    border-color: var(--snow-shot-hairline) !important;
-    background: var(--snow-shot-surface) !important;
-    color: var(--snow-shot-ink) !important;
-}
-
-/* Ant input composites contain a second native input. Keep it transparent so
-   browser autofill and the inner element never punch a light rectangle into a
-   dark control. */
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper .ant-input,
-.ant-app .menu-layout-wrap .ant-input-number-input,
-.ant-app .menu-layout-wrap .ant-picker-input > input,
-.ant-app .menu-layout-wrap .ant-select-selection-search-input {
-    background: transparent !important;
-    color: var(--snow-shot-ink) !important;
-}
-
-/* The password/search input lives inside an affix wrapper. Its focus belongs
-   to that wrapper; styling both layers would recreate the double focus ring. */
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper .ant-input:focus {
-    border-color: transparent !important;
-    box-shadow: none !important;
-}
-
-.ant-app .menu-layout-wrap :is(.ant-input, .ant-input-number-input, .ant-picker-input > input)::placeholder {
-    color: var(--snow-shot-muted) !important;
-    opacity: 1;
-}
-
-.ant-app .menu-layout-wrap input:-webkit-autofill,
-.ant-app .menu-layout-wrap input:-webkit-autofill:hover,
-.ant-app .menu-layout-wrap input:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--snow-shot-ink) !important;
-    caret-color: var(--snow-shot-ink);
-    box-shadow: 0 0 0 1000px var(--snow-shot-surface) inset !important;
-}
-
-/* Use one quiet outer focus treatment for Ant controls. The browser outline
-   previously landed inside the control as a second, bright white rectangle. */
-.ant-app .menu-layout-wrap .ant-input:focus,
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper:focus,
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper:focus-within,
-.ant-app .menu-layout-wrap .ant-input-affix-wrapper-focused,
-.ant-app .menu-layout-wrap .ant-input-number-focused,
-.ant-app .menu-layout-wrap .ant-picker:focus,
-.ant-app .menu-layout-wrap .ant-picker:focus-within,
-.ant-app .menu-layout-wrap .ant-picker-focused,
-.ant-app .menu-layout-wrap .ant-select-focused .ant-select-selector,
-.ant-app .menu-layout-wrap .ant-color-picker-trigger-active {
-    border-color: var(--snow-shot-primary-strong) !important;
-    box-shadow: 0 0 0 1px var(--snow-shot-primary-soft) !important;
-    outline: 0;
-}
-
-.ant-app .menu-layout-wrap .ant-card,
-.ant-app .menu-layout-wrap .ant-pro-card {
-    border-color: var(--snow-shot-hairline-soft);
-    background: var(--snow-shot-surface) !important;
-    box-shadow: none;
-}
-
-.ant-app .menu-layout-wrap .ant-card-head,
-.ant-app .menu-layout-wrap .ant-pro-card-header {
-    border-bottom-color: var(--snow-shot-hairline-soft);
-    background: transparent !important;
-}
-
-.ant-modal .ant-modal-content,
-.ant-drawer .ant-drawer-content,
-.ant-popover .ant-popover-inner,
-.ant-dropdown .ant-dropdown-menu,
-.ant-menu-submenu-popup .ant-menu,
-.ant-select-dropdown,
-.ant-cascader-dropdown .ant-cascader-menus,
-.ant-mentions-dropdown,
-.ant-picker-dropdown .ant-picker-panel-container,
-.ant-color-picker-panel,
-.ant-tooltip .ant-tooltip-inner,
-.ant-message .ant-message-notice-content,
-.app-global-message-notice-content,
-.ant-notification .ant-notification-notice {
-    border: 1px solid var(--snow-shot-hairline) !important;
-    border-radius: var(--snow-shot-radius) !important;
-    background: var(--snow-shot-surface-elevated) !important;
-    color: var(--snow-shot-body) !important;
-    box-shadow: none !important;
-}
-
-.ant-drawer .ant-drawer-header,
-.ant-drawer .ant-drawer-footer,
-.ant-dropdown-menu-item-selected,
-.ant-dropdown-menu-submenu-title-selected,
-.ant-select-item-option-selected {
-    border-color: var(--snow-shot-hairline-soft) !important;
-    background: transparent !important;
-}
-
-.ant-popover,
-.ant-tooltip {
-    --antd-arrow-background-color: var(--snow-shot-surface-elevated);
-}
-
-.ant-dropdown-menu-item,
-.ant-dropdown-menu-submenu-title,
-.ant-select-item,
-.ant-cascader-menu-item {
-    color: var(--snow-shot-body) !important;
-}
-
-.ant-dropdown-menu-item:hover,
-.ant-dropdown-menu-submenu-title:hover,
-.ant-select-item-option-active,
-.ant-cascader-menu-item:hover {
-    background: var(--snow-shot-surface-card) !important;
-    color: var(--snow-shot-ink) !important;
-}
-
-.ant-dropdown-menu-item-selected,
-.ant-dropdown-menu-submenu-title-selected,
-.ant-select-item-option-selected,
-.ant-cascader-menu-item-active {
-    background: var(--snow-shot-primary-soft) !important;
-    color: var(--snow-shot-ink) !important;
-}
-
-.ant-modal .ant-modal-header {
-    border-bottom: 1px solid var(--snow-shot-hairline-soft);
-    background: transparent !important;
-}
-
-.snow-command-button.ant-btn {
-    color: var(--snow-shot-ink) !important;
-}
-
-.snow-command-button .ant-btn-icon {
     color: var(--snow-shot-muted);
+    font-family: var(--snow-shot-font-ui);
+}
+
+.snow-kbd[data-state="warning"] {
+    border-color: color-mix(in srgb, var(--snow-shot-yellow) 70%, transparent);
+    color: var(--snow-shot-yellow);
+}
+
+.snow-kbd[data-state="error"] {
+    border-color: color-mix(in srgb, var(--snow-shot-red) 70%, transparent);
+    color: var(--snow-shot-red);
 }
 
 .snow-keycap-button.ant-btn {
     height: 30px;
-    min-width: 78px;
-    padding-inline: 9px;
-    border-color: var(--snow-shot-hairline-strong) !important;
-    border-radius: var(--snow-shot-radius-sm) !important;
-    background: var(--snow-shot-keycap-bg) !important;
-    color: var(--snow-shot-body) !important;
-    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--snow-shot-canvas) 56%, transparent) !important;
+    min-width: 72px;
+    padding-inline: 10px;
+    border-color: var(--snow-shot-hairline);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--snow-shot-surface);
+    color: var(--snow-shot-ink);
+    box-shadow: none;
     font-family: var(--snow-shot-font-mono);
-    font-feature-settings: "tnum" 1;
     font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
 
-.snow-keycap-button.ant-btn-dangerous,
-.snow-keycap-button[data-empty="true"] {
-    border-color: var(--snow-shot-hairline) !important;
-    color: var(--snow-shot-muted) !important;
-}
-
-.components_group-title {
+.snow-keycap-button.ant-btn:hover {
+    border-color: var(--snow-shot-primary-strong) !important;
     color: var(--snow-shot-ink) !important;
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0 !important;
 }
 
-/* A few legacy field icons include baked-in colors. Keep their meaning while
-   reducing every in-product icon to the same monochrome hierarchy. */
-.ant-app .menu-layout-wrap .icon-label-icon {
+.snow-keycap-button[data-empty="true"] {
+    border-style: dashed;
+    border-bottom-width: 1px;
     color: var(--snow-shot-muted);
-    filter: grayscale(1);
-}
-
-.settings-wrap {
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: min(100%, var(--snow-shot-settings-max-width));
-    min-height: 100%;
-    margin: 0 auto;
-    padding: 0 0 48px;
-}
-
-.settings-wrap > .ant-divider {
-    display: none;
-}
-
-.settings-wrap > .components_group-title {
-    margin: 28px 0 8px !important;
-}
-
-.settings-section-body .ant-form-item {
-    margin-bottom: 18px;
-}
-
-.settings-section-body .ant-form-item-label > label,
-.settings-section-body .ant-pro-form-item-label > label {
-    max-width: 100%;
-    overflow: hidden;
-    color: var(--snow-shot-body);
-    font-weight: 500;
-    line-height: 21px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.settings-section-body .ant-form-item-label {
-    min-width: 0;
-    overflow: hidden;
-}
-
-.settings-section-body .ant-form-item-extra,
-.settings-section-body .ant-form-item-explain {
-    max-width: 68ch;
-    padding-top: 4px;
-    color: var(--snow-shot-muted);
-    font-size: 13px;
-    line-height: 20px;
-}
-
-.settings-section-body .ant-divider {
-    margin: 20px 0;
-}
-
-/* The active settings board uses one stable label/control column. This avoids
-   squeezing long CJK labels beside controls at intermediate window widths. */
-@container snow-content (max-width: 880px) {
-    .settings-section-body .ant-row:not(.ant-form-item-row) > .ant-col {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-    }
-}
-
-.settings-section-body .ant-form-horizontal .ant-form-item-row {
-    flex-direction: column;
-    align-items: stretch;
-    row-gap: 4px;
-}
-
-.settings-section-body .ant-form-horizontal .ant-form-item-label,
-.settings-section-body .ant-form-horizontal .ant-form-item-control {
-    flex: 0 0 100% !important;
-    max-width: 100% !important;
-    min-width: 0;
-}
-
-.settings-section-body .ant-form-horizontal .ant-form-item-label {
-    padding: 0 0 2px !important;
-    text-align: left !important;
-}
-
-.settings-section-body .ant-form-horizontal .ant-form-item-label > label,
-.settings-section-body .ant-form-horizontal .ant-pro-form-item-label > label {
-    justify-content: flex-start;
-}
-
-.settings-section-body .hotkey-matrix {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    overflow: hidden;
-    border: 1px solid var(--snow-shot-hairline);
-    border-radius: var(--snow-shot-radius);
-    background: var(--snow-shot-surface);
-}
-
-.settings-section-body .hotkey-matrix-item {
-    min-width: 0;
-    border-top: 1px solid var(--snow-shot-hairline-soft);
-}
-
-.settings-section-body .hotkey-matrix-item:nth-child(-n + 2) {
-    border-top: 0;
-}
-
-.settings-section-body .hotkey-matrix-item:nth-child(even) {
-    border-inline-start: 1px solid var(--snow-shot-hairline-soft);
-}
-
-.settings-section-body .hotkey-matrix-form-item {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 50px;
-    margin-bottom: 0 !important;
-    padding: 8px 10px 8px 12px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    transition: background-color var(--snow-shot-motion-fast) ease;
-}
-
-.settings-section-body .hotkey-matrix-form-item:hover,
-.settings-section-body .hotkey-matrix-form-item:focus-within {
-    background: var(--snow-shot-primary-soft);
-}
-
-.settings-section-body .hotkey-matrix-form-item .ant-form-item-row {
-    display: flex;
-    flex-direction: row !important;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
-    column-gap: 12px;
-}
-
-.settings-section-body .hotkey-matrix-form-item .ant-form-item-label {
-    flex: 1 1 auto !important;
-    max-width: none !important;
-    min-width: 0;
-    padding: 0 !important;
-    overflow: hidden;
-    text-align: left;
-}
-
-.settings-section-body .hotkey-matrix-form-item .ant-form-item-control {
-    flex: 0 0 auto !important;
-    max-width: none !important;
-    min-width: 0;
-}
-
-.settings-section-body .hotkey-matrix-form-item .ant-form-item-control-input {
-    min-height: 28px;
-}
-
-.settings-section-body .hotkey-matrix-form-item .snow-keycap-button.ant-btn {
-    min-height: 32px;
-    height: 32px;
-}
-
-@container snow-content (max-width: 760px) {
-    .settings-section-body .hotkey-matrix {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .settings-section-body .hotkey-matrix-item:nth-child(even) {
-        border-inline-start: 0;
-    }
-
-    .settings-section-body .hotkey-matrix-item:nth-child(2) {
-        border-top: 1px solid var(--snow-shot-hairline-soft);
-    }
+    font-family: var(--snow-shot-font-ui);
 }
 
 @media (prefers-reduced-motion: reduce) {
