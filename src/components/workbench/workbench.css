@@ -479,15 +479,28 @@
     color: var(--snow-shot-body);
     font-size: 13px;
     text-decoration: none;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease;
 }
 
+/* Same hover language as antd default buttons. */
 .wb-related a:hover {
-    border-color: var(--snow-shot-primary-strong);
-    color: var(--snow-shot-ink);
+    border-color: var(--snow-shot-primary);
+    color: var(--snow-shot-primary);
+}
+
+.wb-related a:focus-visible {
+    outline: 2px solid var(--snow-shot-primary);
+    outline-offset: 1px;
 }
 
 .wb-related a .wb-icon {
     color: var(--snow-shot-muted);
+}
+
+.wb-related a:hover .wb-icon {
+    color: inherit;
 }
 
 /* Shortcut editor (KeyButton) in rows and the action card. */
@@ -559,7 +572,8 @@
     .wb-nav,
     .wb-search,
     .wb-nav-item,
-    .wb-icon-button {
+    .wb-icon-button,
+    .wb-related a {
         transition: none;
     }
 }
