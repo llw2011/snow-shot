@@ -67,7 +67,7 @@
 					"url": "http://localhost:*"
 				},
 				{
-					"url": "http://[::1]:*"
+					"url": "http://[\\:\\:1]:*"
 				}
 			]
 		}

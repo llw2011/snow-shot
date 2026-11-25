@@ -193,6 +193,8 @@ export const enWorkbench = {
 		"Model list unavailable (HTTP {code}); you can still test it",
 	"workbench.models.status.auth":
 		"Authentication failed (HTTP {code}); check the API key",
+	"workbench.models.status.forbidden":
+		"Access denied (HTTP {code}); check the service's allowed origins or access permissions",
 	"workbench.models.status.invalid":
 		"The service returned an error (HTTP {code})",
 	"workbench.models.status.unreachable":

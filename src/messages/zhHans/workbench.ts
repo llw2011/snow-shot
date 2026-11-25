@@ -184,6 +184,8 @@ export const workbench = {
 	"workbench.models.status.notFound":
 		"无法读取模型列表（HTTP {code}），仍可直接测试",
 	"workbench.models.status.auth": "认证失败（HTTP {code}），请检查 API Key",
+	"workbench.models.status.forbidden":
+		"服务拒绝访问（HTTP {code}），请检查服务的来源限制或访问权限",
 	"workbench.models.status.invalid": "服务返回错误（HTTP {code}）",
 	"workbench.models.status.unreachable": "无法连接，请确认服务正在运行",
 	"workbench.models.test.chat": "测试对话",

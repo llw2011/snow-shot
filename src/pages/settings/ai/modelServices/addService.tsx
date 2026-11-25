@@ -12,10 +12,9 @@ import {
 	PROVIDER_LABELS,
 	type ServiceDetection,
 	scanLocalServices,
-	suggestServiceName,
 } from "./detection";
+import { buildServiceDraft, type InputDetection } from "./serviceDraft";
 import {
-	getModelServiceKey,
 	type ModelService,
 	type ModelServiceUses,
 	normalizeServiceUri,
@@ -80,7 +79,7 @@ export const AddService: React.FC<{
 	const intl = useIntl();
 	const [uriInput, setUriInput] = useState("");
 	const [keyInput, setKeyInput] = useState("");
-	const [detection, setDetection] = useState<ServiceDetection>();
+	const [inputDetection, setInputDetection] = useState<InputDetection>();
 	const [detecting, setDetecting] = useState(false);
 	const [selectedModel, setSelectedModel] = useState<string>();
 	const [uses, setUses] = useState<ModelServiceUses>({
@@ -95,24 +94,28 @@ export const AddService: React.FC<{
 	// Detect while typing, but only for the latest input.
 	const requestRef = useRef(0);
 	useEffect(() => {
+		const requestId = ++requestRef.current;
 		const normalized = normalizeServiceInput(uriInput);
+		setInputDetection(undefined);
+		setSelectedModel(undefined);
 		if (!normalized) {
-			setDetection(undefined);
 			setDetecting(false);
 			return;
 		}
 
-		const requestId = ++requestRef.current;
 		const abortController = new AbortController();
 		setDetecting(true);
 		const timer = setTimeout(() => {
 			detectService(uriInput, keyInput, {
 				signal: abortController.signal,
 			}).then((result) => {
-				if (requestId !== requestRef.current) {
+				if (
+					abortController.signal.aborted ||
+					requestId !== requestRef.current
+				) {
 					return;
 				}
-				setDetection(result);
+				setInputDetection({ uriInput, keyInput, result });
 				setDetecting(false);
 				const firstModel = result?.models.find((model) =>
 					isChatModel(model.id),
@@ -127,39 +130,28 @@ export const AddService: React.FC<{
 		}, 600);
 
 		return () => {
+			requestRef.current += 1;
 			clearTimeout(timer);
 			abortController.abort();
 		};
 	}, [keyInput, uriInput]);
 
-	const model = detection?.models.find((item) => item.id === selectedModel);
 	const normalized = normalizeServiceInput(uriInput);
+	// Match during render as well: input can change before its effect runs.
+	const { detection, service: draftService } = useMemo(
+		() =>
+			buildServiceDraft(
+				uriInput,
+				keyInput,
+				inputDetection,
+				selectedModel,
+				uses,
+			),
+		[uriInput, keyInput, inputDetection, selectedModel, uses],
+	);
 	const isDeepL = detection?.provider === "deepl";
 
-	const draftService = useMemo((): ModelService | undefined => {
-		if (!normalized) {
-			return undefined;
-		}
-		const provider = detection?.provider ?? normalized.provider;
-		const service: ModelService = {
-			key: "",
-			kind: provider === "deepl" ? "deepl" : "openai",
-			name: suggestServiceName(provider, selectedModel ?? ""),
-			apiUri: detection?.apiUri ?? normalized.apiUri,
-			apiKey: keyInput.trim(),
-			apiModel: provider === "deepl" ? "" : (selectedModel ?? ""),
-			supportThinking: !!model?.thinking,
-			supportVision: !!model?.vision,
-			deeplPreferQualityOptimized: false,
-			uses,
-		};
-		service.key = getModelServiceKey(service);
-		return service;
-	}, [detection, keyInput, model, normalized, selectedModel, uses]);
-
-	const canAdd =
-		!!draftService &&
-		(draftService.kind === "deepl" || !!draftService.apiModel);
+	const canAdd = !!draftService && !detecting;
 	const alreadyAdded =
 		!!draftService &&
 		services.some((service) => service.key === draftService.key);
@@ -176,7 +168,7 @@ export const AddService: React.FC<{
 	const reset = () => {
 		setUriInput("");
 		setKeyInput("");
-		setDetection(undefined);
+		setInputDetection(undefined);
 		setSelectedModel(undefined);
 	};
 

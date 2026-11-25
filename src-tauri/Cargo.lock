@@ -6245,6 +6245,7 @@ version = "0.7.17-beta"
 dependencies = [
  "base64 0.22.1",
  "log",
+ "regex",
  "serde",
  "serde_json",
  "snow-shot-app-os",
@@ -6281,6 +6282,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "tokio",
  "tray-icon",
+ "urlpattern",
  "windows 0.61.3",
 ]
 

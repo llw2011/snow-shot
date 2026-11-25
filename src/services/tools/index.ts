@@ -3,6 +3,7 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { BUILD_SERVICE_BASE_URL } from "@/constants/buildFlavor";
 import { appError } from "@/utils/log";
+import { modelFetch } from "./modelFetch";
 
 // biome-ignore lint/suspicious/noExplicitAny: 方便实现
 const getUrl = (url: string, params?: Record<string, any>) => {
@@ -140,22 +141,26 @@ export const serviceBaseFetch = async (
 
 export const appFetch = (async (...params: Parameters<typeof fetch>) => {
 	try {
-		const response = await fetch(params[0], {
+		const headers = new Headers(
+			params[1]?.headers ??
+				(params[0] instanceof Request ? params[0].headers : undefined),
+		);
+		if (!headers.has("Accept-Language")) {
+			headers.set("Accept-Language", window.__APP_ACCEPT_LANGUAGE__);
+		}
+		const response = await modelFetch(params[0], {
 			...params[1],
-			headers: {
-				"Accept-Language": window.__APP_ACCEPT_LANGUAGE__,
-				...params[1]?.headers,
-			},
+			headers,
 		});
 
 		if (response.status !== 200) {
-			const data = (await response.json()) as {
-				error: {
-					message: string;
-				};
-			};
+			// Preserve the body for SDK error handling, including empty 403s.
+			const data = await response
+				.clone()
+				.json()
+				.catch(() => undefined);
 
-			if ("error" in data && typeof data.error === "object") {
+			if (data?.error && typeof data.error.message === "string") {
 				ServiceResponse.serviceError(
 					{ status: 200, statusText: response.statusText } as Response,
 					response.status,

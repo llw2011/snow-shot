@@ -1,4 +1,4 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { modelFetch } from "../../../../services/tools/modelFetch.js";
 
 export type ServiceProvider =
 	| "ollama"
@@ -21,7 +21,14 @@ export type DetectedModel = {
 };
 
 export type ServiceDetection = {
-	status: "ok" | "unreachable" | "auth" | "notFound" | "invalid" | "empty";
+	status:
+		| "ok"
+		| "unreachable"
+		| "auth"
+		| "forbidden"
+		| "notFound"
+		| "invalid"
+		| "empty";
 	provider: ServiceProvider;
 	apiUri: string;
 	models: DetectedModel[];
@@ -146,10 +153,18 @@ export const normalizeServiceInput = (
 const withTimeout = (timeoutMs: number, signal?: AbortSignal) => {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
-	signal?.addEventListener("abort", () => controller.abort(), { once: true });
+	const abort = () => controller.abort();
+	if (signal?.aborted) {
+		abort();
+	} else {
+		signal?.addEventListener("abort", abort, { once: true });
+	}
 	return {
 		signal: controller.signal,
-		done: () => clearTimeout(timer),
+		done: () => {
+			clearTimeout(timer);
+			signal?.removeEventListener("abort", abort);
+		},
 	};
 };
 
@@ -159,12 +174,18 @@ const requestJson = async (
 ): Promise<{ status: number; body?: unknown }> => {
 	const timeout = withTimeout(init.timeoutMs, init.signal);
 	try {
-		const response = await tauriFetch(url, { ...init, signal: timeout.signal });
+		if (timeout.signal.aborted) {
+			throw new DOMException("Detection cancelled", "AbortError");
+		}
+		const response = await modelFetch(url, { ...init, signal: timeout.signal });
 		let body: unknown;
 		try {
 			body = await response.json();
 		} catch {
 			body = undefined;
+		}
+		if (timeout.signal.aborted) {
+			throw new DOMException("Detection cancelled", "AbortError");
 		}
 		return { status: response.status, body };
 	} finally {
@@ -261,7 +282,7 @@ const detectDeepL = async (
 	apiUri: string,
 	apiKey: string,
 	signal?: AbortSignal,
-): Promise<ServiceDetection> => {
+): Promise<ServiceDetection | undefined> => {
 	const started = performance.now();
 	const usageUrl = apiUri.replace(/\/translate$/, "/usage");
 	try {
@@ -271,12 +292,14 @@ const detectDeepL = async (
 			timeoutMs: 8000,
 			signal,
 		});
+		if (signal?.aborted) return undefined;
 		const latencyMs = Math.round(performance.now() - started);
 		if (status === 200) {
 			return { status: "ok", provider: "deepl", apiUri, models: [], latencyMs };
 		}
 		return {
-			status: status === 401 || status === 403 ? "auth" : "invalid",
+			status:
+				status === 401 ? "auth" : status === 403 ? "forbidden" : "invalid",
 			provider: "deepl",
 			apiUri,
 			models: [],
@@ -284,6 +307,7 @@ const detectDeepL = async (
 			httpStatus: status,
 		};
 	} catch (error) {
+		if (signal?.aborted) return undefined;
 		return {
 			status: "unreachable",
 			provider: "deepl",
@@ -296,7 +320,8 @@ const detectDeepL = async (
 
 /**
  * Connect to a pasted endpoint and describe it: provider, latency, models and
- * per-model capabilities. Never throws; failures are encoded in `status`.
+ * per-model capabilities. Never throws; cancellation returns undefined and
+ * failures are encoded in `status`.
  */
 export const detectService = async (
 	input: string,
@@ -304,7 +329,7 @@ export const detectService = async (
 	options?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<ServiceDetection | undefined> => {
 	const normalized = normalizeServiceInput(input);
-	if (!normalized) {
+	if (!normalized || options?.signal?.aborted) {
 		return undefined;
 	}
 
@@ -328,6 +353,7 @@ export const detectService = async (
 	let lastMessage: string | undefined;
 
 	for (const url of candidates) {
+		if (options?.signal?.aborted) return undefined;
 		let result: { status: number; body?: unknown };
 		try {
 			result = await requestJson(url, {
@@ -337,14 +363,16 @@ export const detectService = async (
 				signal: options?.signal,
 			});
 		} catch (error) {
+			if (options?.signal?.aborted) return undefined;
 			lastMessage = error instanceof Error ? error.message : `${error}`;
 			continue;
 		}
+		if (options?.signal?.aborted) return undefined;
 
 		lastStatus = result.status;
 		if (result.status === 401 || result.status === 403) {
 			return {
-				status: "auth",
+				status: result.status === 401 ? "auth" : "forbidden",
 				provider,
 				apiUri,
 				models: [],
@@ -372,6 +400,7 @@ export const detectService = async (
 				timeoutMs: 1500,
 				signal: options?.signal,
 			}).catch(() => undefined);
+			if (options?.signal?.aborted) return undefined;
 			if (version?.status === 200) {
 				provider = "ollama";
 			}
@@ -387,6 +416,7 @@ export const detectService = async (
 							),
 					)
 				: [];
+		if (options?.signal?.aborted) return undefined;
 
 		const models = sortDetectedModels(
 			entries.map((entry, index) => {
@@ -412,7 +442,7 @@ export const detectService = async (
 		return {
 			status: models.length > 0 ? "ok" : "empty",
 			provider,
-			apiUri,
+			apiUri: url.replace(/\/models$/, ""),
 			models,
 			latencyMs,
 		};

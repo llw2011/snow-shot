@@ -179,6 +179,8 @@ export const zhHantWorkbench = {
 	"workbench.models.status.notFound":
 		"無法讀取模型清單（HTTP {code}），仍可直接測試",
 	"workbench.models.status.auth": "驗證失敗（HTTP {code}），請檢查 API Key",
+	"workbench.models.status.forbidden":
+		"服務拒絕存取（HTTP {code}），請檢查服務的來源限制或存取權限",
 	"workbench.models.status.invalid": "服務回傳錯誤（HTTP {code}）",
 	"workbench.models.status.unreachable": "無法連線，請確認服務正在執行",
 	"workbench.models.test.chat": "測試對話",
