@@ -10,6 +10,8 @@ export const en = {
 	"menu.tools.translation": "Translation",
 	"menu.tools.chat": "AI Chat",
 	"menu.tools.captureHistory": "Capture History",
+	"tools.captureHistory.copied": "Copied",
+	"tools.captureHistory.copyFailed": "Copy failed. Please try again.",
 	"menu.personalization": "Personalization",
 	"menu.personalization.plugins": "Plugins",
 	"menu.personalization.appearance": "Display",

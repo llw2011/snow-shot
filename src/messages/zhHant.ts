@@ -10,6 +10,8 @@ export const zhHant = {
 	"menu.tools.translation": "翻譯",
 	"menu.tools.chat": "AI 對話",
 	"menu.tools.captureHistory": "截圖歷史",
+	"tools.captureHistory.copied": "已複製",
+	"tools.captureHistory.copyFailed": "複製失敗，請重試",
 	"menu.personalization": "個人化",
 	"menu.personalization.plugins": "外掛",
 	"menu.personalization.appearance": "顯示",

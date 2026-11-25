@@ -106,15 +106,11 @@ export const writeHtmlToClipboard = async (html: string) => {
 };
 
 export const writeFilePathToClipboard = async (filePath: string) => {
-	let isSuccess = false;
 	try {
 		await extraClipboard.writeFiles([filePath]);
-		isSuccess = true;
+		return true;
 	} catch (error) {
 		appWarn("[clipboard] writeFilePathToClipboard error", error);
-	}
-
-	if (isSuccess) {
-		return;
+		return false;
 	}
 };

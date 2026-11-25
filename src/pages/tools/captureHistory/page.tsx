@@ -29,9 +29,11 @@ import { ScreenshotType } from "@/utils/types";
 import { CaptureHistoryItemActions } from "./components/captureHistoryItemActions";
 import { CaptureHistoryItemPreview } from "./components/captureHistoryItemPreview";
 import type { CaptureHistoryRecordItem } from "./extra";
+import { useHistoryCopy } from "./useHistoryCopy";
 
 export const CaptureHistoryPage = () => {
 	const intl = useIntl();
+	const { copiedId, copyingId, copyItem } = useHistoryCopy();
 	const [loading, setLoading] = useState(true);
 	const [dataSource, setDataSource, dataSourceRef] = useStateRef<
 		CaptureHistoryItem[] | undefined
@@ -399,6 +401,10 @@ export const CaptureHistoryPage = () => {
 										item={item}
 										reloadList={reloadList}
 										captureHistoryRef={captureHistoryRef}
+										copied={copiedId === item.id}
+										copying={copyingId === item.id}
+										copyDisabled={copyingId !== undefined}
+										onCopy={() => copyItem(item)}
 									/>
 								);
 							},

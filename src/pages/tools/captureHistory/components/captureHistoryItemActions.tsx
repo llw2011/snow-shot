@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import { executeScreenshot } from "@/functions/screenshot";
 import type { CaptureHistory } from "@/utils/captureHistory";
-import { writeFilePathToClipboard } from "@/utils/clipboard";
 import { ScreenshotType } from "@/utils/types";
 import type { CaptureHistoryRecordItem } from "../extra";
 
@@ -12,9 +11,20 @@ export const CaptureHistoryItemActions: React.FC<{
 	item: CaptureHistoryRecordItem;
 	reloadList: () => Promise<void>;
 	captureHistoryRef: React.RefObject<CaptureHistory | undefined>;
-}> = ({ item, reloadList, captureHistoryRef }) => {
+	copied: boolean;
+	copying: boolean;
+	copyDisabled: boolean;
+	onCopy: () => Promise<void>;
+}> = ({
+	item,
+	reloadList,
+	captureHistoryRef,
+	copied,
+	copying,
+	copyDisabled,
+	onCopy,
+}) => {
 	const [editLoading, setEditLoading] = useState(false);
-	const [copyLoading, setCopyLoading] = useState(false);
 	const [deleteLoading, setDeleteLoading] = useState(false);
 	const deleteAction = useCallback(async () => {
 		if (!(await captureHistoryRef.current?.inited())) {
@@ -46,23 +56,29 @@ export const CaptureHistoryItemActions: React.FC<{
 				<FormattedMessage id="tools.captureHistory.switch" />
 			</Button>
 			<Button
-				onClick={async () => {
-					if (!item.capture_result_file_path) {
-						return;
-					}
-
-					setCopyLoading(true);
-					await writeFilePathToClipboard(item.capture_result_file_path);
-					setCopyLoading(false);
-				}}
+				onClick={onCopy}
 				key="copy"
 				size="small"
 				color="primary"
 				variant="link"
-				icon={<CopyOutlined />}
-				loading={copyLoading}
+				icon={copied ? <span aria-hidden="true">✅</span> : <CopyOutlined />}
+				loading={copying}
+				disabled={copyDisabled || !item.capture_result_file_path}
 			>
 				<FormattedMessage id="tools.captureHistory.copy" />
+				<output
+					aria-live="polite"
+					style={{
+						position: "absolute",
+						width: 1,
+						height: 1,
+						overflow: "hidden",
+						clipPath: "inset(50%)",
+						whiteSpace: "nowrap",
+					}}
+				>
+					{copied && <FormattedMessage id="tools.captureHistory.copied" />}
+				</output>
 			</Button>
 			<Popconfirm
 				key="delete"
