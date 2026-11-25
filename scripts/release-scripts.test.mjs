@@ -3,14 +3,15 @@
 /**
  * Black-box tests for the release staging and updater-manifest helpers.
  *
- * The test intentionally uses only Node's standard library.  It creates a
+ * The test uses Node's standard library and jq for the workflow expression
+ * check (required in CI, explicitly skipped locally when unavailable). It creates a
  * temporary bundle/assets tree, invokes each CLI in a child process, and
  * checks both successful output and the important fail-closed paths.
  */
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   mkdir,
   mkdtemp,
@@ -451,7 +452,63 @@ async function testManifest() {
   }
 }
 
+async function testReleaseWorkflow() {
+  const workflow = await readFile(join(repositoryRoot, ".github", "workflows", "release.yml"), "utf8");
+  const offline = workflow.match(/^[ \t]+- kind: windows-offline\r?\n([\s\S]*?)(?=^[ \t]*(?:- kind:|steps:))/m)?.[1];
+  assert.ok(offline, "release workflow must define the offline installer");
+  assert.match(offline, /^[ \t]+offline: true\r?$/m);
+  assert.match(offline, /^[ \t]+fixed_runtime: true\r?$/m);
+  assert.match(offline, /^[ \t]+ota: false\r?$/m);
+  const noOtaPath = offline.match(/^[ \t]+config: ([^\s]+)\r?$/m)?.[1];
+  const runtimePath = offline.match(/^[ \t]+extra_config: "--config ([^"\s]+)"\r?$/m)?.[1];
+  assert.ok(noOtaPath && runtimePath, "offline installer must explicitly select its runtime and OTA configuration");
+  const noOta = JSON.parse(await readFile(join(repositoryRoot, noOtaPath), "utf8"));
+  const runtime = JSON.parse(await readFile(join(repositoryRoot, runtimePath), "utf8"));
+  for (const config of [noOta, runtime]) {
+    assert.deepEqual(config.plugins.updater.endpoints, []);
+    assert.equal(config.bundle.createUpdaterArtifacts, false);
+  }
+  assert.equal(runtime.bundle.windows.webviewInstallMode.type, "fixedRuntime");
+
+  const runtimeDownload = workflow.match(/- name: Download fixed WebView2 runtime\r?\n([\s\S]*?)(?=^[ \t]+- name:)/m)?.[1];
+  assert.ok(runtimeDownload, "fixed runtime must have a download step");
+  assert.match(runtimeDownload, /if: matrix\.fixed_runtime == true/);
+  const runtimeVersion = runtimeDownload.match(/\$runtimeVersion = '([\d.]+)'/)?.[1];
+  assert.ok(runtimeVersion, "fixed runtime download must pin a version");
+  assert.equal(runtime.bundle.windows.webviewInstallMode.path, `Microsoft.WebView2.FixedVersionRuntime.${runtimeVersion}.x64`);
+  const checksumCheck = runtimeDownload.match(/Get-FileHash -Algorithm SHA256 -LiteralPath \$archive\)\.Hash\.ToLowerInvariant\(\) -ne '[a-f0-9]{64}'\) \{ throw 'WebView2 CAB SHA-256 mismatch' \}/);
+  assert.ok(checksumCheck, "fixed runtime download must reject a mismatched pinned SHA-256");
+  assert.ok(runtimeDownload.indexOf("expand -F:* $archive $target") > checksumCheck.index, "fixed runtime must be verified before extraction");
+
+  const draftFilter = workflow.match(/^[ \t]+draft="\$\(jq -er '([^']+)' <<<"\$matches"\)"\r?$/m)?.[1];
+  assert.ok(draftFilter, "test must exercise the release workflow's actual jq expression");
+  const jqProbe = spawnSync("jq", ["--version"], { encoding: "utf8", windowsHide: true });
+  if (jqProbe.error?.code === "ENOENT" && !process.env.CI) {
+    console.log("release workflow jq tests: SKIP (jq unavailable locally; required in CI)");
+    return;
+  }
+  assert.ifError(jqProbe.error);
+  assert.equal(jqProbe.status, 0, jqProbe.stderr);
+  for (const draft of [true, false, undefined, null, "false", 0, {}, []]) {
+    const result = spawnSync("jq", ["-er", draftFilter], {
+      input: JSON.stringify([{ draft }]),
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.ifError(result.error);
+    if (typeof draft === "boolean") {
+      assert.equal(result.status, 0, `draft=${draft}: ${result.stderr}`);
+      assert.equal(result.stdout.trim(), String(draft));
+    } else {
+      assert.notEqual(result.status, 0, `invalid draft ${JSON.stringify(draft)} must stop the publish step`);
+      assert.equal(result.stdout.trim(), "");
+    }
+  }
+  console.log("release workflow jq tests: 8 cases passed");
+}
+
 async function main() {
+  await testReleaseWorkflow();
   await testStage();
   await testManifest();
   console.log("release scripts tests: ok");

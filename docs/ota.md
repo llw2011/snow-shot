@@ -44,6 +44,8 @@ Snow.Shot_<version>_windows-x64_setup.exe[.sig]
 
 DMG、fixed-runtime 和 offline 安装包也会随 Release 提供，但不会写入公共 OTA manifest。fixed-runtime/offline 与标准 Windows 使用相同 updater 平台键，混入 manifest 会让客户端下载错误渠道；这两个渠道必须手动安装。
 
+Windows offline 包同时包含离线前端资源和固定版本的 WebView2 runtime，即使目标机器没有预装 WebView2，也不需要联网下载运行时。它复用 fixed-runtime 包的配置和经过 SHA-256 校验的 runtime 下载步骤；固定运行时随应用安装，不依赖系统 WebView2 的安装引导程序。
+
 每次新发布还会附带 `checksums.json`，记录所有非 metadata 发布资产的 SHA-256。publish job 会在本地 staging、draft Release 和公开 `latest` endpoint 三处校验它；历史 Release 没有该文件时，兼容性验证仍只检查 manifest 和资产名。
 
 ## GitHub Actions 发布流程
@@ -82,6 +84,8 @@ node scripts/release-manifest.mjs verify `
 - Windows CI 下载 `onnxruntime-win-x64-static_lib-1.22.2.zip` 后校验固定 SHA-256。
 - offline 资源和 WebView2 fixed runtime 在解压前校验 SHA-256。
 - Rust 构建使用 `--locked`，任何 lockfile 被重写都会使 job 失败。
+
+`node scripts/release-scripts.test.mjs` 会检查离线包的 runtime 配置，并使用 workflow 中实际的 jq 表达式验证 draft/public 两种 Release 状态及异常数据。CI 必须提供 jq；本地缺少 jq 时会明确跳过该表达式检查，其余检查继续执行。
 
 ## 安全边界
 

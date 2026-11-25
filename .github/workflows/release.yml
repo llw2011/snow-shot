@@ -215,9 +215,10 @@ jobs:
                       platform: windows-latest
                       target: x86_64-pc-windows-msvc
                       offline: true
+                      fixed_runtime: true
                       ota: false
                       config: src-tauri/tauri.no-ota.conf.json
-                      extra_config: ""
+                      extra_config: "--config src-tauri/webview2.x64.json"
 
         steps:
             - name: Checkout immutable release commit
@@ -521,7 +522,7 @@ jobs:
                   fi
                   if [ "$count" -eq 1 ]; then
                      release_id="$(jq -er '.[0].id' <<<"$matches")"
-                     draft="$(jq -er '.[0].draft' <<<"$matches")"
+                     draft="$(jq -er '.[0].draft | select(type == "boolean") | tostring' <<<"$matches")"
                      target_commitish="$(jq -r '.[0].target_commitish // empty' <<<"$matches")"
                      if [[ "$target_commitish" =~ ^[0-9a-fA-F]{40}$ ]] && [ "$target_commitish" != "$RELEASE_SHA" ]; then
                        echo "Draft Release points at $target_commitish, expected $RELEASE_SHA" >&2
