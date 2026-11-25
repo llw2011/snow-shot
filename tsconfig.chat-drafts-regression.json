@@ -1,0 +1,15 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"incremental": false,
+		"isolatedModules": false,
+		"lib": ["es2022", "dom", "dom.iterable"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": false,
+		"outDir": ".tmp/chat-drafts-regression",
+		"rootDir": ".",
+		"target": "es2022"
+	},
+	"include": ["src/pages/tools/chat/drafts.test.ts"]
+}

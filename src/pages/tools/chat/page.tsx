@@ -79,13 +79,26 @@ const Chat = () => {
 	}, [agent, setSendQueue]);
 
 	const sessions = useChatSessions({ messages, setMessages, abortChat });
-	const { createNewSession, curSessionRef } = sessions;
+	const {
+		createNewSession,
+		curSessionRef,
+		inputValue,
+		setInputValue,
+		claimInputRequest,
+		handledInputRequest,
+	} = sessions;
 
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 
-	const [inputValue, setInputValue] = useState("");
 	const senderRef = useRef<SenderRef>(null);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
 	const userSendingRef = useRef(false);
 	const [followSignal, setFollowSignal] = useState(0);
 	const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -99,14 +112,29 @@ const Chat = () => {
 	}, [createNewSession, intl, message]);
 
 	const submit = useCallback(
-		async (value: string, flowConfig?: ChatMessageFlowConfig) => {
+		async (
+			value: string,
+			flowConfig?: ChatMessageFlowConfig,
+			consumeDraft = true,
+		) => {
+			if (sessions.storeLoading) {
+				return;
+			}
 			if (!models.selectedModelRef.current) {
 				message.error(intl.formatMessage({ id: "tools.chat.noSelectedModel" }));
 				return;
 			}
 
+			const consumedDraft = consumeDraft
+				? sessions.captureInputDraft()
+				: undefined;
 			if (!curSessionRef.current) {
-				await createNewSession();
+				if (!(await createNewSession())) {
+					return;
+				}
+				if (consumedDraft) {
+					consumedDraft.session = curSessionRef.current;
+				}
 			}
 
 			onRequest({
@@ -114,7 +142,9 @@ const Chat = () => {
 				message: { content: value, role: "user", flow_config: flowConfig },
 			});
 			sessions.nameCurrentSession(value);
-			setInputValue("");
+			if (consumedDraft) {
+				sessions.consumeInputDraft(consumedDraft);
+			}
 			setFollowSignal((signal) => signal + 1);
 			agent.newestMessage.current = undefined;
 		},
@@ -136,7 +166,7 @@ const Chat = () => {
 	useEffect(() => {
 		if (!loading && sendQueueRef.current.length > 0) {
 			const [next] = sendQueueRef.current;
-			submit(next.content, next.flow_config);
+			submit(next.content, next.flow_config, false);
 			setSendQueue((previous) => previous.slice(1));
 		}
 	}, [loading, submit, sendQueueRef, setSendQueue]);
@@ -230,7 +260,15 @@ const Chat = () => {
 	}) as { t?: string; selectText?: string };
 	const handledSignRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (handledSignRef.current === (requestSign ?? null)) {
+		if (
+			sessions.storeLoading ||
+			handledSignRef.current === (requestSign ?? null)
+		) {
+			return;
+		}
+		const sign = requestSign ?? null;
+		handledSignRef.current = sign;
+		if (sign && handledInputRequest === sign) {
 			return;
 		}
 
@@ -248,13 +286,22 @@ const Chat = () => {
 						: undefined;
 
 				await finishScreenshot();
-				await newSession;
+				if (newSession && !(await newSession)) {
+					return;
+				}
+				if (!mountedRef.current || handledSignRef.current !== sign) {
+					return;
+				}
 				setInputValue(decodeParamsValue(selectText).substring(0, 10000));
+			}
+			if (sign && mountedRef.current && handledSignRef.current === sign) {
+				claimInputRequest(sign);
 			}
 
 			setTimeout(() => {
-				senderRef.current?.focus();
-				handledSignRef.current = requestSign ?? null;
+				if (mountedRef.current && handledSignRef.current === sign) {
+					senderRef.current?.focus();
+				}
 			}, 64);
 		})();
 	}, [
@@ -263,7 +310,11 @@ const Chat = () => {
 		getAppSettings,
 		requestSign,
 		selectText,
+		setInputValue,
 		sessions.messageHistoryRef,
+		sessions.storeLoading,
+		claimInputRequest,
+		handledInputRequest,
 	]);
 
 	return (
@@ -307,8 +358,9 @@ const Chat = () => {
 					onSubmit={(value) => submit(value)}
 					onWorkflow={runWorkflow}
 					onQueue={(value) => {
+						const draft = sessions.captureInputDraft();
 						queueMessage(value);
-						setInputValue("");
+						sessions.consumeInputDraft(draft);
 					}}
 					onCancel={abortChat}
 				/>
