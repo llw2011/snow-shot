@@ -1,9 +1,55 @@
-import { join as joinPath, pictureDir, videoDir } from "@tauri-apps/api/path";
+import {
+	documentDir,
+	downloadDir,
+	homeDir,
+	join as joinPath,
+	pictureDir,
+	videoDir,
+} from "@tauri-apps/api/path";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import dayjs from "dayjs";
 import { createDir } from "@/commands/file";
 import { type AppSettingsData, AppSettingsGroup } from "@/types/appSettings";
 import { ImageFormat, type ImagePath } from "@/types/utils/file";
+import { getAppConfigBaseDirWithCache } from "@/utils/environment";
+import { appWarn } from "@/utils/log";
+
+const resolveKnownMediaBaseDir = async (
+	primary: () => Promise<string>,
+	fallbackSubdir: "Pictures" | "Videos",
+): Promise<string> => {
+	try {
+		const dir = await primary();
+		if (dir) {
+			return dir;
+		}
+	} catch (error) {
+		appWarn(
+			`[file] Failed to resolve default ${fallbackSubdir} directory, falling back`,
+			error,
+		);
+	}
+
+	const fallbackCandidates: Array<() => Promise<string>> = [
+		async () => joinPath(await documentDir(), fallbackSubdir),
+		async () => joinPath(await downloadDir(), fallbackSubdir),
+		async () => joinPath(await homeDir(), fallbackSubdir),
+		async () => joinPath(await getAppConfigBaseDirWithCache(), fallbackSubdir),
+	];
+
+	for (const resolveCandidate of fallbackCandidates) {
+		try {
+			const candidate = await resolveCandidate();
+			if (candidate) {
+				return candidate;
+			}
+		} catch {
+			// Try the next available user directory.
+		}
+	}
+
+	return fallbackSubdir;
+};
 
 const parseTemplate = (template: string): string => {
 	const regex = /\{\{([^}]+)\}\}/g;
@@ -72,7 +118,8 @@ export const getImageSaveDirectory = async (appSettings: AppSettingsData) => {
 		appSettings[AppSettingsGroup.FunctionScreenshot].saveFileDirectory;
 
 	if (!savePath) {
-		savePath = await joinPath(await pictureDir(), "Snow Shot");
+		const baseDir = await resolveKnownMediaBaseDir(pictureDir, "Pictures");
+		savePath = await joinPath(baseDir, "Snow Shot");
 	}
 
 	return savePath;
@@ -208,7 +255,8 @@ export const getVideoRecordSaveDirectory = async (
 		appSettings[AppSettingsGroup.FunctionVideoRecord].saveDirectory;
 
 	if (!savePath) {
-		savePath = await joinPath(await videoDir(), "Snow Shot");
+		const baseDir = await resolveKnownMediaBaseDir(videoDir, "Videos");
+		savePath = await joinPath(baseDir, "Snow Shot");
 	}
 
 	return savePath;

@@ -571,28 +571,34 @@ pub async fn create_video_record_window(
     select_rect_max_y: i32,
 ) {
     let mut video_record_window_labels = video_record_window_label.lock().await;
-    if let Some(video_record_window_labels) = video_record_window_labels.as_ref() {
-        let window = app.get_webview_window(
-            video_record_window_labels
-                .video_record_window_label
-                .as_str(),
-        );
+    if let Some(existing_labels) = video_record_window_labels.as_ref() {
+        let main_window =
+            app.get_webview_window(existing_labels.video_record_window_label.as_str());
+        let toolbar_window = app.get_webview_window(existing_labels.toolbar_window_label.as_str());
 
-        if let Some(window) = window {
-            window
-                .emit(
-                    "reload-video-record",
-                    VideoRecordWindowInfo {
-                        select_rect_min_x,
-                        select_rect_min_y,
-                        select_rect_max_x,
-                        select_rect_max_y,
-                    },
-                )
-                .unwrap();
-
-            return;
+        match (main_window, toolbar_window) {
+            (Some(main_window), Some(toolbar_window)) => {
+                let payload = VideoRecordWindowInfo {
+                    select_rect_min_x,
+                    select_rect_min_y,
+                    select_rect_max_x,
+                    select_rect_max_y,
+                };
+                let main_ok = main_window.emit("reload-video-record", payload).is_ok();
+                let toolbar_ok = toolbar_window.emit("reload-video-record", payload).is_ok();
+                if main_ok && toolbar_ok {
+                    return;
+                }
+                let _ = main_window.close();
+                let _ = toolbar_window.close();
+            }
+            (Some(window), None) | (None, Some(window)) => {
+                let _ = window.close();
+            }
+            (None, None) => {}
         }
+
+        *video_record_window_labels = None;
     }
 
     // 先从服务中获取两个窗口（必须串行以避免竞态条件）
@@ -728,19 +734,20 @@ pub async fn close_video_record_window(
     video_record_window_label: tauri::State<'_, Mutex<Option<VideoRecordWindowLabels>>>,
 ) -> Result<(), String> {
     let mut video_record_window_labels = video_record_window_label.lock().await;
-    let VideoRecordWindowLabels {
+    let Some(VideoRecordWindowLabels {
         video_record_window_label,
         toolbar_window_label,
-    } = video_record_window_labels.take().unwrap();
+    }) = video_record_window_labels.take()
+    else {
+        return Ok(());
+    };
 
-    let window = app.get_webview_window(video_record_window_label.as_str());
-    if let Some(window) = window {
-        window.close().unwrap();
+    if let Some(window) = app.get_webview_window(video_record_window_label.as_str()) {
+        let _ = window.close();
     }
 
-    let window = app.get_webview_window(toolbar_window_label.as_str());
-    if let Some(window) = window {
-        window.close().unwrap();
+    if let Some(window) = app.get_webview_window(toolbar_window_label.as_str()) {
+        let _ = window.close();
     }
 
     Ok(())

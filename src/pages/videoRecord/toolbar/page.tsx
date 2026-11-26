@@ -34,6 +34,7 @@ import {
 import { createDir } from "@/commands/file";
 import {
 	setExcludeFromCapture,
+	videoRecordInit,
 	videoRecordKill,
 	videoRecordPause,
 	videoRecordResume,
@@ -49,6 +50,7 @@ import {
 	StopRecordIcon,
 } from "@/components/icons";
 import { PLUGIN_ID_FFMPEG } from "@/constants/pluginService";
+import { AntdContext } from "@/contexts/antdContext";
 import {
 	AppSettingsActionContext,
 	AppSettingsPublisher,
@@ -113,6 +115,8 @@ const convertVideoMaxSizeToWidthAndHeight = (
 export const VideoRecordToolbarPage: React.FC = () => {
 	const { token } = theme.useToken();
 	const intl = useIntl();
+	const { message } = useContext(AntdContext);
+	const { isReadyStatus, pluginConfigRef } = usePluginServiceContext();
 
 	const selectRectRef = useRef<ElementRect | undefined>(undefined);
 
@@ -301,14 +305,19 @@ export const VideoRecordToolbarPage: React.FC = () => {
 
 				durationRef.current = 0;
 				updateDurationFormat();
-			} catch {}
-
-			setStopRecordLoading(false);
+			} catch (error) {
+				appError("[VideoRecordToolbarPage] stopRecord error", error);
+				message.error(intl.formatMessage({ id: "videoRecord.stopError" }));
+			} finally {
+				setStopRecordLoading(false);
+			}
 
 			return outputFile;
 		},
 		[
 			getAppSettings,
+			intl,
+			message,
 			setVideoRecordState,
 			stopDurationTimer,
 			updateDurationFormat,
@@ -328,101 +337,164 @@ export const VideoRecordToolbarPage: React.FC = () => {
 	}, []);
 
 	const startRecord = useCallback(async () => {
+		if (videoRecordStateRef.current !== VideoRecordState.Idle) {
+			return;
+		}
+
 		setStartRecordLoading(true);
 
-		const appSettings = getAppSettings();
+		try {
+			const selectRect = selectRectRef.current;
+			if (
+				!selectRect ||
+				selectRect.max_x <= selectRect.min_x ||
+				selectRect.max_y <= selectRect.min_y
+			) {
+				throw new Error("Invalid recording area dimensions");
+			}
 
-		const { width: videoMaxWidth, height: videoMaxHeight } =
-			convertVideoMaxSizeToWidthAndHeight(
-				appSettings[AppSettingsGroup.FunctionVideoRecord].videoMaxSize,
-			);
+			if (pluginConfigRef.current) {
+				try {
+					const ffmpegPluginDir =
+						await pluginConfigRef.current.getPluginDirPath(PLUGIN_ID_FFMPEG);
+					await videoRecordInit(ffmpegPluginDir);
+				} catch (initError) {
+					appError(
+						"[VideoRecordToolbarPage] videoRecordInit fallback warning",
+						initError,
+					);
+				}
+			}
 
-		videoRecordStart(
-			selectRectRef.current?.min_x ?? 0,
-			selectRectRef.current?.min_y ?? 0,
-			selectRectRef.current?.max_x ?? 0,
-			selectRectRef.current?.max_y ?? 0,
-			await joinPath(
-				await getVideoRecordSaveDirectory(appSettings),
+			const appSettings = getAppSettings();
+
+			const { width: videoMaxWidth, height: videoMaxHeight } =
+				convertVideoMaxSizeToWidthAndHeight(
+					appSettings[AppSettingsGroup.FunctionVideoRecord].videoMaxSize,
+				);
+
+			const saveDirectory = await getVideoRecordSaveDirectory(appSettings);
+			await createDir(saveDirectory);
+			const fileName =
 				generateImageFileName(
 					appSettings[AppSettingsGroup.FunctionOutput]
 						.videoRecordFileNameFormat,
-				),
-			),
-			VideoFormat.Mp4,
-			appSettings[AppSettingsGroup.FunctionVideoRecord].frameRate,
-			enableMicrophone,
-			false,
-			appSettings[AppSettingsGroup.FunctionVideoRecord].microphoneDeviceName,
-			appSettings[AppSettingsGroup.FunctionVideoRecord].hwaccel,
-			appSettings[AppSettingsGroup.FunctionVideoRecord].encoder,
-			appSettings[AppSettingsGroup.FunctionVideoRecord].encoderPreset,
-			videoMaxWidth,
-			videoMaxHeight,
-		)
-			.then(() => {
-				setVideoRecordState(VideoRecordState.Recording);
+				) || `SnowShot_Video_${dayjs().format("YYYY-MM-DD_HH-mm-ss")}`;
+			const outputFile = await joinPath(saveDirectory, fileName);
 
-				stopDurationTimer();
+			await videoRecordStart(
+				selectRect.min_x,
+				selectRect.min_y,
+				selectRect.max_x,
+				selectRect.max_y,
+				outputFile,
+				VideoFormat.Mp4,
+				appSettings[AppSettingsGroup.FunctionVideoRecord].frameRate,
+				enableMicrophone,
+				false,
+				appSettings[AppSettingsGroup.FunctionVideoRecord].microphoneDeviceName,
+				appSettings[AppSettingsGroup.FunctionVideoRecord].hwaccel,
+				appSettings[AppSettingsGroup.FunctionVideoRecord].encoder,
+				appSettings[AppSettingsGroup.FunctionVideoRecord].encoderPreset,
+				videoMaxWidth,
+				videoMaxHeight,
+			);
 
-				durationRef.current = 0;
-				updateDurationFormat();
+			setVideoRecordState(VideoRecordState.Recording);
 
-				startDurationTimer();
-			})
-			.finally(() => {
-				setStartRecordLoading(false);
-			});
+			stopDurationTimer();
+
+			durationRef.current = 0;
+			updateDurationFormat();
+
+			startDurationTimer();
+		} catch (error) {
+			appError("[VideoRecordToolbarPage] startRecord error", error);
+			const detail =
+				typeof error === "string"
+					? error
+					: error instanceof Error
+						? error.message
+						: "";
+			message.error(
+				detail
+					? `${intl.formatMessage({ id: "videoRecord.startError" })}: ${detail}`
+					: intl.formatMessage({ id: "videoRecord.startError" }),
+			);
+		} finally {
+			setStartRecordLoading(false);
+		}
 	}, [
-		setVideoRecordState,
 		enableMicrophone,
 		getAppSettings,
+		intl,
+		message,
+		pluginConfigRef,
+		setVideoRecordState,
+		startDurationTimer,
 		stopDurationTimer,
 		updateDurationFormat,
-		startDurationTimer,
+		videoRecordStateRef,
 	]);
 
 	const copyVideo = useCallback(
 		async (convertToGif: boolean) => {
-			stopRecord(convertToGif).then((outputFile) => {
-				if (outputFile) {
-					clipboard.writeFiles([outputFile]);
+			const outputFile = await stopRecord(convertToGif);
+			if (outputFile) {
+				try {
+					await clipboard.writeFiles([outputFile]);
+				} catch (error) {
+					appError(
+						"[VideoRecordToolbarPage] clipboard.writeFiles error",
+						error,
+					);
 				}
-			});
+			}
 		},
 		[stopRecord],
 	);
+
+	const startRecordRef = useRef(startRecord);
+	startRecordRef.current = startRecord;
+	const copyVideoRef = useRef(copyVideo);
+	copyVideoRef.current = copyVideo;
 
 	useEffect(() => {
 		const startOrCopyVideoListenerId = addListener(
 			"start-or-copy-video",
 			() => {
 				if (videoRecordStateRef.current === VideoRecordState.Idle) {
-					startRecord();
+					void startRecordRef.current();
 				} else {
-					copyVideo(false);
+					void copyVideoRef.current(false);
 				}
 			},
 		);
 
-		videoRecordKill();
+		void videoRecordKill().catch((error) => {
+			appError("[VideoRecordToolbarPage] initial videoRecordKill error", error);
+		});
 
 		const closeUnlisten = getCurrentWindow().onCloseRequested(async () => {
-			videoRecordKill();
+			await videoRecordKill().catch((error) => {
+				appError(
+					"[VideoRecordToolbarPage] onCloseRequested videoRecordKill error",
+					error,
+				);
+			});
 		});
 
 		return () => {
-			videoRecordKill();
+			void videoRecordKill().catch((error) => {
+				appError(
+					"[VideoRecordToolbarPage] cleanup videoRecordKill error",
+					error,
+				);
+			});
 			removeListener(startOrCopyVideoListenerId);
 			closeUnlisten.then((fn) => fn());
 		};
-	}, [
-		addListener,
-		removeListener,
-		copyVideo,
-		startRecord,
-		videoRecordStateRef,
-	]);
+	}, [addListener, removeListener, videoRecordStateRef]);
 
 	useEffect(() => {
 		const { selectRect } = getVideoRecordParams();
@@ -445,7 +517,6 @@ export const VideoRecordToolbarPage: React.FC = () => {
 		};
 	}, [addListener, init, removeListener]);
 
-	const { isReadyStatus } = usePluginServiceContext();
 	useEffect(() => {
 		if (!isReadyStatus) {
 			return;
@@ -521,6 +592,15 @@ export const VideoRecordToolbarPage: React.FC = () => {
 
 											stopDurationTimer();
 										})
+										.catch((error) => {
+											appError(
+												"[VideoRecordToolbarPage] videoRecordPause error",
+												error,
+											);
+											message.error(
+												intl.formatMessage({ id: "videoRecord.pauseError" }),
+											);
+										})
 										.finally(() => {
 											setPauseRecordLoading(false);
 										});
@@ -552,6 +632,15 @@ export const VideoRecordToolbarPage: React.FC = () => {
 											setVideoRecordState(VideoRecordState.Recording);
 
 											startDurationTimer();
+										})
+										.catch((error) => {
+											appError(
+												"[VideoRecordToolbarPage] videoRecordResume error",
+												error,
+											);
+											message.error(
+												intl.formatMessage({ id: "videoRecord.resumeError" }),
+											);
 										})
 										.finally(() => {
 											setResumeRecordLoading(false);

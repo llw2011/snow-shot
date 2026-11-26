@@ -192,29 +192,40 @@ export const InitService = () => {
 		});
 	}, [initServices]);
 
-	const hasInitVideoRecord = useRef(false);
+	const initedVideoRecordDirRef = useRef<string | undefined>(undefined);
+	const ffmpegReady = isReadyStatus?.(PLUGIN_ID_FFMPEG) ?? false;
 	useEffect(() => {
-		if (hasInitVideoRecord.current) {
+		if (!ffmpegReady) {
+			initedVideoRecordDirRef.current = undefined;
 			return;
 		}
 
-		if (isReadyStatus?.(PLUGIN_ID_FFMPEG)) {
-			hasInitVideoRecord.current = true;
-
-			if (pluginConfigRef.current) {
-				void pluginConfigRef.current
-					.getPluginDirPath(PLUGIN_ID_FFMPEG)
-					.then((ffmpegPluginDir) => {
-						return videoRecordInit(ffmpegPluginDir);
-					})
-					.catch((error) => {
-						appWarn("[InitService] init video record failed", error);
-					});
-			} else {
-				appWarn("[InitService] pluginConfigRef.current is not set");
-			}
+		const pluginConfig = pluginConfigRef.current;
+		if (!pluginConfig) {
+			appWarn("[InitService] pluginConfigRef.current is not set");
+			return;
 		}
-	}, [isReadyStatus, pluginConfigRef]);
+
+		let cancelled = false;
+		void pluginConfig
+			.getPluginDirPath(PLUGIN_ID_FFMPEG)
+			.then(async (ffmpegPluginDir) => {
+				if (cancelled || initedVideoRecordDirRef.current === ffmpegPluginDir) {
+					return;
+				}
+				await videoRecordInit(ffmpegPluginDir);
+				if (!cancelled) {
+					initedVideoRecordDirRef.current = ffmpegPluginDir;
+				}
+			})
+			.catch((error) => {
+				appWarn("[InitService] init video record failed", error);
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [ffmpegReady, pluginConfigRef]);
 
 	return null;
 };

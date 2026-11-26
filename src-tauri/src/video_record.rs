@@ -37,9 +37,16 @@ pub async fn video_record_start(
     video_max_width: i32,
     video_max_height: i32,
 ) -> Result<(), String> {
-    println!(
-        "Starting video recording: area=({},{}) to ({},{}), output={}",
-        min_x, min_y, max_x, max_y, output_file
+    log::info!(
+        "[video_record_start] area=({},{}) to ({},{}), output={}, encoder={}, preset={}, fps={}",
+        min_x,
+        min_y,
+        max_x,
+        max_y,
+        output_file,
+        encoder,
+        encoder_preset,
+        frame_rate
     );
 
     let mut service = video_service.lock().await;
@@ -62,11 +69,11 @@ pub async fn video_record_start(
         video_max_height,
     ) {
         Ok(_) => {
-            println!("Video recording started successfully");
+            log::info!("[video_record_start] Video recording started successfully");
             Ok(())
         }
         Err(e) => {
-            println!("Video recording start failed: {}", e);
+            log::error!("[video_record_start] Video recording start failed: {}", e);
             Err(format!("Start recording failed: {}", e))
         }
     }
@@ -82,7 +89,7 @@ pub async fn video_record_stop(
     gif_max_width: i32,
     gif_max_height: i32,
 ) -> Result<Option<String>, String> {
-    println!("Stopping video recording...");
+    log::info!("[video_record_stop] Stopping video recording...");
 
     let mut service = video_service.lock().await;
 
@@ -94,11 +101,11 @@ pub async fn video_record_stop(
         gif_max_height,
     ) {
         Ok(final_filename) => {
-            println!("Video recording stopped successfully");
+            log::info!("[video_record_stop] Video recording stopped successfully");
             Ok(final_filename)
         }
         Err(e) => {
-            println!("Video recording stop failed: {}", e);
+            log::error!("[video_record_stop] Video recording stop failed: {}", e);
             Err(format!("Stop recording failed: {}", e))
         }
     }

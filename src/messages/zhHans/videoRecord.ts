@@ -9,4 +9,8 @@ export const videoRecord = {
 	"videoRecord.copy": "复制视频文件",
 	"videoRecord.copyGif": "复制 GIF 文件",
 	"videoRecord.openFolder": "打开输出目录",
+	"videoRecord.startError": "开始录制失败",
+	"videoRecord.stopError": "停止录制失败",
+	"videoRecord.pauseError": "暂停录制失败",
+	"videoRecord.resumeError": "继续录制失败",
 };
