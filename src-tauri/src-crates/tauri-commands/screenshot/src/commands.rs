@@ -61,6 +61,55 @@ fn get_visible_window_rect(window_hwnd: usize, fallback: ElementRect) -> Element
 }
 
 #[cfg(target_os = "windows")]
+fn is_window_cloaked_or_transparent(window_hwnd: usize) -> bool {
+    use std::ffi::c_void;
+    use windows::Win32::Foundation::{COLORREF, HWND};
+    use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GWL_EXSTYLE, GetLayeredWindowAttributes, GetWindowLongW, LAYERED_WINDOW_ATTRIBUTES_FLAGS,
+        LWA_ALPHA, WS_EX_LAYERED,
+    };
+
+    let hwnd = HWND(window_hwnd as *mut c_void);
+    let mut cloaked: u32 = 0;
+    let cloaked_ok = unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAKED,
+            &mut cloaked as *mut u32 as *mut c_void,
+            std::mem::size_of::<u32>() as u32,
+        )
+    }
+    .is_ok();
+    if cloaked_ok && cloaked != 0 {
+        return true;
+    }
+
+    let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) } as u32;
+    if (ex_style & WS_EX_LAYERED.0) != 0 {
+        let mut color_key = COLORREF(0);
+        let mut alpha: u8 = 255;
+        let mut flags = LAYERED_WINDOW_ATTRIBUTES_FLAGS(0);
+        if unsafe {
+            GetLayeredWindowAttributes(
+                hwnd,
+                Some(&mut color_key),
+                Some(&mut alpha),
+                Some(&mut flags),
+            )
+        }
+        .is_ok()
+            && (flags.0 & LWA_ALPHA.0) != 0
+            && alpha == 0
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+#[cfg(target_os = "windows")]
 fn is_window_caption_at_point(window_id: u32, mouse_x: i32, mouse_y: i32) -> bool {
     use std::ffi::c_void;
     use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
@@ -505,11 +554,17 @@ pub async fn init_ui_elements(ui_elements: tauri::State<'_, Mutex<UIElements>>) 
 
 #[command]
 pub async fn init_ui_elements_cache(
+    #[allow(unused_variables)] window: tauri::Window,
     ui_elements: tauri::State<'_, Mutex<UIElements>>,
 ) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let exclude_hwnd = window.hwnd().ok().map(|window_hwnd| window_hwnd.0 as usize);
+    #[cfg(not(target_os = "windows"))]
+    let exclude_hwnd = None;
+
     let mut ui_elements = ui_elements.lock().await;
 
-    match ui_elements.init_cache() {
+    match ui_elements.init_cache(exclude_hwnd) {
         Ok(_) => Ok(()),
         Err(e) => Err(format!("[init_ui_elements_cache] error: {:?}", e)),
     }
@@ -593,7 +648,9 @@ pub async fn get_window_elements(
 
             #[cfg(target_os = "windows")]
             {
-                if window.is_minimized().unwrap_or(true) {
+                if window.is_minimized().unwrap_or(true)
+                    || is_window_cloaked_or_transparent(*window_hwnd)
+                {
                     return None;
                 }
             }
@@ -639,8 +696,13 @@ pub async fn get_window_elements(
 
             #[cfg(target_os = "windows")]
             {
-                if window_title.eq("Shell Handwriting Canvas")
-                    || window_title.eq("Snow Shot - Draw")
+                if matches!(
+                    window_title.as_str(),
+                    "Shell Handwriting Canvas"
+                        | "Snow Shot - Draw"
+                        | "Snow Shot - Video Record"
+                        | "Snow Shot - Video Record - Toolbar"
+                ) || window_title.ends_with("-siw")
                 {
                     return None;
                 }
@@ -666,6 +728,9 @@ pub async fn get_window_elements(
                 y = visible_rect.min_y;
                 width = visible_rect.max_x - visible_rect.min_x;
                 height = visible_rect.max_y - visible_rect.min_y;
+                if width <= 0 || height <= 0 {
+                    return None;
+                }
                 client_rect = Some(ElementRect {
                     min_x: window_info.rcClient.left,
                     min_y: window_info.rcClient.top,

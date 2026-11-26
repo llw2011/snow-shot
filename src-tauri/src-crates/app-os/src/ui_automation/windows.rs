@@ -19,7 +19,14 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use snow_shot_app_shared::ElementRect;
 use snow_shot_app_utils::monitor_info::MonitorList;
 use std::sync::Arc;
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{COLORREF, HWND, RECT};
+use windows::Win32::Graphics::Dwm::{
+    DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_EXSTYLE, GetLayeredWindowAttributes, GetWindowLongW, LAYERED_WINDOW_ATTRIBUTES_FLAGS,
+    LWA_ALPHA, WS_EX_LAYERED,
+};
 use xcap::ImplWindow;
 use xcap::Window;
 
@@ -27,6 +34,88 @@ use super::ElementLevel;
 use super::UIAutomationError;
 
 const NEGATIVE_CHILD_CACHE_RETRY_INTERVAL: Duration = Duration::from_millis(250);
+
+fn is_excluded_window_title(title: &str) -> bool {
+    matches!(
+        title,
+        "Shell Handwriting Canvas"
+            | "Snow Shot - Draw"
+            | "Snow Shot - Video Record"
+            | "Snow Shot - Video Record - Toolbar"
+    ) || title.ends_with("-siw")
+}
+
+fn is_window_cloaked_or_transparent(hwnd: HWND) -> bool {
+    let mut cloaked: u32 = 0;
+    let cloaked_ok = unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAKED,
+            &mut cloaked as *mut u32 as *mut c_void,
+            mem::size_of::<u32>() as u32,
+        )
+    }
+    .is_ok();
+    if cloaked_ok && cloaked != 0 {
+        return true;
+    }
+
+    let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) } as u32;
+    if (ex_style & WS_EX_LAYERED.0) != 0 {
+        let mut color_key = COLORREF(0);
+        let mut alpha: u8 = 255;
+        let mut flags = LAYERED_WINDOW_ATTRIBUTES_FLAGS(0);
+        if unsafe {
+            GetLayeredWindowAttributes(
+                hwnd,
+                Some(&mut color_key),
+                Some(&mut alpha),
+                Some(&mut flags),
+            )
+        }
+        .is_ok()
+            && (flags.0 & LWA_ALPHA.0) != 0
+            && alpha == 0
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn get_visible_window_rect(
+    hwnd: HWND,
+    fallback: uiautomation::types::Rect,
+) -> uiautomation::types::Rect {
+    let mut visible_rect = RECT::default();
+    let has_visible_rect = unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut visible_rect as *mut RECT as *mut c_void,
+            mem::size_of::<RECT>() as u32,
+        )
+    }
+    .is_ok()
+        && visible_rect.left < visible_rect.right
+        && visible_rect.top < visible_rect.bottom
+        && visible_rect.left >= fallback.get_left()
+        && visible_rect.top >= fallback.get_top()
+        && visible_rect.right <= fallback.get_right()
+        && visible_rect.bottom <= fallback.get_bottom();
+
+    if has_visible_rect {
+        uiautomation::types::Rect::new(
+            visible_rect.left,
+            visible_rect.top,
+            visible_rect.right,
+            visible_rect.bottom,
+        )
+    } else {
+        fallback
+    }
+}
 
 enum ElementChildrenNextSiblingCacheItem {
     Element(UIElement, ElementLevel),
@@ -51,6 +140,7 @@ pub struct UIElements {
     element_children_next_sibling_cache: HashMap<ElementLevel, ElementChildrenNextSiblingCacheItem>,
     window_rect_map: HashMap<ElementLevel, uiautomation::types::Rect>,
     window_index_level_map: HashMap<i32, ElementLevel>,
+    next_node_id: u64,
 }
 
 unsafe impl Send for UIElements {}
@@ -83,7 +173,14 @@ impl UIElements {
             element_children_next_sibling_cache: HashMap::new(),
             window_rect_map: HashMap::new(),
             window_index_level_map: HashMap::new(),
+            next_node_id: 1,
         }
+    }
+
+    fn alloc_node_id(&mut self) -> u64 {
+        let id = self.next_node_id;
+        self.next_node_id = self.next_node_id.wrapping_add(1).max(1);
+        id
     }
 
     pub fn init(&mut self) -> Result<(), UIAutomationError> {
@@ -177,7 +274,7 @@ impl UIElements {
     /**
      * 初始化窗口元素缓存
      */
-    pub fn init_cache(&mut self) -> Result<(), UIAutomationError> {
+    pub fn init_cache(&mut self, exclude_hwnd: Option<usize>) -> Result<(), UIAutomationError> {
         self.root_element.replace(
             self.automation
                 .as_ref()
@@ -194,6 +291,7 @@ impl UIElements {
         self.element_children_next_sibling_cache.clear();
         self.window_rect_map.clear();
         self.window_index_level_map.clear();
+        self.next_node_id = 1;
 
         // 桌面的窗口索引应该是最高，因为其优先级最低
         let mut current_level = ElementLevel::root();
@@ -217,22 +315,30 @@ impl UIElements {
         let windows = Window::all()
             .unwrap_or_default()
             .into_iter()
-            .map(|window| window.hwnd().unwrap() as usize)
+            .filter_map(|window| {
+                let hwnd = window.hwnd().ok()? as usize;
+                (Some(hwnd) != exclude_hwnd).then_some(hwnd)
+            })
             .collect::<Vec<usize>>();
 
         let automation = self.automation.clone();
         let children_list = windows
             .par_iter()
             .filter_map(|window_hwnd| {
-                let window = ImplWindow::new(HWND(*window_hwnd as *mut c_void));
+                let raw_hwnd = HWND(*window_hwnd as *mut c_void);
+                let window = ImplWindow::new(raw_hwnd);
 
                 if window.is_minimized().unwrap_or(true) {
                     return None;
                 }
 
+                if is_window_cloaked_or_transparent(raw_hwnd) {
+                    return None;
+                }
+
                 match window.title() {
                     Ok(title) => {
-                        if title.eq("Shell Handwriting Canvas") || title.eq("Snow Shot - Draw") {
+                        if is_excluded_window_title(&title) {
                             return None;
                         }
 
@@ -251,12 +357,20 @@ impl UIElements {
                     Err(_) => return None,
                 };
 
-                let element_rect = uiautomation::types::Rect::new(
-                    window_info.rcClient.left,
-                    window_info.rcClient.top,
-                    window_info.rcClient.right,
-                    window_info.rcClient.bottom,
+                let element_rect = get_visible_window_rect(
+                    raw_hwnd,
+                    uiautomation::types::Rect::new(
+                        window_info.rcWindow.left,
+                        window_info.rcWindow.top,
+                        window_info.rcWindow.right,
+                        window_info.rcWindow.bottom,
+                    ),
                 );
+                if element_rect.get_left() >= element_rect.get_right()
+                    || element_rect.get_top() >= element_rect.get_bottom()
+                {
+                    return None;
+                }
 
                 if let Ok(element) =
                     automation.as_ref().unwrap().automation.element_from_handle(
@@ -277,6 +391,7 @@ impl UIElements {
         for current_child in children_list {
             current_level.window_index += 1;
             current_level.next_element();
+            current_level.node_id = self.alloc_node_id();
 
             let current_child_rect = current_child.1;
 
@@ -504,6 +619,7 @@ impl UIElements {
                     queue = Some(element.clone());
                     current_level = parent_level.clone();
                     current_level.next_level();
+                    current_level.node_id = self.alloc_node_id();
 
                     self.element_children_next_sibling_cache.insert(
                         parent_level,
@@ -554,10 +670,8 @@ impl UIElements {
                 let current_element_top = current_element_rect.get_top();
                 let current_element_bottom = current_element_rect.get_bottom();
 
-                if !(current_element_left == 0
-                    && current_element_right == 0
-                    && current_element_top == 0
-                    && current_element_bottom == 0)
+                if current_element_left < current_element_right
+                    && current_element_top < current_element_bottom
                 {
                     (current_element_rect, current_element_token) = self.insert_element_cache(
                         &mut parent_tree_token,
@@ -574,6 +688,37 @@ impl UIElements {
                         result_token = current_element_token;
                         result_rect = current_element_rect;
 
+                        // Advance the old parent's next-sibling cursor BEFORE descending
+                        // into `current_element`, so subsequent mouse moves over siblings
+                        // never re-insert `current_element` or corrupt its Arena token.
+                        let next_sibling_for_old_parent =
+                            if let Some(cache_request) = &self.cache_request {
+                                automation_walker
+                                    .get_next_sibling_build_cache(&current_element, cache_request)
+                            } else {
+                                automation_walker.get_next_sibling(&current_element)
+                            };
+                        match next_sibling_for_old_parent {
+                            Ok(sibling) => {
+                                let mut sibling_level = current_level;
+                                sibling_level.next_element();
+                                sibling_level.node_id = self.alloc_node_id();
+                                self.element_children_next_sibling_cache.insert(
+                                    parent_level,
+                                    ElementChildrenNextSiblingCacheItem::Element(
+                                        sibling,
+                                        sibling_level,
+                                    ),
+                                );
+                            }
+                            Err(_) => {
+                                self.element_children_next_sibling_cache.insert(
+                                    parent_level,
+                                    ElementChildrenNextSiblingCacheItem::NoNext,
+                                );
+                            }
+                        }
+
                         // 使用带缓存的版本获取第一个子元素
                         let first_child = if let Some(cache_request) = &self.cache_request {
                             automation_walker
@@ -588,6 +733,7 @@ impl UIElements {
                             parent_level = current_level;
 
                             current_level.next_level();
+                            current_level.node_id = self.alloc_node_id();
 
                             self.element_children_next_sibling_cache.insert(
                                 parent_level,
@@ -600,6 +746,7 @@ impl UIElements {
                                 current_level,
                                 ElementChildrenNextSiblingCacheItem::Leaf(Instant::now()),
                             );
+                            break;
                         }
                     }
                 }
@@ -616,6 +763,7 @@ impl UIElements {
                 Ok(sibling) => {
                     queue = Some(sibling.clone());
                     current_level.next_element();
+                    current_level.node_id = self.alloc_node_id();
 
                     self.element_children_next_sibling_cache.insert(
                         parent_level,
@@ -633,9 +781,15 @@ impl UIElements {
         let element_ancestors = result_token.ancestors(&self.element_rect_tree);
         let mut result_rect_list = Vec::with_capacity(16);
         let mut previous_rect = ElementRect::from(result_rect);
-        result_rect_list.push(previous_rect);
+        if previous_rect.min_x < previous_rect.max_x && previous_rect.min_y < previous_rect.max_y {
+            result_rect_list.push(previous_rect);
+        }
         for node in element_ancestors {
             let current_rect = ElementRect::from(node.data);
+            if current_rect.min_x >= current_rect.max_x || current_rect.min_y >= current_rect.max_y
+            {
+                continue;
+            }
             if current_rect == previous_rect {
                 continue;
             }

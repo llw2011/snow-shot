@@ -47,7 +47,7 @@ use std::{cmp::Ordering, hash::Hash};
 /**
  * 元素层级
  */
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub struct ElementLevel {
     /**
      * 遍历时，首先获得层级最高的元素
@@ -66,6 +66,10 @@ pub struct ElementLevel {
      * 窗口索引
      */
     pub window_index: i32,
+    /**
+     * 单调递增节点标识，防止深层多分支节点在 HashMap 中发生键冲突
+     */
+    pub node_id: u64,
 }
 
 impl ElementLevel {
@@ -75,6 +79,7 @@ impl ElementLevel {
             element_level: 0,
             parent_index: i32::MAX,
             window_index: i32::MAX,
+            node_id: 0,
         }
     }
 
@@ -87,6 +92,17 @@ impl ElementLevel {
 
     pub fn next_element(&mut self) {
         self.element_index += 1;
+    }
+
+    pub fn with_node_id(mut self, node_id: u64) -> Self {
+        self.node_id = node_id;
+        self
+    }
+}
+
+impl PartialOrd for ElementLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -107,8 +123,52 @@ impl Ord for ElementLevel {
             return other.element_index.cmp(&self.element_index);
         }
 
-        // 父元素索引排序，索引大的优先级越高
-        other.parent_index.cmp(&self.parent_index)
+        // 父元素索引排序，索引小的优先级越高
+        if self.parent_index != other.parent_index {
+            return other.parent_index.cmp(&self.parent_index);
+        }
+
+        other.node_id.cmp(&self.node_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn element_level_distinguishes_deep_branches_and_orders_consistently() {
+        let mut win = ElementLevel::root();
+        win.window_index = 1;
+        win.next_level();
+        win.next_element();
+        win.node_id = 1;
+
+        // Branch A: level 2 index 1 -> level 3 index 1 -> level 4 index 1
+        let mut a_l4 = win;
+        a_l4.next_level();
+        a_l4.next_element();
+        a_l4.next_level();
+        a_l4.next_element();
+        a_l4.next_level();
+        a_l4.next_element();
+        a_l4 = a_l4.with_node_id(10);
+
+        // Branch B: level 2 index 2 -> level 3 index 1 -> level 4 index 1
+        let mut b_l4 = win;
+        b_l4.next_level();
+        b_l4.next_element();
+        b_l4.next_element();
+        b_l4.next_level();
+        b_l4.next_element();
+        b_l4.next_level();
+        b_l4.next_element();
+        b_l4 = b_l4.with_node_id(20);
+
+        assert_ne!(a_l4, b_l4);
+        assert_eq!(a_l4.partial_cmp(&b_l4), Some(a_l4.cmp(&b_l4)));
+        assert!(win > ElementLevel::root());
+        assert!(a_l4 > win);
     }
 }
 

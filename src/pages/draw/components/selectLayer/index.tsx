@@ -63,6 +63,12 @@ import { CaptureStep, DrawContext } from "../../types";
 import { useMoveCursor } from "../colorPicker/extra";
 import { useMonitorRect } from "../statusBar";
 import {
+	isInWholeWindowPriorityZone,
+	mergeCandidateRects,
+	resolveSelectionLevel,
+	stepSelectionLevel,
+} from "./candidateSelection";
+import {
 	ResizeToolbar,
 	type ResizeToolbarActionType,
 } from "./components/resizeToolbar";
@@ -239,6 +245,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 	const uiElementsReadyRef = useRef(false); // UIA 子元素仅在初始化完成后参与局部选择
 	const selectWindowElementGenerationRef = useRef(0); // 隔离连续截图的异步选择结果
 	const selectWindowFromMousePositionLevelRef = useRef(0);
+	const lastCandidateCountRef = useRef(1);
 	const onMouseMoveAutoSelectLastParamsRef = useRef<
 		| {
 				mousePosition: MousePosition;
@@ -399,6 +406,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		selectWindowElementLoadingRef.current = true;
 		uiElementsReadyRef.current = false;
 		selectWindowFromMousePositionLevelRef.current = 0;
+		lastCandidateCountRef.current = 1;
 
 		const windowElementsPromise =
 			getScreenshotType()?.type === ScreenshotType.SwitchCaptureHistory
@@ -495,17 +503,14 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			);
 			selectedWindowIdRef.current = topWindowId;
 
-			// UIA becomes available after the capture overlay is already visible. A
-			// native title bar is outside the client area, so do not let a late UIA
-			// title-bar control replace this top-level window's first candidate.
-			if (
-				topWindowClientRect &&
-				topWindowClientRect.min_x < topWindowClientRect.max_x &&
-				topWindowClientRect.min_y < topWindowClientRect.max_y &&
-				!positoinInRect(topWindowClientRect, mousePosition)
-			) {
-				return windowRectList;
-			}
+			const topWindowRect = windowRectList[0];
+			const preferWholeWindow = isInWholeWindowPriorityZone({
+				mousePosition,
+				topWindowRect,
+				topWindowClientRect,
+				devicePixelRatio: window.devicePixelRatio,
+				isVideoRecord: getScreenshotType()?.type === ScreenshotType.VideoRecord,
+			});
 
 			let elementRectList: ElementRect[] | undefined;
 			if (isEnableFindChildrenElements() && uiElementsReadyRef.current) {
@@ -519,46 +524,16 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 					// 获取元素失败，忽略
 				}
 			}
-			const result: ElementRect[] = [];
-			const rectKeys = new Set<string>();
-			const topWindowRect = windowRectList[0];
-			for (const rect of elementRectList ?? []) {
-				const candidateRect = topWindowRect
-					? {
-							min_x: Math.max(rect.min_x, topWindowRect.min_x),
-							min_y: Math.max(rect.min_y, topWindowRect.min_y),
-							max_x: Math.min(rect.max_x, topWindowRect.max_x),
-							max_y: Math.min(rect.max_y, topWindowRect.max_y),
-						}
-					: rect;
-				const validRect =
-					Number.isFinite(candidateRect.min_x) &&
-					Number.isFinite(candidateRect.min_y) &&
-					Number.isFinite(candidateRect.max_x) &&
-					Number.isFinite(candidateRect.max_y) &&
-					candidateRect.min_x < candidateRect.max_x &&
-					candidateRect.min_y < candidateRect.max_y &&
-					candidateRect.min_x <= mousePosition.mouseX &&
-					candidateRect.max_x >= mousePosition.mouseX &&
-					candidateRect.min_y <= mousePosition.mouseY &&
-					candidateRect.max_y >= mousePosition.mouseY;
-				const rectKey = `${candidateRect.min_x},${candidateRect.min_y},${candidateRect.max_x},${candidateRect.max_y}`;
-				if (validRect && !rectKeys.has(rectKey)) {
-					result.push(candidateRect);
-					rectKeys.add(rectKey);
-				}
-			}
-			// 局部元素优先；完整顶层窗口始终保留为可切换层级和可靠兜底。
-			for (const rect of windowRectList) {
-				const rectKey = `${rect.min_x},${rect.min_y},${rect.max_x},${rect.max_y}`;
-				if (!rectKeys.has(rectKey)) {
-					result.push(rect);
-					rectKeys.add(rectKey);
-				}
-			}
+
+			const result = mergeCandidateRects({
+				windowRectList,
+				elementRectList,
+				mousePosition,
+				preferWholeWindow,
+			});
 			return result.length > 0 ? result : undefined;
 		},
-		[isEnableFindChildrenElements],
+		[getScreenshotType, isEnableFindChildrenElements],
 	);
 
 	const resizeToolbarUpdateStyle = useCallback((rect: ElementRect) => {
@@ -603,6 +578,18 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 				imageData: ImageData;
 			},
 		) => {
+			if (!captureBoundingBoxInfoRef.current) {
+				return;
+			}
+
+			if (
+				!selectLayerCanvasContextRef.current &&
+				selectLayerCanvasRef.current
+			) {
+				selectLayerCanvasContextRef.current =
+					selectLayerCanvasRef.current.getContext("2d");
+			}
+
 			if (!selectLayerCanvasContextRef.current) {
 				appWarn(
 					"[selectLayer::drawCanvasSelectRect] selectLayerCanvasContextRef.current is undefined",
@@ -837,6 +824,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		elementsIndexWindowIdMapRef.current.clear();
 		selectedWindowIdRef.current = undefined;
 		selectWindowFromMousePositionLevelRef.current = 0;
+		lastCandidateCountRef.current = 1;
 		onMouseMoveAutoSelectLastParamsRef.current = undefined;
 		lastMouseMovePositionRef.current = undefined;
 		opacityImageDataRef.current = undefined;
@@ -871,15 +859,11 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 							];
 			}
 
-			const minLevel = 0;
-			const maxLevel = Math.max(elementRectList.length - 1, minLevel);
-			let currentLevel = selectWindowFromMousePositionLevelRef.current;
-			if (currentLevel < minLevel) {
-				currentLevel = minLevel;
-			} else if (currentLevel > maxLevel) {
-				currentLevel = maxLevel;
-				selectWindowFromMousePositionLevelRef.current = maxLevel;
-			}
+			lastCandidateCountRef.current = elementRectList.length;
+			const currentLevel = resolveSelectionLevel(
+				selectWindowFromMousePositionLevelRef.current,
+				elementRectList.length,
+			);
 
 			let selectedRect = {
 				min_x: elementRectList[currentLevel].min_x,
@@ -1352,9 +1336,10 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			}
 
 			const deltaLevel = e.deltaY > 0 ? -1 : 1;
-			selectWindowFromMousePositionLevelRef.current = Math.max(
-				selectWindowFromMousePositionLevelRef.current + deltaLevel,
-				0,
+			selectWindowFromMousePositionLevelRef.current = stepSelectionLevel(
+				selectWindowFromMousePositionLevelRef.current,
+				deltaLevel,
+				lastCandidateCountRef.current,
 			);
 			refreshMouseMove();
 		},

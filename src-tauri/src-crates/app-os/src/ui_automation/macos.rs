@@ -12,7 +12,7 @@ impl UIElements {
         Ok(())
     }
 
-    pub fn init_cache(&mut self) -> Result<(), ()> {
+    pub fn init_cache(&mut self, _exclude_hwnd: Option<usize>) -> Result<(), ()> {
         Ok(())
     }
 

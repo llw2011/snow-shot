@@ -1,0 +1,18 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"incremental": false,
+		"isolatedModules": false,
+		"lib": ["es2022", "dom"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": false,
+		"outDir": ".tmp/select-layer-regression",
+		"rootDir": ".",
+		"target": "es2022"
+	},
+	"include": [
+		"src/pages/draw/components/selectLayer/candidateSelection.ts",
+		"src/pages/draw/components/selectLayer/candidateSelection.test.ts"
+	]
+}
