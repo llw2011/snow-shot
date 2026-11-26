@@ -43,7 +43,6 @@ assert(
 		topWindowRect: framelessWindow,
 		topWindowClientRect: framelessClient,
 		devicePixelRatio: 1,
-		isVideoRecord: false,
 	}),
 	"Frameless window top header strip should prioritize whole window",
 );
@@ -55,33 +54,35 @@ assert(
 		topWindowRect: framelessWindow,
 		topWindowClientRect: framelessClient,
 		devicePixelRatio: 1,
-		isVideoRecord: false,
 	}),
 	"Window left edge grab band should prioritize whole window",
 );
 
-// 3. Inside content area during screenshot allows child element selection first
+// 3. Inside content area allows child element selection first (for both screenshot and recording)
 assert(
 	!isInWholeWindowPriorityZone({
 		mousePosition: { mouseX: 450, mouseY: 400 },
 		topWindowRect: framelessWindow,
 		topWindowClientRect: framelessClient,
 		devicePixelRatio: 1,
-		isVideoRecord: false,
 	}),
-	"Inner content area during screenshot should allow child elements first",
+	"Inner content area should allow child elements first",
 );
 
-// 4. Inside content area during video recording prioritizes whole window
+// 4. Native title bar (outside rcClient, inside rcWindow) prioritizes whole window
 assert(
 	isInWholeWindowPriorityZone({
-		mousePosition: { mouseX: 450, mouseY: 400 },
+		mousePosition: { mouseX: 450, mouseY: 112 },
 		topWindowRect: framelessWindow,
-		topWindowClientRect: framelessClient,
+		topWindowClientRect: {
+			min_x: 100,
+			min_y: 132,
+			max_x: 1100,
+			max_y: 800,
+		},
 		devicePixelRatio: 1,
-		isVideoRecord: true,
 	}),
-	"Video recording mode should prioritize whole window everywhere inside window",
+	"Native title bar outside rcClient should prioritize whole window",
 );
 
 // 5. Merge order when whole window is preferred puts topWindowRect first, keeps children accessible

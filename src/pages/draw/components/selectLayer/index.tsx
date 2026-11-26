@@ -258,6 +258,10 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 		undefined,
 	);
 	const lastMouseMovePositionRef = useRef<MousePosition | undefined>(undefined); // 上一次鼠标移动事件触发的参数
+	const onMouseMoveRef = useRef<
+		| ((mousePosition: MousePosition, ignoreAnimation?: boolean) => void)
+		| undefined
+	>(undefined);
 	const drawSelectRectAnimationRef = useRef<
 		TweenAnimation<ElementRect> | undefined
 	>(undefined); // 绘制选取框的动画
@@ -419,9 +423,16 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			.then(() => {
 				if (selectWindowElementGenerationRef.current === generation) {
 					uiElementsReadyRef.current = true;
+					if (
+						selectStateRef.current === SelectState.Auto &&
+						lastMouseMovePositionRef.current
+					) {
+						onMouseMoveRef.current?.(lastMouseMovePositionRef.current, true);
+					}
 				}
 			})
-			.catch(() => {
+			.catch((error) => {
+				appWarn("[selectLayer::initUiElementsCache] failed", error);
 				if (selectWindowElementGenerationRef.current === generation) {
 					uiElementsReadyRef.current = false;
 				}
@@ -498,10 +509,20 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			});
 			const topWindowClientRect =
 				elementsListClientRectRef.current[rectIndexs[0]];
+			const previousWindowId = selectedWindowIdRef.current;
 			const topWindowId = elementsIndexWindowIdMapRef.current.get(
 				rectIndexs[0],
 			);
 			selectedWindowIdRef.current = topWindowId;
+			if (
+				previousWindowId !== undefined &&
+				topWindowId !== undefined &&
+				previousWindowId !== topWindowId
+			) {
+				// Switching to another top-level window resets manual wheel depth so
+				// scrolling up to whole-window on one app does not lock all other apps.
+				selectWindowFromMousePositionLevelRef.current = 0;
+			}
 
 			const topWindowRect = windowRectList[0];
 			const preferWholeWindow = isInWholeWindowPriorityZone({
@@ -509,7 +530,6 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 				topWindowRect,
 				topWindowClientRect,
 				devicePixelRatio: window.devicePixelRatio,
-				isVideoRecord: getScreenshotType()?.type === ScreenshotType.VideoRecord,
 			});
 
 			let elementRectList: ElementRect[] | undefined;
@@ -533,7 +553,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			});
 			return result.length > 0 ? result : undefined;
 		},
-		[getScreenshotType, isEnableFindChildrenElements],
+		[isEnableFindChildrenElements],
 	);
 
 	const resizeToolbarUpdateStyle = useCallback((rect: ElementRect) => {
@@ -1272,6 +1292,7 @@ const SelectLayerCore: React.FC<SelectLayerProps> = ({ actionRef }) => {
 			enableLockWidthHeightPicker,
 		],
 	);
+	onMouseMoveRef.current = onMouseMove;
 	const onMouseMoveRenderCallback = useCallbackRender(onMouseMove);
 
 	const onMouseUp = useCallback(() => {

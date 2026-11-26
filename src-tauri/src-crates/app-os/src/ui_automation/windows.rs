@@ -35,6 +35,17 @@ use super::UIAutomationError;
 
 const NEGATIVE_CHILD_CACHE_RETRY_INTERVAL: Duration = Duration::from_millis(250);
 
+fn is_full_parent_bounds(
+    child_rect: uiautomation::types::Rect,
+    parent_rect: uiautomation::types::Rect,
+) -> bool {
+    const TOLERANCE_PX: i32 = 2;
+    child_rect.get_left() <= parent_rect.get_left() + TOLERANCE_PX
+        && child_rect.get_top() <= parent_rect.get_top() + TOLERANCE_PX
+        && child_rect.get_right() >= parent_rect.get_right() - TOLERANCE_PX
+        && child_rect.get_bottom() >= parent_rect.get_bottom() - TOLERANCE_PX
+}
+
 fn is_excluded_window_title(title: &str) -> bool {
     matches!(
         title,
@@ -673,21 +684,12 @@ impl UIElements {
                 if current_element_left < current_element_right
                     && current_element_top < current_element_bottom
                 {
-                    (current_element_rect, current_element_token) = self.insert_element_cache(
-                        &mut parent_tree_token,
-                        current_element.clone(),
-                        current_element_rect,
-                        current_level,
-                    );
-
-                    if current_element_left <= mouse_x
+                    let contains_cursor = current_element_left <= mouse_x
                         && current_element_right >= mouse_x
                         && current_element_top <= mouse_y
-                        && current_element_bottom >= mouse_y
-                    {
-                        result_token = current_element_token;
-                        result_rect = current_element_rect;
+                        && current_element_bottom >= mouse_y;
 
+                    if contains_cursor {
                         // Advance the old parent's next-sibling cursor BEFORE descending
                         // into `current_element`, so subsequent mouse moves over siblings
                         // never re-insert `current_element` or corrupt its Arena token.
@@ -698,7 +700,7 @@ impl UIElements {
                             } else {
                                 automation_walker.get_next_sibling(&current_element)
                             };
-                        match next_sibling_for_old_parent {
+                        let next_sibling_level = match &next_sibling_for_old_parent {
                             Ok(sibling) => {
                                 let mut sibling_level = current_level;
                                 sibling_level.next_element();
@@ -706,18 +708,20 @@ impl UIElements {
                                 self.element_children_next_sibling_cache.insert(
                                     parent_level,
                                     ElementChildrenNextSiblingCacheItem::Element(
-                                        sibling,
+                                        sibling.clone(),
                                         sibling_level,
                                     ),
                                 );
+                                Some(sibling_level)
                             }
                             Err(_) => {
                                 self.element_children_next_sibling_cache.insert(
                                     parent_level,
                                     ElementChildrenNextSiblingCacheItem::NoNext,
                                 );
+                                None
                             }
-                        }
+                        };
 
                         // 使用带缓存的版本获取第一个子元素
                         let first_child = if let Some(cache_request) = &self.cache_request {
@@ -728,6 +732,16 @@ impl UIElements {
                         };
 
                         if let Ok(child) = first_child {
+                            (current_element_rect, current_element_token) =
+                                self.insert_element_cache(
+                                    &mut parent_tree_token,
+                                    current_element.clone(),
+                                    current_element_rect,
+                                    current_level,
+                                );
+                            result_token = current_element_token;
+                            result_rect = current_element_rect;
+
                             queue = Some(child.clone());
                             parent_tree_token = current_element_token;
                             parent_level = current_level;
@@ -741,13 +755,42 @@ impl UIElements {
                             );
 
                             continue;
+                        } else if is_full_parent_bounds(current_element_rect, parent_rect) {
+                            // A leaf that covers the entire parent (e.g. a Chromium/WebView2
+                            // backdrop or host pane) adds no finer selection geometry. Do NOT
+                            // cache it at a higher level than `parent`, and keep scanning
+                            // remaining siblings so real child UI subtrees are still reached.
+                            if let (Ok(sibling), Some(sibling_level)) =
+                                (next_sibling_for_old_parent, next_sibling_level)
+                            {
+                                queue = Some(sibling);
+                                current_level = sibling_level;
+                                continue;
+                            }
+                            break;
                         } else {
+                            (current_element_rect, current_element_token) =
+                                self.insert_element_cache(
+                                    &mut parent_tree_token,
+                                    current_element.clone(),
+                                    current_element_rect,
+                                    current_level,
+                                );
+                            result_token = current_element_token;
+                            result_rect = current_element_rect;
                             self.element_children_next_sibling_cache.insert(
                                 current_level,
                                 ElementChildrenNextSiblingCacheItem::Leaf(Instant::now()),
                             );
                             break;
                         }
+                    } else if !is_full_parent_bounds(current_element_rect, parent_rect) {
+                        let _ = self.insert_element_cache(
+                            &mut parent_tree_token,
+                            current_element.clone(),
+                            current_element_rect,
+                            current_level,
+                        );
                     }
                 }
             }
@@ -816,5 +859,27 @@ impl Drop for UIElements {
         self.automation = None;
         self.automation_walker = None;
         self.root_element = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_parent_bounds_detects_backdrop_leaves_only() {
+        let window_rect = uiautomation::types::Rect::new(100, 100, 1100, 800);
+        assert!(is_full_parent_bounds(
+            uiautomation::types::Rect::new(100, 100, 1100, 800),
+            window_rect,
+        ));
+        assert!(is_full_parent_bounds(
+            uiautomation::types::Rect::new(102, 101, 1098, 799),
+            window_rect,
+        ));
+        assert!(!is_full_parent_bounds(
+            uiautomation::types::Rect::new(120, 120, 400, 300),
+            window_rect,
+        ));
     }
 }

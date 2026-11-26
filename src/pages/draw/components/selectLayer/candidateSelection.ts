@@ -48,23 +48,17 @@ export const isInWholeWindowPriorityZone = ({
 	topWindowRect,
 	topWindowClientRect,
 	devicePixelRatio,
-	isVideoRecord,
 }: {
 	mousePosition: CandidatePoint;
 	topWindowRect?: CandidateRect;
 	topWindowClientRect?: CandidateRect;
 	devicePixelRatio: number;
-	isVideoRecord: boolean;
 }): boolean => {
 	if (
 		!isValidRect(topWindowRect) ||
 		!pointInRect(topWindowRect, mousePosition)
 	) {
 		return false;
-	}
-
-	if (isVideoRecord) {
-		return true;
 	}
 
 	// Native non-client area (e.g. standard Windows title bar / frame)
