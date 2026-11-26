@@ -12,6 +12,8 @@ export type PluginFileSource = {
 	path: string;
 	url: string;
 	sha256?: string;
+	archive_type?: "gzip";
+	archive_sha256?: string;
 };
 
 export class PluginConfig {

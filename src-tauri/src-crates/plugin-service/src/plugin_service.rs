@@ -132,6 +132,12 @@ impl PluginService {
         plugin_guard.uninstall().await
     }
 
+    pub async fn get_plugin_dir(&self, name: &str) -> Option<PathBuf> {
+        let plugin = self.plugins.get(name)?;
+        let plugin_guard = plugin.read().await;
+        Some(plugin_guard.get_plugin_dir())
+    }
+
     pub async fn get_plugins_status(&self) -> Result<Vec<PluginStatusResult>, String> {
         let mut plugins_status = Vec::new();
         for plugin in self.plugins.iter() {

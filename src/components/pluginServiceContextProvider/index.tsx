@@ -24,7 +24,54 @@ import {
 	type PluginStatusRecord,
 } from "@/types/components/pluginService";
 import { getAppConfigBaseDirWithCache } from "@/utils/environment";
-import { getPlatform } from "@/utils/platform";
+import { getArch, getPlatform } from "@/utils/platform";
+
+const getDefaultFfmpegFileSources = () => {
+	const platform = getPlatform();
+	if (platform === "windows") {
+		return [
+			{
+				path: "ffmpeg.exe",
+				url: "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-win32-x64.gz",
+				archive_type: "gzip" as const,
+				archive_sha256:
+					"8883a3dffbd0a16cf4ef95206ea05283f78908dbfb118f73c83f4951dcc06d77",
+				sha256:
+					"04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00",
+			},
+		];
+	}
+
+	if (platform === "macos") {
+		if (getArch() === "aarch64") {
+			return [
+				{
+					path: "ffmpeg",
+					url: "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz",
+					archive_type: "gzip" as const,
+					archive_sha256:
+						"8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
+					sha256:
+						"a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584",
+				},
+			];
+		}
+
+		return [
+			{
+				path: "ffmpeg",
+				url: "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-x64.gz",
+				archive_type: "gzip" as const,
+				archive_sha256:
+					"929b375c1182d956c51f7ac25e0b2b0411fb01f6f407aa15c9758efeb4242106",
+				sha256:
+					"ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894",
+			},
+		];
+	}
+
+	return undefined;
+};
 
 export const PluginServiceContextProvider: React.FC<{
 	children: React.ReactNode;
@@ -74,7 +121,9 @@ export const PluginServiceContextProvider: React.FC<{
 			{
 				id: PLUGIN_ID_FFMPEG,
 				file_list: getPlatform() === "windows" ? ["ffmpeg.exe"] : ["ffmpeg"],
-				file_source_list: getBuildPluginFileSources(PLUGIN_ID_FFMPEG),
+				file_source_list:
+					getBuildPluginFileSources(PLUGIN_ID_FFMPEG) ??
+					getDefaultFfmpegFileSources(),
 			},
 			{
 				id: PLUGIN_ID_TRANSLATE,

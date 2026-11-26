@@ -15,5 +15,6 @@ dashmap = { workspace = true }
 tauri = { workspace = true }
 
 async_zip = { version = "0.0.18", features = ["tokio", "xz"] }
+flate2 = "1.1"
 sha2 = "0.10"
 hex = "0.4"

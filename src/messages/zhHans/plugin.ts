@@ -1,7 +1,7 @@
 export const plugin = {
 	"plugin.ffmpeg.name": "视频录制",
 	"plugin.ffmpeg.description":
-		"基于 FFmpeg 实现音频和视频多种格式的录制、转换等功能",
+		"基于受控静态版 FFmpeg 实现录屏与格式转换。支持一键在线下载（含 SHA-256 哈希校验与能力自检），离线版已内置到安装目录，也可手动从本地目录导入。",
 	"plugin.rapid_ocr.name": "Rapid OCR 本地模型",
 	"plugin.rapid_ocr.description":
 		"安装 Rapid OCR V4/V5 ONNX 模型。选择 Rapid OCR V4/V5 后，识别在 Snow Shot 本机进程内执行，不启动独立服务，也不占用端口。",
@@ -19,6 +19,8 @@ export const plugin = {
 	"plugin.status.Unzipping": "解压中",
 	"plugin.status.Uninstalling": "卸载中",
 	"plugin.install": "安装",
+	"plugin.installLocal": "本地导入",
+	"plugin.installError": "插件安装或校验失败",
 	"plugin.uninstall": "卸载",
 	"plugin.forceInstall": "重新安装",
 	"plugin.uninstall.confirm.title": "卸载“{name}”？",

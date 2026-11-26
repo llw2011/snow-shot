@@ -326,6 +326,8 @@ export const zhHant = {
 	"plugin.rapid_ocr.description":
 		"安裝 Rapid OCR V4/V5 ONNX 模型。選擇 Rapid OCR V4/V5 後，辨識在 Snow Shot 本機進程內執行，不啟動獨立服務，也不佔用端口。",
 	"plugin.install": "安裝",
+	"plugin.installLocal": "本機匯入",
+	"plugin.installError": "外掛安裝或校驗失敗",
 	"plugin.uninstall": "解除安裝",
 	"plugin.forceInstall": "重新安裝",
 	"plugin.uninstall.confirm.title": "解除安裝「{name}」？",

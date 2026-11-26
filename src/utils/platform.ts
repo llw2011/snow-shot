@@ -60,3 +60,19 @@ export const getPlatformVersion = () => {
 	platformVersionCache = tauriOs.version();
 	return platformVersionCache;
 };
+
+let archCache: tauriOs.Arch | undefined;
+
+export const getArch = (): tauriOs.Arch => {
+	if (archCache) {
+		return archCache;
+	}
+
+	let currentArch: tauriOs.Arch = "x86_64";
+	if (typeof window !== "undefined") {
+		currentArch = tauriOs.arch();
+	}
+
+	archCache = currentArch;
+	return currentArch;
+};

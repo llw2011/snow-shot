@@ -1,6 +1,11 @@
 "use client";
 
-import { DeleteOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
+import {
+	DeleteOutlined,
+	FolderOpenOutlined,
+	PlusOutlined,
+	SyncOutlined,
+} from "@ant-design/icons";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Badge, Button, List } from "antd";
@@ -23,7 +28,7 @@ import { appError } from "@/utils/log";
 
 export const PluginsPage = () => {
 	const intl = useIntl();
-	const { modal } = useContext(AntdContext);
+	const { message, modal } = useContext(AntdContext);
 	const { pluginConfig, pluginStatus } = usePluginServiceContext();
 	const [pendingMutation, setPendingMutation] = useState<string>();
 	const pendingMutationRef = useRef<string | undefined>(undefined);
@@ -70,6 +75,41 @@ export const PluginsPage = () => {
 		}
 	};
 
+	const formatPluginError = useCallback((error: unknown) => {
+		if (typeof error === "string") {
+			return error;
+		}
+		if (error instanceof Error) {
+			return error.message;
+		}
+		return "";
+	}, []);
+
+	const installLocalPlugin = useCallback(
+		async (pluginId: string, force: boolean = true) => {
+			try {
+				const sourceDir = await open({
+					directory: true,
+				});
+
+				if (!sourceDir || Array.isArray(sourceDir)) {
+					return;
+				}
+
+				await pluginInstallLocalPlugin(pluginId, sourceDir, force);
+			} catch (error) {
+				appError("[PluginsPage] install local plugin error", error);
+				const detail = formatPluginError(error);
+				message.error(
+					detail
+						? `${intl.formatMessage({ id: "plugin.installError" })}: ${detail}`
+						: intl.formatMessage({ id: "plugin.installError" }),
+				);
+			}
+		},
+		[formatPluginError, intl, message],
+	);
+
 	const installPlugin = useCallback(
 		async (pluginId: string, force: boolean = false) => {
 			try {
@@ -77,24 +117,22 @@ export const PluginsPage = () => {
 				const hasConfiguredRemoteSource =
 					(plugin?.file_source_list?.length ?? 0) > 0;
 				if (pluginId === PLUGIN_ID_FFMPEG && !hasConfiguredRemoteSource) {
-					const sourceDir = await open({
-						directory: true,
-					});
-
-					if (!sourceDir || Array.isArray(sourceDir)) {
-						return;
-					}
-
-					await pluginInstallLocalPlugin(pluginId, sourceDir, force);
+					await installLocalPlugin(pluginId, force);
 					return;
 				}
 
 				await pluginInstallPlugin(pluginId, force);
 			} catch (error) {
 				appError("[PluginsPage] install plugin error", error);
+				const detail = formatPluginError(error);
+				message.error(
+					detail
+						? `${intl.formatMessage({ id: "plugin.installError" })}: ${detail}`
+						: intl.formatMessage({ id: "plugin.installError" }),
+				);
 			}
 		},
-		[pluginConfig],
+		[formatPluginError, installLocalPlugin, intl, message, pluginConfig],
 	);
 
 	const confirmPluginMutation = useCallback(
@@ -216,6 +254,27 @@ export const PluginsPage = () => {
 							>
 								<FormattedMessage id="plugin.forceInstall" />
 							</Button>,
+							...(item.id === PLUGIN_ID_FFMPEG
+								? [
+										<Button
+											key="installLocal"
+											variant="text"
+											size="small"
+											icon={<FolderOpenOutlined />}
+											disabled={
+												pendingMutation !== undefined ||
+												item.status === PluginStatus.Downloading ||
+												item.status === PluginStatus.Unzipping ||
+												item.status === PluginStatus.Uninstalling
+											}
+											onClick={() => {
+												void installLocalPlugin(item.id, true);
+											}}
+										>
+											<FormattedMessage id="plugin.installLocal" />
+										</Button>,
+									]
+								: []),
 						]}
 						extra={
 							<Badge

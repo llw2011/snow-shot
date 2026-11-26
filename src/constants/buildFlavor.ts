@@ -116,6 +116,12 @@ const parsePluginFileSources = (value: string | undefined) => {
 				const path = asNonEmptyString(sourceConfig.path);
 				const url = asHttpUrl(sourceConfig.url);
 				const sha256 = asNonEmptyString(sourceConfig.sha256)?.toLowerCase();
+				const archiveType = asNonEmptyString(
+					sourceConfig.archive_type,
+				)?.toLowerCase();
+				const archiveSha256 = asNonEmptyString(
+					sourceConfig.archive_sha256,
+				)?.toLowerCase();
 				const hasSafePath =
 					!!path &&
 					!path.startsWith("/") &&
@@ -124,8 +130,17 @@ const parsePluginFileSources = (value: string | undefined) => {
 				if (!hasSafePath || !url || !sha256 || !/^[a-f\d]{64}$/.test(sha256)) {
 					return items;
 				}
+				if (archiveSha256 && !/^[a-f\d]{64}$/.test(archiveSha256)) {
+					return items;
+				}
 
-				items.push({ path, url, sha256 });
+				items.push({
+					path,
+					url,
+					sha256,
+					...(archiveType === "gzip" ? { archive_type: "gzip" as const } : {}),
+					...(archiveSha256 ? { archive_sha256: archiveSha256 } : {}),
+				});
 				return items;
 			}, []);
 			return result;

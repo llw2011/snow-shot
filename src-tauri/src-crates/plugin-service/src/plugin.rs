@@ -5,10 +5,11 @@ use std::{
 };
 
 use async_zip::tokio::read::seek::ZipFileReader;
+use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter};
-use tokio::{fs, io::BufReader, sync::RwLock};
+use tauri::{AppHandle, Emitter, Manager};
+use tokio::{fs, io::AsyncWriteExt, io::BufReader, sync::RwLock};
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 /**
  * 插件状态
@@ -78,6 +79,10 @@ pub struct PluginFileSource {
     pub path: PathBuf,
     pub url: String,
     pub sha256: Option<String>,
+    #[serde(default)]
+    pub archive_type: Option<String>,
+    #[serde(default)]
+    pub archive_sha256: Option<String>,
 }
 
 impl Plugin {
@@ -86,6 +91,18 @@ impl Plugin {
      */
     pub fn get_plugin_dir(&self) -> PathBuf {
         self.plugin_install_dir.join(&self.relative_path)
+    }
+
+    async fn get_bundled_plugin_dir(&self) -> Option<PathBuf> {
+        let app_handle = self.app_handle.read().await;
+        let resource_dir = app_handle.as_ref()?.path().resource_dir().ok()?;
+        Some(resource_dir.join("bundled-plugins").join(&self.name))
+    }
+
+    fn dir_has_required_files(&self, dir: &Path) -> bool {
+        dir.exists()
+            && dir.is_dir()
+            && self.file_list.iter().all(|file| dir.join(file).exists())
     }
 
     fn get_plugin_download_dir(&self) -> PathBuf {
@@ -147,14 +164,16 @@ impl Plugin {
 
     async fn refresh_status_from_disk(&self) {
         let plugin_dir = self.get_plugin_dir();
+        let has_user_files = self.dir_has_required_files(&plugin_dir);
+        let has_bundled_files = if has_user_files {
+            false
+        } else {
+            self.get_bundled_plugin_dir()
+                .await
+                .is_some_and(|dir| self.dir_has_required_files(&dir))
+        };
 
-        let status = if plugin_dir.exists()
-            && plugin_dir.is_dir()
-            && self
-                .file_list
-                .iter()
-                .all(|file| plugin_dir.join(file).exists())
-        {
+        let status = if has_user_files || has_bundled_files {
             PluginStatus::Installed
         } else {
             PluginStatus::NotInstalled
@@ -266,15 +285,33 @@ impl Plugin {
     }
 
     async fn calculate_file_sha256(file_path: &Path) -> Result<String, String> {
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            format!(
-                "[Plugin::calculate_file_sha256] Failed to read file for hash: {}",
-                e
-            )
-        })?;
-        let mut hasher = Sha256::new();
-        hasher.update(&file_bytes);
-        Ok(hex::encode(hasher.finalize()))
+        let file_path = file_path.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            use std::io::Read;
+            let mut file = std::fs::File::open(&file_path).map_err(|e| {
+                format!(
+                    "[Plugin::calculate_file_sha256] Failed to open file for hash: {}",
+                    e
+                )
+            })?;
+            let mut hasher = Sha256::new();
+            let mut buffer = [0u8; 64 * 1024];
+            loop {
+                let read_bytes = file.read(&mut buffer).map_err(|e| {
+                    format!(
+                        "[Plugin::calculate_file_sha256] Failed to read file for hash: {}",
+                        e
+                    )
+                })?;
+                if read_bytes == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..read_bytes]);
+            }
+            Ok(hex::encode(hasher.finalize()))
+        })
+        .await
+        .map_err(|e| format!("[Plugin::calculate_file_sha256] Join error: {}", e))?
     }
 
     async fn verify_path_sha256(file_path: &Path, expected: &str) -> Result<(), String> {
@@ -569,6 +606,45 @@ impl Plugin {
                         e
                     )
                 })?;
+
+            #[cfg(target_os = "windows")]
+            if self.name == "ffmpeg" {
+                if let Some(source_parent) = source_file.parent() {
+                    if let Ok(mut entries) = tokio::fs::read_dir(source_parent).await {
+                        while let Ok(Some(entry)) = entries.next_entry().await {
+                            let entry_path = entry.path();
+                            let is_dll = entry_path.is_file()
+                                && entry_path
+                                    .extension()
+                                    .and_then(|ext| ext.to_str())
+                                    .is_some_and(|ext| ext.eq_ignore_ascii_case("dll"));
+                            if is_dll {
+                                if let Some(dll_name) = entry_path.file_name() {
+                                    let target_dll = target_parent.join(dll_name);
+                                    if let Err(e) = tokio::fs::copy(&entry_path, &target_dll).await
+                                    {
+                                        log::warn!(
+                                            "[Plugin::install_from_dir] Failed to copy sibling DLL {}: {}",
+                                            entry_path.display(),
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            #[cfg(unix)]
+            if self.name == "ffmpeg" {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(metadata) = std::fs::metadata(&target_file) {
+                    let mut perms = metadata.permissions();
+                    perms.set_mode(0o755);
+                    let _ = std::fs::set_permissions(&target_file, perms);
+                }
+            }
         }
 
         self.set_status(PluginStatus::Installed).await;
@@ -646,6 +722,46 @@ impl Plugin {
         Ok(())
     }
 
+    async fn decompress_gzip_file(archive_path: &Path, output_path: &Path) -> Result<(), String> {
+        let archive_path = archive_path.to_path_buf();
+        let output_path = output_path.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            use std::io::Write;
+            let input_file = std::fs::File::open(&archive_path).map_err(|e| {
+                format!(
+                    "[Plugin::decompress_gzip_file] Failed to open gzip archive {}: {}",
+                    archive_path.display(),
+                    e
+                )
+            })?;
+            let mut decoder = GzDecoder::new(std::io::BufReader::new(input_file));
+            let mut output_file = std::fs::File::create(&output_path).map_err(|e| {
+                format!(
+                    "[Plugin::decompress_gzip_file] Failed to create output file {}: {}",
+                    output_path.display(),
+                    e
+                )
+            })?;
+            std::io::copy(&mut decoder, &mut output_file).map_err(|e| {
+                format!(
+                    "[Plugin::decompress_gzip_file] Failed to decompress gzip archive {}: {}",
+                    archive_path.display(),
+                    e
+                )
+            })?;
+            output_file.flush().map_err(|e| {
+                format!(
+                    "[Plugin::decompress_gzip_file] Failed to flush output file {}: {}",
+                    output_path.display(),
+                    e
+                )
+            })?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("[Plugin::decompress_gzip_file] Join error: {}", e))?
+    }
+
     async fn download_file_source(
         &self,
         source: &PluginFileSource,
@@ -684,7 +800,7 @@ impl Plugin {
         })?;
 
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
+            .timeout(std::time::Duration::from_secs(300))
             .build()
             .map_err(|e| {
                 format!(
@@ -692,9 +808,9 @@ impl Plugin {
                     e
                 )
             })?;
-        let response = client
+        let mut response = client
             .get(&source.url)
-            .header(reqwest::header::USER_AGENT, "Snow Shot Rapid OCR Installer")
+            .header(reqwest::header::USER_AGENT, "Snow Shot Plugin Installer")
             .send()
             .await
             .map_err(|e| {
@@ -711,12 +827,6 @@ impl Plugin {
             ));
         }
 
-        let bytes = response.bytes().await.map_err(|e| {
-            format!(
-                "[Plugin::download_file_source] Failed to read response from {}: {}",
-                source.url, e
-            )
-        })?;
         let file_name = download_file_path
             .file_name()
             .and_then(|name| name.to_str())
@@ -727,27 +837,76 @@ impl Plugin {
                 )
             })?;
         let temp_file_path = download_file_path.with_file_name(format!("{}.download", file_name));
+        let is_gzip = source
+            .archive_type
+            .as_deref()
+            .is_some_and(|t| t.eq_ignore_ascii_case("gzip"));
+        let download_target_path = if is_gzip {
+            download_file_path.with_file_name(format!("{}.gz.download", file_name))
+        } else {
+            temp_file_path.clone()
+        };
 
-        if temp_file_path.exists() {
-            tokio::fs::remove_file(&temp_file_path).await.map_err(|e| {
+        for stale in [&temp_file_path, &download_target_path] {
+            if stale.exists() {
+                let _ = tokio::fs::remove_file(stale).await;
+            }
+        }
+
+        let mut temp_file = tokio::fs::File::create(&download_target_path)
+            .await
+            .map_err(|e| {
                 format!(
-                    "[Plugin::download_file_source] Failed to remove stale temp file: {}",
+                    "[Plugin::download_file_source] Failed to create temp download file: {}",
+                    e
+                )
+            })?;
+        while let Some(chunk) = response.chunk().await.map_err(|e| {
+            format!(
+                "[Plugin::download_file_source] Failed to read response from {}: {}",
+                source.url, e
+            )
+        })? {
+            temp_file.write_all(&chunk).await.map_err(|e| {
+                format!(
+                    "[Plugin::download_file_source] Failed to write downloaded chunk: {}",
                     e
                 )
             })?;
         }
+        temp_file.flush().await.map_err(|e| {
+            format!(
+                "[Plugin::download_file_source] Failed to flush downloaded file: {}",
+                e
+            )
+        })?;
+        drop(temp_file);
 
-        tokio::fs::write(&temp_file_path, &bytes)
-            .await
-            .map_err(|e| {
-                format!(
-                    "[Plugin::download_file_source] Failed to write downloaded file: {}",
-                    e
-                )
-            })?;
+        if is_gzip {
+            if let Some(expected_archive_sha256) = &source.archive_sha256 {
+                let verify_result =
+                    Self::verify_path_sha256(&download_target_path, expected_archive_sha256).await;
+                if verify_result.is_err() {
+                    let _ = tokio::fs::remove_file(&download_target_path).await;
+                    verify_result?;
+                }
+            }
+
+            let decompress_result =
+                Self::decompress_gzip_file(&download_target_path, &temp_file_path).await;
+            let _ = tokio::fs::remove_file(&download_target_path).await;
+            if decompress_result.is_err() {
+                let _ = tokio::fs::remove_file(&temp_file_path).await;
+                decompress_result?;
+            }
+        }
 
         if let Some(expected_sha256) = &source.sha256 {
-            Self::verify_path_sha256(&temp_file_path, expected_sha256).await?;
+            let verify_result = Self::verify_path_sha256(&temp_file_path, expected_sha256).await;
+            if verify_result.is_err() {
+                let _ = tokio::fs::remove_file(&temp_file_path).await;
+                verify_result?;
+            }
         }
 
         if download_file_path.exists() {
@@ -838,6 +997,16 @@ impl Plugin {
                         e
                     )
                 })?;
+
+            #[cfg(unix)]
+            if self.name == "ffmpeg" {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(metadata) = std::fs::metadata(&target_file) {
+                    let mut perms = metadata.permissions();
+                    perms.set_mode(0o755);
+                    let _ = std::fs::set_permissions(&target_file, perms);
+                }
+            }
         }
 
         self.set_status(PluginStatus::Installed).await;
@@ -941,7 +1110,7 @@ impl Plugin {
             }
         }
 
-        self.set_status(PluginStatus::NotInstalled).await;
+        self.refresh_status_from_disk().await;
 
         Ok(())
     }
@@ -950,6 +1119,8 @@ impl Plugin {
 #[cfg(test)]
 mod tests {
     use super::Plugin;
+    use flate2::{Compression, write::GzEncoder};
+    use std::io::Write;
 
     #[test]
     fn normalize_plugin_file_path_rejects_path_escape() {
@@ -974,5 +1145,44 @@ mod tests {
             .is_ok()
         );
         assert!(Plugin::normalize_sha256("not-a-sha").is_err());
+    }
+
+    #[tokio::test]
+    async fn decompress_gzip_and_verify_sha256_roundtrip() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "snow-shot-plugin-gzip-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let payload = b"snow-shot-ffmpeg-binary-payload-verification";
+        let gz_path = temp_dir.join("ffmpeg.exe.gz");
+        let out_path = temp_dir.join("ffmpeg.exe");
+        {
+            let file = std::fs::File::create(&gz_path).unwrap();
+            let mut encoder = GzEncoder::new(file, Compression::default());
+            encoder.write_all(payload).unwrap();
+            encoder.finish().unwrap();
+        }
+
+        Plugin::decompress_gzip_file(&gz_path, &out_path)
+            .await
+            .unwrap();
+        let extracted = std::fs::read(&out_path).unwrap();
+        assert_eq!(extracted, payload);
+
+        let actual_hash = Plugin::calculate_file_sha256(&out_path).await.unwrap();
+        assert!(Plugin::verify_path_sha256(&out_path, &actual_hash).await.is_ok());
+        assert!(
+            Plugin::verify_path_sha256(
+                &out_path,
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            )
+            .await
+            .is_err()
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

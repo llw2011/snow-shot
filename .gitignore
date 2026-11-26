@@ -54,3 +54,4 @@ tsconfig.tsbuildinfo
 
 .playwright-mcp/
 ui-*.png
+src-tauri/bundled-plugins/

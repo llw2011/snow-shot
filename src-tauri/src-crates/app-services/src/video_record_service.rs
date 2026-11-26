@@ -1,4 +1,6 @@
-use ffmpeg_sidecar::{child::FfmpegChild, command::FfmpegCommand, event::FfmpegEvent};
+use ffmpeg_sidecar::{child::FfmpegChild, command::FfmpegCommand};
+#[cfg(target_os = "macos")]
+use ffmpeg_sidecar::event::FfmpegEvent;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 #[cfg(target_os = "macos")]
@@ -7,13 +9,194 @@ use std::{
     collections::VecDeque,
     io::{BufReader, Read, Result},
     path::{Path, PathBuf},
+    process::{Command, Stdio},
     sync::mpsc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 const RECORD_START_TIMEOUT: Duration = Duration::from_secs(10);
 const RECORD_STOP_TIMEOUT: Duration = Duration::from_secs(5);
+const FFMPEG_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+const MICROPHONE_LIST_TIMEOUT: Duration = Duration::from_secs(5);
 const STDERR_TAIL_LIMIT: usize = 40;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+#[cfg(target_os = "windows")]
+const STATUS_DLL_NOT_FOUND_CODE: i32 = -1073741515; // 0xC0000135
+
+#[cfg(target_os = "windows")]
+fn suppress_windows_critical_error_dialogs() {
+    const SEM_FAILCRITICALERRORS: u32 = 0x0001;
+    const SEM_NOGPFAULTERRORBOX: u32 = 0x0002;
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetErrorMode(u_mode: u32) -> u32;
+    }
+    unsafe {
+        let current = SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+        SetErrorMode(current | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+    }
+}
+
+fn run_ffmpeg_probe_command(
+    ffmpeg_path: &Path,
+    args: &[&str],
+    timeout: Duration,
+) -> std::result::Result<(std::process::ExitStatus, String), String> {
+    #[cfg(target_os = "windows")]
+    suppress_windows_critical_error_dialogs();
+
+    let mut cmd = Command::new(ffmpeg_path);
+    cmd.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let mut child = cmd.spawn().map_err(|e| {
+        format!(
+            "Failed to launch FFmpeg at {}: {}",
+            ffmpeg_path.display(),
+            e
+        )
+    })?;
+
+    let stdout_handle = child.stdout.take().map(|mut stdout| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = stdout.read_to_end(&mut buf);
+            String::from_utf8_lossy(&buf).into_owned()
+        })
+    });
+    let stderr_handle = child.stderr.take().map(|mut stderr| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = stderr.read_to_end(&mut buf);
+            String::from_utf8_lossy(&buf).into_owned()
+        })
+    });
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!(
+                        "FFmpeg probe ({}) timed out after {}s at {}",
+                        args.join(" "),
+                        timeout.as_secs(),
+                        ffmpeg_path.display()
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("Failed while waiting for FFmpeg probe: {}", e));
+            }
+        }
+    };
+
+    let stdout_text = stdout_handle
+        .and_then(|h| h.join().ok())
+        .unwrap_or_default();
+    let stderr_text = stderr_handle
+        .and_then(|h| h.join().ok())
+        .unwrap_or_default();
+
+    let combined = if stdout_text.is_empty() {
+        stderr_text
+    } else if stderr_text.is_empty() {
+        stdout_text
+    } else {
+        format!("{}\n{}", stdout_text, stderr_text)
+    };
+    Ok((status, combined))
+}
+
+/// Fast pre-flight verification that an FFmpeg binary launches cleanly and
+/// includes the screen-capture demuxer & H.264 software encoder needed for recording.
+pub fn probe_ffmpeg_binary(ffmpeg_path: &Path) -> std::result::Result<String, String> {
+    if !ffmpeg_path.is_file() {
+        return Err(format!(
+            "FFmpeg executable not found at {}",
+            ffmpeg_path.display()
+        ));
+    }
+
+    let (status, version_output) =
+        run_ffmpeg_probe_command(ffmpeg_path, &["-hide_banner", "-version"], FFMPEG_PROBE_TIMEOUT)?;
+    if !status.success() {
+        #[cfg(target_os = "windows")]
+        if status.code() == Some(STATUS_DLL_NOT_FOUND_CODE) {
+            return Err(format!(
+                "FFmpeg at {} is missing required DLL files (shared build). Please install a static FFmpeg build or use online installation.",
+                ffmpeg_path.display()
+            ));
+        }
+
+        let summary = version_output
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("unknown error");
+        return Err(format!(
+            "FFmpeg at {} failed version check ({}): {}",
+            ffmpeg_path.display(),
+            status,
+            summary
+        ));
+    }
+
+    let version_line = version_output
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or("ffmpeg")
+        .trim()
+        .to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        let (demux_status, demux_output) = run_ffmpeg_probe_command(
+            ffmpeg_path,
+            &["-hide_banner", "-demuxers"],
+            FFMPEG_PROBE_TIMEOUT,
+        )?;
+        if !demux_status.success() || !demux_output.contains("gdigrab") {
+            return Err(format!(
+                "FFmpeg at {} does not support Windows gdigrab screen capture",
+                ffmpeg_path.display()
+            ));
+        }
+
+        let (enc_status, enc_output) = run_ffmpeg_probe_command(
+            ffmpeg_path,
+            &["-hide_banner", "-encoders"],
+            FFMPEG_PROBE_TIMEOUT,
+        )?;
+        if !enc_status.success() || !enc_output.contains("libx264") {
+            return Err(format!(
+                "FFmpeg at {} does not include the libx264 encoder",
+                ffmpeg_path.display()
+            ));
+        }
+    }
+
+    Ok(version_line)
+}
+
+fn binary_fingerprint(path: &Path) -> Option<(PathBuf, u64, Option<SystemTime>)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((path.to_path_buf(), meta.len(), meta.modified().ok()))
+}
 
 enum StartupSignal {
     Progress(String),
@@ -66,7 +249,11 @@ fn is_live_progress_line(line: &str) -> bool {
         .and_then(|s| s.split_whitespace().next())
         .unwrap_or("N/A");
 
-    frame_count > 0 || (time_val != "N/A" && !trimmed.contains("Lsize="))
+    frame_count > 0
+        || (time_val != "N/A"
+            && time_val != "00:00:00.00"
+            && !time_val.starts_with('-')
+            && !trimmed.contains("Lsize="))
 }
 
 fn summarize_ffmpeg_errors(lines: &VecDeque<String>) -> String {
@@ -254,7 +441,9 @@ pub struct VideoRecordService {
     segment_counter: u32,                      // 片段计数器
     recording_params: Option<RecordingParams>, // 录制参数，用于恢复录制
     record_video_size: Option<(i32, i32)>,     // 录制视频大小
+    bundled_ffmpeg_path: Option<PathBuf>,
     ffmpeg_path: Option<PathBuf>,
+    verified_ffmpeg_fingerprint: Option<(PathBuf, u64, Option<SystemTime>)>,
 }
 
 #[cfg(target_os = "macos")]
@@ -281,8 +470,19 @@ impl VideoRecordService {
             segment_counter: 0,
             recording_params: None,
             record_video_size: None,
+            bundled_ffmpeg_path: None,
             ffmpeg_path: None,
+            verified_ffmpeg_fingerprint: None,
         }
+    }
+
+    pub fn set_bundled_ffmpeg_dir(&mut self, bundled_ffmpeg_dir: Option<&Path>) {
+        let binary_name = if cfg!(target_os = "windows") {
+            "ffmpeg.exe"
+        } else {
+            "ffmpeg"
+        };
+        self.bundled_ffmpeg_path = bundled_ffmpeg_dir.map(|dir| dir.join(binary_name));
     }
 
     pub fn init(&mut self, ffmpeg_plugin_dir: &Path) {
@@ -327,6 +527,12 @@ impl VideoRecordService {
     }
 
     pub fn resolve_ffmpeg_path(&self) -> Result<PathBuf> {
+        if let Some(bundled) = self.bundled_ffmpeg_path.as_ref() {
+            if bundled.is_file() {
+                return Ok(bundled.clone());
+            }
+        }
+
         if let Some(configured) = self.ffmpeg_path.as_ref() {
             if configured.is_file() {
                 return Ok(configured.clone());
@@ -347,15 +553,50 @@ impl VideoRecordService {
 
         Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            match self.ffmpeg_path.as_ref() {
-                Some(configured) => format!(
+            match (self.bundled_ffmpeg_path.as_ref(), self.ffmpeg_path.as_ref()) {
+                (Some(bundled), Some(configured)) => format!(
+                    "[VideoRecordService] FFmpeg executable not found at {}, {}, or in system PATH",
+                    bundled.display(),
+                    configured.display()
+                ),
+                (None, Some(configured)) => format!(
                     "[VideoRecordService] FFmpeg executable not found at {} or in system PATH",
                     configured.display()
                 ),
-                None => "[VideoRecordService] FFmpeg path is not configured and not found in system PATH"
-                    .to_string(),
+                (Some(bundled), None) => format!(
+                    "[VideoRecordService] FFmpeg executable not found at {} or in system PATH",
+                    bundled.display()
+                ),
+                (None, None) => {
+                    "[VideoRecordService] FFmpeg path is not configured and not found in system PATH"
+                        .to_string()
+                }
             },
         ))
+    }
+
+    fn ensure_ffmpeg_probed(&mut self, ffmpeg_path: &Path) -> Result<()> {
+        let current_fp = binary_fingerprint(ffmpeg_path);
+        if current_fp.is_some() && self.verified_ffmpeg_fingerprint == current_fp {
+            return Ok(());
+        }
+
+        match probe_ffmpeg_binary(ffmpeg_path) {
+            Ok(version_line) => {
+                log::info!(
+                    "[VideoRecordService] Verified FFmpeg binary ({}): {}",
+                    ffmpeg_path.display(),
+                    version_line
+                );
+                self.verified_ffmpeg_fingerprint = current_fp;
+                Ok(())
+            }
+            Err(reason) => {
+                self.verified_ffmpeg_fingerprint = None;
+                log::error!("[VideoRecordService] FFmpeg pre-flight check failed: {}", reason);
+                Err(std::io::Error::new(std::io::ErrorKind::InvalidData, reason))
+            }
+        }
     }
 
     pub fn get_ffmpeg_command(&self) -> Result<FfmpegCommand> {
@@ -450,6 +691,9 @@ impl VideoRecordService {
     }
 
     fn start_segment(&mut self) -> Result<()> {
+        let ffmpeg_path = self.resolve_ffmpeg_path()?;
+        self.ensure_ffmpeg_probed(&ffmpeg_path)?;
+
         let params = self.recording_params.as_ref().ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -485,7 +729,7 @@ impl VideoRecordService {
             params.min_y
         );
 
-        let mut command = self.get_ffmpeg_command()?;
+        let mut command = FfmpegCommand::new_with_path(ffmpeg_path);
 
         // 硬件加速选项必须在输入选项之前；Windows gdigrab 输出原始 BMP，不适用解码硬件加速
         #[cfg(not(target_os = "windows"))]
@@ -1030,49 +1274,35 @@ impl VideoRecordService {
 
         #[cfg(target_os = "windows")]
         {
-            let mut command = match self.get_ffmpeg_command() {
-                Ok(command) => command,
+            let ffmpeg_path = match self.resolve_ffmpeg_path() {
+                Ok(path) => path,
                 Err(e) => {
-                    println!(
-                        "[get_microphone_device_names] Failed to create ffmpeg command: {}",
-                        e
-                    );
-                    return device_names;
-                }
-            };
-            command
-                .arg("-list_devices")
-                .arg("true")
-                .arg("-f")
-                .arg("dshow")
-                .arg("-i")
-                .arg("dummy");
-
-            let mut child = match command.spawn() {
-                Ok(child) => child,
-                Err(e) => {
-                    println!(
-                        "[get_microphone_device_names] Failed to spawn ffmpeg: {}",
+                    log::warn!(
+                        "[get_microphone_device_names] Failed to resolve ffmpeg path: {}",
                         e
                     );
                     return device_names;
                 }
             };
 
-            let output_iter = match child.iter() {
-                Ok(output) => output,
+            let (_, output) = match run_ffmpeg_probe_command(
+                &ffmpeg_path,
+                &["-list_devices", "true", "-f", "dshow", "-i", "dummy"],
+                MICROPHONE_LIST_TIMEOUT,
+            ) {
+                Ok(result) => result,
                 Err(e) => {
-                    println!("[get_microphone_device_names] Failed to iter ffmpeg: {}", e);
+                    log::warn!("[get_microphone_device_names] FFmpeg dshow probe failed: {}", e);
                     return device_names;
                 }
             };
 
-            // Windows dshow 格式的正则表达式
-            // 格式: [dshow @ address] [info] "设备名称" (audio)
-            let device_regex = match Regex::new(r#"\[info\]\s+"([^"]+)"\s+\(audio\)"#) {
+            // Windows dshow 格式兼容 FFmpeg 5/6/7/8/9:
+            // [dshow @ address] "设备名称" (audio)  或  [dshow @ address] [info] "设备名称" (audio)
+            let device_regex = match Regex::new(r#""([^"]+)"\s+\(audio\)"#) {
                 Ok(regex) => regex,
                 Err(e) => {
-                    println!(
+                    log::warn!(
                         "[get_microphone_device_names] Failed to create regex: {}",
                         e
                     );
@@ -1080,26 +1310,16 @@ impl VideoRecordService {
                 }
             };
 
-            for line in output_iter {
-                match line {
-                    FfmpegEvent::Log(_, line) => {
-                        // 使用正则表达式解析音频设备
-                        if let Some(captures) = device_regex.captures(&line) {
-                            if let Some(device_name) = captures.get(1) {
-                                let name = device_name.as_str().to_string();
-                                device_names.push(name.clone());
-                                println!(
-                                    "[get_microphone_device_names] Found audio device: {}",
-                                    name
-                                );
-                            }
+            for line in output.lines() {
+                if let Some(captures) = device_regex.captures(line) {
+                    if let Some(device_name) = captures.get(1) {
+                        let name = device_name.as_str().to_string();
+                        if !device_names.contains(&name) {
+                            device_names.push(name);
                         }
                     }
-                    _ => {}
                 }
             }
-
-            let _ = child.wait();
         }
 
         #[cfg(target_os = "macos")]
@@ -1588,5 +1808,43 @@ mod tests {
         logs.push_back("[out#0/mp4] Nothing was written into output file".to_string());
         let summary = summarize_ffmpeg_errors(&logs);
         assert!(summary.contains("Failed to capture image"));
+    }
+
+    #[test]
+    fn resolve_ffmpeg_prefers_bundled_dir_over_plugin_dir() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "snow-shot-ffmpeg-resolve-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let bundled_dir = temp_dir.join("bundled");
+        let plugin_dir = temp_dir.join("plugin");
+        std::fs::create_dir_all(&bundled_dir).unwrap();
+        std::fs::create_dir_all(&plugin_dir).unwrap();
+
+        let bin_name = if cfg!(target_os = "windows") {
+            "ffmpeg.exe"
+        } else {
+            "ffmpeg"
+        };
+        let bundled_bin = bundled_dir.join(bin_name);
+        let plugin_bin = plugin_dir.join(bin_name);
+        std::fs::write(&bundled_bin, b"bundled").unwrap();
+        std::fs::write(&plugin_bin, b"plugin").unwrap();
+
+        let mut service = VideoRecordService::new();
+        service.init(&plugin_dir);
+        assert_eq!(service.resolve_ffmpeg_path().unwrap(), plugin_bin);
+
+        service.set_bundled_ffmpeg_dir(Some(&bundled_dir));
+        assert_eq!(service.resolve_ffmpeg_path().unwrap(), bundled_bin);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn probe_rejects_missing_ffmpeg_binary() {
+        let missing = std::env::temp_dir().join("snow-shot-nonexistent-ffmpeg.exe");
+        assert!(probe_ffmpeg_binary(&missing).is_err());
     }
 }

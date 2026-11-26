@@ -383,6 +383,8 @@ export const en = {
 	"plugin.rapid_ocr.description":
 		"Install Rapid OCR V4/V5 ONNX models. When Rapid OCR V4/V5 is selected, recognition runs inside the local Snow Shot process without starting a separate service or using a port.",
 	"plugin.install": "Install",
+	"plugin.installLocal": "Import Local",
+	"plugin.installError": "Plugin installation or verification failed",
 	"plugin.uninstall": "Uninstall",
 	"plugin.forceInstall": "Reinstall",
 	"plugin.uninstall.confirm.title": "Uninstall “{name}”?",

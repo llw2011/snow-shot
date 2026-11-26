@@ -469,6 +469,15 @@ async function testReleaseWorkflow() {
     assert.equal(config.bundle.createUpdaterArtifacts, false);
   }
   assert.equal(runtime.bundle.windows.webviewInstallMode.type, "fixedRuntime");
+  assert.equal(runtime.bundle.resources["bundled-plugins/"], "bundled-plugins/");
+
+  const ffmpegDownload = workflow.match(/- name: Download offline bundled FFmpeg\r?\n([\s\S]*?)(?=^[ \t]+- name:)/m)?.[1];
+  assert.ok(ffmpegDownload, "offline installer must download and bundle verified FFmpeg");
+  assert.match(ffmpegDownload, /if: matrix\.offline == true/);
+  const ffmpegGzHash = ffmpegDownload.match(/Get-FileHash -Algorithm SHA256 -LiteralPath \$archive\)\.Hash\.ToLowerInvariant\(\) -ne '[a-f0-9]{64}'\) \{ throw 'ffmpeg\.gz SHA-256 mismatch' \}/);
+  const ffmpegExeHash = ffmpegDownload.match(/Get-FileHash -Algorithm SHA256 -LiteralPath \$targetExe\)\.Hash\.ToLowerInvariant\(\) -ne '[a-f0-9]{64}'\) \{ throw 'ffmpeg\.exe SHA-256 mismatch' \}/);
+  assert.ok(ffmpegGzHash && ffmpegExeHash, "offline FFmpeg download must verify both archive and extracted binary SHA-256");
+  assert.ok(ffmpegDownload.indexOf("GZipStream") > ffmpegGzHash.index, "offline FFmpeg archive must be verified before decompression");
 
   const runtimeDownload = workflow.match(/- name: Download fixed WebView2 runtime\r?\n([\s\S]*?)(?=^[ \t]+- name:)/m)?.[1];
   assert.ok(runtimeDownload, "fixed runtime must have a download step");

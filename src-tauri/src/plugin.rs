@@ -1,9 +1,48 @@
+use snow_shot_app_services::video_record_service::probe_ffmpeg_binary;
 use snow_shot_plugin_service::plugin::PluginFileSource;
 use snow_shot_plugin_service::plugin_service::PluginService;
 use snow_shot_plugin_service::plugin_service::PluginStatusResult;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::command;
+
+async fn verify_installed_ffmpeg_plugin(
+    plugin_service: &Arc<PluginService>,
+    name: &str,
+) -> Result<(), String> {
+    if name != "ffmpeg" {
+        return Ok(());
+    }
+
+    let Some(plugin_dir) = plugin_service.get_plugin_dir(name).await else {
+        return Ok(());
+    };
+    let binary_name = if cfg!(target_os = "windows") {
+        "ffmpeg.exe"
+    } else {
+        "ffmpeg"
+    };
+    let binary_path = plugin_dir.join(binary_name);
+    if !binary_path.is_file() {
+        return Ok(());
+    }
+
+    let probe_result = tokio::task::spawn_blocking(move || probe_ffmpeg_binary(&binary_path))
+        .await
+        .map_err(|e| format!("FFmpeg verification task failed: {}", e))?;
+
+    match probe_result {
+        Ok(version_line) => {
+            log::info!("[plugin] Verified installed FFmpeg: {}", version_line);
+            Ok(())
+        }
+        Err(reason) => {
+            log::error!("[plugin] Installed FFmpeg failed verification: {}", reason);
+            let _ = plugin_service.uninstall_plugin(name.to_string()).await;
+            Err(reason)
+        }
+    }
+}
 
 #[command]
 pub async fn plugin_init(
@@ -58,7 +97,8 @@ pub async fn plugin_install_plugin(
     name: String,
     force: bool,
 ) -> Result<(), String> {
-    plugin_service.install_plugin(name.clone(), force).await
+    plugin_service.install_plugin(name.clone(), force).await?;
+    verify_installed_ffmpeg_plugin(plugin_service.inner(), &name).await
 }
 
 #[command]
@@ -70,7 +110,8 @@ pub async fn plugin_install_local_plugin(
 ) -> Result<(), String> {
     plugin_service
         .install_local_plugin(name.clone(), &source_dir, force)
-        .await
+        .await?;
+    verify_installed_ffmpeg_plugin(plugin_service.inner(), &name).await
 }
 
 #[command]

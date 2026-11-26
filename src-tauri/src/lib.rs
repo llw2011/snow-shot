@@ -89,7 +89,9 @@ pub fn run() {
     }
 
     let ocr_instance = Mutex::new(OcrService::new());
-    let video_record_service = Mutex::new(video_record_service::VideoRecordService::new());
+    let video_record_service = Arc::new(std::sync::Mutex::new(
+        video_record_service::VideoRecordService::new(),
+    ));
     let hot_load_page_service = Arc::new(hot_load_page_service::HotLoadPageService::new());
     let enigo_instance = Mutex::new(EnigoManager::new());
 
